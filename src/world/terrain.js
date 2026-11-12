@@ -258,7 +258,7 @@ export class Terrain {
     const s0 = detail >= 1 ? 0.05 : 0.08;
     progress(0.05, 'Laying snow');
     await tick();
-    add(this._gridMesh(fine.x0, fine.z0, fine.x1, fine.z1, s0, 0), 'ground-fine', false, true);
+    add(this._gridMesh(fine.x0, fine.z0, fine.x1, fine.z1, s0, 0), 'ground-fine', true, true);
     progress(0.45, 'Laying snow');
     await tick();
     const hole = { x0: fine.x0 + 0.6, z0: fine.z0 + 0.6, x1: fine.x1 - 0.6, z1: fine.z1 - 0.6 };
@@ -418,7 +418,8 @@ void main() {
   // snow scatters light under its surface: a soft terminator
   float diffuse = mix(max(NL, 0.0), clamp((NL + 0.18) / 1.18, 0.0, 1.0), snowy * 0.8);
   float occ = sphereOcclusion(vPosW, Ng);
-  vec3 amb = ambientLight(N) * occ;
+  // the bottom of a footprint sees less sky
+  vec3 amb = ambientLight(N) * occ * (1.0 - 0.4 * tramp);
   vec3 col = albedo * (uSunColor * diffuse * vis + amb);
 
   vec3 H = normalize(uSunDir + V);

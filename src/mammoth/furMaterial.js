@@ -137,7 +137,7 @@ void main() {
 
 const HAIRS = /* glsl */ `
 // Several hairs live on one ribbon. n = how many; returns coverage.
-float hairLayer(vec2 uv, float seed, float n, out float across, out float hid) {
+float hairLayer(vec2 uv, float seed, float n, float fwU, out float across, out float hid) {
   float x = uv.x * n;
   float id = floor(x);
   float fx = fract(x);
@@ -148,7 +148,7 @@ float hairLayer(vec2 uv, float seed, float n, out float across, out float hid) {
   float hw = mix(0.30, 0.21, smoothstep(0.0, 0.25, uv.y));         // a little thicker at the root
   hw *= 0.45 + 0.55 * smoothstep(hl, hl - 0.3, uv.y);              // tapering to a point
   float d = abs(fx - cx);
-  float fw = max(fwidth(x), 1e-4);
+  float fw = max(fwU * n, 1e-4);
   hw = max(hw, fw * 0.6);                                          // at least ~1.2 px wide
   float aa = fw * 0.6;
   float a = 1.0 - smoothstep(hw - aa, hw + aa, d);
@@ -157,13 +157,13 @@ float hairLayer(vec2 uv, float seed, float n, out float across, out float hid) {
   hid = id + n * 17.0;
   return a;
 }
-float hairCoverage(vec2 uv, float seed, out float across, out float hid, out float resolved) {
-  float px = 1.0 / max(fwidth(uv.x), 1e-5);       // ribbon width in pixels
+float hairCoverage(vec2 uv, float seed, float fwU, out float across, out float hid, out float resolved) {
+  float px = 1.0 / max(fwU, 1e-5);                // ribbon width in pixels
   float lvl = clamp(log2(max(px, 1.0) / 3.6), 1.0, 5.0);
   float l0 = floor(lvl), f = lvl - l0;
   float ac0, id0, ac1, id1;
-  float a0 = hairLayer(uv, seed, exp2(l0), ac0, id0);
-  float a1 = hairLayer(uv, seed, exp2(l0 + 1.0), ac1, id1);
+  float a0 = hairLayer(uv, seed, exp2(l0), fwU, ac0, id0);
+  float a1 = hairLayer(uv, seed, exp2(l0 + 1.0), fwU, ac1, id1);
   bool second = f > 0.5;
   across = second ? ac1 : ac0;
   hid = second ? id1 : id0;
@@ -213,8 +213,9 @@ void main() {
   float t = vUV.y;
   float across, hid, resolved;
   float alpha = 1.0;
+  float fwU = fwidth(vUV.x);   // taken here, outside the branch below
   if (vSingle < 0.995) {
-    alpha = hairCoverage(vUV, vInfo.x, across, hid, resolved);
+    alpha = hairCoverage(vUV, vInfo.x, fwU, across, hid, resolved);
     // far strands are solid geometry; multisampling does their anti-aliasing
     alpha = mix(alpha, 1.0, vSingle);
     across = mix(across, vUV.x * 2.0 - 1.0, vSingle);
@@ -297,7 +298,7 @@ varying vec2 vUV;
 varying vec3 vInfo;
 void main() {
   float ac, id;
-  float a = hairLayer(vUV, vInfo.x, 3.0, ac, id);
+  float a = hairLayer(vUV, vInfo.x, 3.0, fwidth(vUV.x), ac, id);
   if (a < 0.5) discard;
   gl_FragColor = vec4(gl_FragCoord.z, 0.0, 0.0, 1.0);
 }

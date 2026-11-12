@@ -65,7 +65,7 @@ void main() {
   vec3 bump = (abs(det) > 1e-12) ? (r1 * hx + r2 * hy) * (sign(det) / max(abs(det), 1e-9)) : vec3(0.0);
   vec3 Ns = normalize(N - bump * 0.004 * (1.0 - furAmt));
 
-  vec3 skinCol = vec3(0.034, 0.028, 0.025) * (0.55 + 0.75 * h0);
+  vec3 skinCol = vec3(0.022, 0.018, 0.016) * (0.55 + 0.75 * h0);
   float tone = clamp(0.5 + 0.5 * vFurA.z, 0.0, 1.0);
   vec3 wool = mix(uRootColor, uMidColor, 0.25 + 0.5 * tone) * (0.8 + 0.4 * vnoise(vRest.xy * 90.0 + vRest.z * 31.0));
   vec3 albedo = mix(skinCol, wool, furAmt);
@@ -78,7 +78,7 @@ void main() {
   // skin has a faint sheen; underwool has none
   vec3 V = normalize(cameraPosition - vPosW);
   vec3 H = normalize(uSunDir + V);
-  col += uSunColor * 0.03 * pow(max(dot(Ns, H), 0.0), 24.0) * vis * (1.0 - furAmt) * step(0.0, NL);
+  col += uSunColor * 0.012 * pow(max(dot(Ns, H), 0.0), 24.0) * vis * (1.0 - furAmt) * step(0.0, NL);
   float ao = mix(0.85, 0.3, furAmt);
   col += albedo * ambientLight(Ns) * ao;
 

@@ -110,12 +110,12 @@ uniform vec4 uCloud;         // coverage, density, cirrus amount, drift speed
 
 vec3 lut(vec3 d) {
   vec2 uv = vec2(atan(d.z, d.x) / 6.28318530718 + 0.5, 1.0 - acos(clamp(d.y, -1.0, 1.0)) / 3.14159265359);
-  return texture2D(uSkyLut, uv).rgb;
+  return textureLod(uSkyLut, uv, 0.0).rgb;
 }
 float n2(vec2 p) {
   vec2 i = floor(p), f = fract(p);
   f = f * f * (3.0 - 2.0 * f);
-  return texture2D(uNoise, (i + f + 0.5) / 256.0, -8.0).r;
+  return textureLod(uNoise, (i + f + 0.5) / 256.0, 0.0).r;
 }
 float fbmC(vec2 p, int oct) {
   float a = 0.5, s = 0.0, w = 0.0;

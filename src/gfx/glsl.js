@@ -116,12 +116,12 @@ float sunVisibility(vec3 wp, float sigma, float bias, float radius, float noise)
   bool inNear = inside > 0.0 && uShadowNearInfo.w > 0.5;
   if (inFar && (!inNear || inside < 0.04)) {
     float acc = 0.0;
-    for (int i = 0; i < 4; i++) {
-      vec2 o = vogelDisk(i, 4, noise * 6.2831) * max(radius * 4.0, 0.2) * uShadowFarInfo.xy;
-      float d = texture2D(uShadowFar, cf.xy + o).r;
+    for (int i = 0; i < 8; i++) {
+      vec2 o = vogelDisk(i, 8, noise * 6.2831) * max(radius * 3.0, 0.11) * uShadowFarInfo.xy;
+      float d = textureLod(uShadowFar, cf.xy + o, 0.0).r;
       acc += exp(-sigma * max(0.0, (cf.z + dot(gF, o) - d) * uShadowFarInfo.z - bias * 5.0));
     }
-    visFar = acc * 0.25;
+    visFar = acc * 0.125;
   }
   if (!inNear) return visFar;
   float range = uShadowNearInfo.z;
@@ -130,14 +130,14 @@ float sunVisibility(vec3 wp, float sigma, float bias, float radius, float noise)
     float blocker = 0.0;
     for (int i = 0; i < 4; i++) {
       vec2 o = vogelDisk(i, 4, noise * 6.2831 + 1.3) * 0.1 * uShadowNearInfo.xy;
-      blocker += max(0.0, (c.z + dot(gN, o) - texture2D(uShadowNear, c.xy + o).r) * range);
+      blocker += max(0.0, (c.z + dot(gN, o) - textureLod(uShadowNear, c.xy + o, 0.0).r) * range);
     }
     radius = clamp(blocker * 0.25 * 0.018 + radius, radius, 0.28);
   #endif
   float acc = 0.0;
   for (int i = 0; i < SHADOW_TAPS; i++) {
     vec2 o = vogelDisk(i, SHADOW_TAPS, noise * 6.2831) * radius * uShadowNearInfo.xy;
-    float d = texture2D(uShadowNear, c.xy + o).r;
+    float d = textureLod(uShadowNear, c.xy + o, 0.0).r;
     acc += exp(-sigma * max(0.0, (c.z + dot(gN, o) - d) * range - bias));
   }
   float vis = acc / float(SHADOW_TAPS);
@@ -154,7 +154,7 @@ vec2 skyUV(vec3 d) {
   return vec2(atan(d.z, d.x) / (2.0 * PI) + 0.5, 1.0 - acos(clamp(d.y, -1.0, 1.0)) / PI);
 }
 vec3 skyLut(vec3 d) {
-  return texture2D(uSkyLut, skyUV(d)).rgb;
+  return textureLod(uSkyLut, skyUV(d), 0.0).rgb;
 }
 // Aerial perspective: a thin ground mist plus distance haze, tinted by the
 // sky colour in the viewing direction so far hills melt into the horizon.

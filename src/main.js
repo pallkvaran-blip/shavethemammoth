@@ -121,7 +121,7 @@ async function start() {
 
   // ---- shadows ----------------------------------------------------------------
   const shadowNear = new SunShadow(Q.shadow[0], Q.shadow[1], LAYER_SHADOW_NEAR, floatLinear);
-  const shadowFar = new SunShadow(2048, 512, LAYER_SHADOW_FAR, floatLinear);
+  const shadowFar = new SunShadow(4096, 1024, LAYER_SHADOW_FAR, floatLinear);
   const nearCasters = () => [...mammoth.casters, ...terrain.meshes.filter((m) => m.userData.castNear), ...rocks.meshes, grass];
   const farCasters = [...terrain.meshes.filter((m) => m.userData.castFar), ...rocks.meshes];
   const fitShadows = () => {
