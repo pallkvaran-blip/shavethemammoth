@@ -26,6 +26,7 @@ attribute vec4 iB;        // droop, lock tightness, layer height, breathing weig
 attribute vec4 iCol;      // tone, ginger, lock variation, strand variation
 attribute vec4 iSkinIdx;
 attribute vec4 iSkinWgt;
+attribute float iCut;     // metres of this lock left after shearing
 
 uniform sampler3D uSdf;
 uniform vec3 uSdfMin;
@@ -89,6 +90,12 @@ void main() {
   float wool = step(4.5, k) * step(0.5, mod(floor((k - 1.0) / 4.0), 2.0));
   float L = iA.x * uLengthScale * mix(1.0, 0.5 + 0.62 * h4, isChild);
   L = mix(L, clamp(iA.x * 0.3, 0.025, 0.085) * (0.6 + 0.8 * h4), wool);
+  // Shears: the lock has been cut to iCut metres, and each of its hairs ends
+  // within a few percent of that. What is left keeps its shape: the curve is
+  // simply followed a shorter way.
+  float Lc = min(L, iCut * (0.93 + 0.14 * h1));
+  if (Lc < 0.003) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
+  t *= Lc / L;
 
   mat4 skin = boneMatrix(iSkinIdx.x) * iSkinWgt.x;
   if (iSkinWgt.y > 0.004) skin += boneMatrix(iSkinIdx.y) * iSkinWgt.y;   // most hair rides on a single bone
@@ -194,7 +201,7 @@ void main() {
 }
 `;
 
-const FRAG = /* glsl */ `
+export const FUR_FRAG = /* glsl */ `
 ${COMMON}
 ${SHADOWS}
 ${ATMOSPHERE}
@@ -334,6 +341,7 @@ export function makeStrandAttributes(arrays, repeat = 1) {
   return {
     iRoot: a('iRoot', 3), iOff: a('iOff', 3), iDir: a('iDir', 3), iNormal: a('iNormal', 3),
     iA: a('iA', 4), iB: a('iB', 4), iCol: a('iCol', 4, true), iSkinIdx: a('iSkinIdx', 4), iSkinWgt: a('iSkinWgt', 4, true),
+    iCut: a('iCut', 1),
   };
 }
 
@@ -383,7 +391,7 @@ export function makeFurMaterials({ sdfTexture, sdfMin, sdfInvSize, boneTexture, 
   };
   const color = new THREE.ShaderMaterial({
     vertexShader: VERT,
-    fragmentShader: FRAG,
+    fragmentShader: FUR_FRAG,
     uniforms: { ...U, ...own, uWidthScale: { value: 1 } },
     defines: { SHADOW_TAPS: 6, ...(a2c ? { USE_A2C: 1 } : {}) },
     side: THREE.DoubleSide,

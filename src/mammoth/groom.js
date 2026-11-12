@@ -14,6 +14,7 @@ const clamp = (x, a, b) => (x < a ? a : x > b ? b : x);
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 
 export const LONG_HAIR = 0.19; // strands longer than this get the many-segment ribbon
+export const UNCUT = 10;       // cut length (metres) of a lock that has never met the shears
 
 /**
  * @returns {{long: object, short: object}} instance attribute arrays per group
@@ -46,6 +47,7 @@ export function generateGroom(body, { count = 240000, seed = 7, clumpSize = 11 }
   const sLen = new Float32Array(S), sLift = new Float32Array(S), sTone = new Float32Array(S), sRed = new Float32Array(S);
   const sClump = new Float32Array(S), sBreath = new Float32Array(S);
   const sFlow = new Float32Array(S * 3);
+  const sTri = new Uint32Array(S);   // the triangle of hide each strand grows from
   const skinI = new Uint8Array(S * 4), skinW = new Uint8Array(S * 4);
 
   for (let s = 0; s < S; s++) {
@@ -53,6 +55,7 @@ export function generateGroom(body, { count = 240000, seed = 7, clumpSize = 11 }
     let lo = 0, hi = triCount - 1;
     while (lo < hi) { const mid = (lo + hi) >> 1; if (cdf[mid] < r) lo = mid + 1; else hi = mid; }
     const ia = I[lo * 3], ib = I[lo * 3 + 1], ic = I[lo * 3 + 2];
+    sTri[s] = lo;
     const su = Math.sqrt(rng()), r2 = rng();
     const b0 = 1 - su, b1 = su * (1 - r2), b2 = su * r2;
     for (let k = 0; k < 3; k++) {
@@ -140,6 +143,8 @@ export function generateGroom(body, { count = 240000, seed = 7, clumpSize = 11 }
     iRoot: new Float32Array(n * 3), iOff: new Float32Array(n * 3), iDir: new Float32Array(n * 3), iNormal: new Float32Array(n * 3),
     iA: new Float32Array(n * 4), iB: new Float32Array(n * 4), iCol: new Uint8Array(n * 4),
     iSkinIdx: new Uint8Array(n * 4), iSkinWgt: new Uint8Array(n * 4),
+    // shaving state: how many metres of each lock are left, and where it grows
+    iCut: new Float32Array(n).fill(UNCUT), tri: new Uint32Array(n),
   });
 
   const strandClump = new Int32Array(S).fill(-1);
@@ -183,6 +188,7 @@ export function generateGroom(body, { count = 240000, seed = 7, clumpSize = 11 }
         g.iDir[i * 3] = tmp[0]; g.iDir[i * 3 + 1] = tmp[1]; g.iDir[i * 3 + 2] = tmp[2];
         lr0 = rng(); lr1 = rng(); lr2 = rng(); lr3 = rng();
       }
+      g.tri[i] = sTri[s];
       g.iRoot[i * 3] = root[s * 3]; g.iRoot[i * 3 + 1] = root[s * 3 + 1]; g.iRoot[i * 3 + 2] = root[s * 3 + 2];
       g.iNormal[i * 3] = nrm[s * 3]; g.iNormal[i * 3 + 1] = nrm[s * 3 + 1]; g.iNormal[i * 3 + 2] = nrm[s * 3 + 2];
 
@@ -209,7 +215,7 @@ export function generateGroom(body, { count = 240000, seed = 7, clumpSize = 11 }
   return out;
 }
 
-const ATTRS = [['iRoot', 3], ['iOff', 3], ['iDir', 3], ['iNormal', 3], ['iA', 4], ['iB', 4], ['iCol', 4], ['iSkinIdx', 4], ['iSkinWgt', 4]];
+const ATTRS = [['iRoot', 3], ['iOff', 3], ['iDir', 3], ['iNormal', 3], ['iA', 4], ['iB', 4], ['iCol', 4], ['iSkinIdx', 4], ['iSkinWgt', 4], ['iCut', 1], ['tri', 1]];
 
 /**
  * A second copy of the strands, sorted into patches of hide about 40 cm
@@ -237,6 +243,7 @@ function chunkStrands(g, make, cell = 0.4) {
     else merged.push(list.slice());
   }
   const sorted = make(n);
+  const orig = new Uint32Array(n);   // where each sorted strand sits in the unsorted arrays
   const chunks = [];
   let at = 0;
   for (const list of merged) {
@@ -247,6 +254,7 @@ function chunkStrands(g, make, cell = 0.4) {
         const src = g[name], dst = sorted[name];
         for (let k = 0; k < size; k++) dst[at * size + k] = src[i * size + k];
       }
+      orig[at] = i;
       cx += g.iRoot[i * 3]; cy += g.iRoot[i * 3 + 1]; cz += g.iRoot[i * 3 + 2];
       maxW = Math.max(maxW, g.iA[i * 4 + 1]); maxL = Math.max(maxL, g.iA[i * 4]);
       at++;
@@ -257,7 +265,8 @@ function chunkStrands(g, make, cell = 0.4) {
     for (const i of list) r = Math.max(r, Math.hypot(g.iRoot[i * 3] - cx, g.iRoot[i * 3 + 1] - cy, g.iRoot[i * 3 + 2] - cz));
     const arrays = {};
     for (const [name, size] of ATTRS) arrays[name] = sorted[name].subarray(start * size, (start + count) * size);
-    chunks.push({ count, arrays, center: [cx, cy, cz], rootRadius: r, radius: r + maxL + 0.3, maxWidth: maxW });
+    arrays.orig = orig.subarray(start, start + count);
+    chunks.push({ count, arrays, center: [cx, cy, cz], rootRadius: r, maxLength: maxL, radius: r + maxL + 0.3, maxWidth: maxW });
   }
   return chunks;
 }

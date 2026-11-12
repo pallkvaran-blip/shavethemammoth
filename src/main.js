@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { U, LAYER_SHADOW_NEAR, LAYER_SHADOW_FAR } from './gfx/globals.js';
+import { U, LAYER_SHADOW_NEAR, LAYER_SHADOW_FAR, LAYER_SHADOW_ELF } from './gfx/globals.js';
 import { SunShadow } from './gfx/shadows.js';
 import { Post } from './gfx/post.js';
 import { Sky } from './world/sky.js';
@@ -10,6 +10,8 @@ import { buildSnowDust, Breath } from './world/particles.js';
 import { Mammoth } from './mammoth/mammoth.js';
 import { buildAnatomy, SNOW_DEPTH } from './mammoth/anatomy.js';
 import { CameraRig, VIEWS } from './controls.js';
+import { Shaving } from './game/shaving.js';
+import { Sound } from './game/audio.js';
 
 const q = new URLSearchParams(location.search);
 const num = (k, d) => (q.has(k) ? parseFloat(q.get(k)) : d);
@@ -113,6 +115,30 @@ async function start() {
   mammoth.addTo(scene);
   mammoth.setFurDetail(1, Q.furShadow);
   if (q.has('nofur')) mammoth.setCoatVisible(false);
+  // the shears, and the hair they cut
+  const sound = new Sound();
+  const shaving = new Shaving({ scene, mammoth, terrain, sound, a2c: Q.samples > 0 });
+  if (q.has('cutdisc')) {
+    // dev: ?cutdisc=x,y,z,nx,ny,nz,radius[;...] shears everything crossing a disc
+    for (const spec of q.get('cutdisc').split(';')) {
+      const c = spec.split(',').map(Number);
+      const normal = new THREE.Vector3(c[3], c[4], c[5]).normalize();
+      const forward = new THREE.Vector3(1, 0, 0).cross(normal).normalize();
+      if (forward.lengthSq() < 0.5) forward.set(0, 0, 1).cross(normal).normalize();
+      const cuts = mammoth.findCuts({ pivot: new THREE.Vector3(c[0], c[1], c[2]), forward, normal, radius: c[6] });
+      cuts.forEach((cut, k) => { if (mammoth.applyCut(cut) > 0 && k % 2 === 0) shaving.clippings.spawn(cut, 0, 0, 0, 1.4); });
+      console.info(`cutdisc: ${cuts.length} locks cut`);
+    }
+    mammoth.flushCuts();
+  }
+  if (q.has('shearsat')) {
+    // dev: ?shearsat=x,y,z[,open] lays the shears in the world to be looked at
+    const c = q.get('shearsat').split(',').map(Number);
+    shaving.shears.group.visible = true;
+    shaving.shears.setAngle(shaving.shears.angle * (c[3] ?? 1));
+    shaving.shears.group.matrix.makeRotationX(-0.25).setPosition(c[0], c[1], c[2]);
+    shaving.shears.group.updateMatrixWorld(true);
+  }
   // rough stand-ins for the body, used to darken the snow beneath it
   const occ = terrain.material.uniforms.uOccluders.value;
   [[0.9, 1.95, 0, 1.05], [-0.9, 1.85, 0, 1.0], [2.1, 2.3, 0, 0.6], [2.7, 1.2, 0, 0.3],
@@ -124,7 +150,11 @@ async function start() {
   // ---- shadows ----------------------------------------------------------------
   const shadowNear = new SunShadow(Q.shadow[0], Q.shadow[1], LAYER_SHADOW_NEAR, floatLinear);
   const shadowFar = new SunShadow(4096, 1024, LAYER_SHADOW_FAR, floatLinear);
-  const nearCasters = () => [...mammoth.casters, ...terrain.meshes.filter((m) => m.userData.castNear), ...rocks.meshes, grass];
+  // a fine map that follows the elf: from down there, the mammoth's own map is far too coarse
+  const elfShadowSize = () => (Q.shadow[0] >= 4096 ? [4096, 2048] : [2048, 1024]);
+  const shadowElf = new SunShadow(...elfShadowSize(), LAYER_SHADOW_ELF, floatLinear);
+  const elfCentre = new THREE.Vector3(), elfAhead = new THREE.Vector3();
+  const nearCasters = () => [...mammoth.casters, ...terrain.meshes.filter((m) => m.userData.castNear), ...rocks.meshes, grass, ...(shaving.shears.group.visible ? shaving.shears.meshes : [])];
   const farCasters = [...terrain.meshes.filter((m) => m.userData.castFar), ...rocks.meshes];
   const fitShadows = () => {
     shadowNear.fit(new THREE.Vector3(1.0, 1.45, 0), sky.sunDir, 4.8, 2.4, 160);
@@ -144,8 +174,10 @@ async function start() {
 
   // ---- camera -----------------------------------------------------------------
   const rig = new CameraRig(camera, canvas, terrain, anat.feet);
+  rig.body = mammoth.sampler;
   const startView = VIEWS[Math.min(VIEWS.length - 1, Math.max(0, num('view', 0) | 0))];
   if (q.has('cam')) {
+    if (shot) rig.orbit.minDistance = 0.02;   // dev stills may go as close as they like
     const c = q.get('cam').split(',').map(Number);
     rig.snap({ pos: c.slice(0, 3), target: c.slice(3, 6), fov: num('fov', 32) });
   } else if (shot || reducedMotion) {
@@ -155,13 +187,6 @@ async function start() {
     rig.snap({ pos: [17.5, 0.55, 8.2], target: [0.9, 2.3, 0], fov: 40 });
   }
   const intro = !q.has('cam') && !shot && !reducedMotion && !q.has('elf');
-  if (q.has('elf')) {
-    // dev: start at snow level, e.g. ?elf=x,z,yaw,pitch
-    rig.enterElf();
-    const e = q.get('elf').split(',').map(Number);
-    if (e.length >= 2 && !Number.isNaN(e[1])) rig.pos.set(e[0], 0, e[1]);
-    if (e.length >= 4) { rig.yaw = e[2]; rig.pitch = e[3]; }
-  }
   resize();
   window.addEventListener('resize', resize);
   // coming back to the tab: do not mistake the pause for a slow frame
@@ -175,6 +200,7 @@ async function start() {
     try { localStorage.setItem('mammoth-detail', name); } catch { /* preference simply is not kept */ }
     post.setSamples(Q.samples);
     shadowNear.resize(Q.shadow[0], Q.shadow[1]);
+    shadowElf.resize(...elfShadowSize());
     if (mammoth.strands < Q.strands) mammoth.growCoat(Q.strands);
     furBase = Math.min(1, Q.strands / mammoth.strands);
     dust.material.uniforms.uAmount.value = Q.dust;
@@ -218,16 +244,37 @@ async function start() {
     walk.addEventListener('pointerdown', go(true));
     for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) walk.addEventListener(ev, go(false));
   }
+  const snip = $('snip');
+  if (snip) {
+    const hold = (on) => (e) => { e.preventDefault(); shaving.squeeze(on); };
+    snip.addEventListener('pointerdown', hold(true));
+    for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) snip.addEventListener(ev, hold(false));
+  }
+  const progressEl = $('progress');
+  rig.onSqueeze = (on) => shaving.squeeze(on);
+  rig.onStep = (run) => sound.step(run);
   rig.onChange = (mode) => {
-    document.body.classList.toggle('elf', mode === 'elf');
-    if (mode === 'elf') {
+    const elf = mode === 'elf';
+    document.body.classList.toggle('elf', elf);
+    shaving.setActive(elf);
+    if (progressEl) progressEl.hidden = !elf;
+    if (elfButton) elfButton.textContent = elf ? 'Stop shaving' : 'Start shaving';
+    if (elf) {
+      if (!shot) sound.start();   // allowed now: this follows a click or a key press
       markView('elf');
-      showHint('You are the size of an elf. <span class="desk"><kbd>W A S D</kbd> to walk, <kbd>Shift</kbd> to run, mouse to look, <kbd>Esc</kbd> to return.</span>', 9);
+      showHint('Walk up to the mammoth and cut. Lay the blades flat against the hide for a close shave. <span class="desk"><kbd>Left mouse</kbd> or <kbd>Space</kbd> snips (hold to keep cutting), <kbd>W A S D</kbd> walks, <kbd>Shift</kbd> runs, <kbd>Esc</kbd> puts the shears down.</span>', 12);
     } else {
       markView(-1);
     }
   };
   rig.orbit.addEventListener('start', () => markView(-1));
+  if (q.has('elf')) {
+    // dev: start at snow level with the shears, e.g. ?elf=x,z,yaw,pitch
+    rig.enterElf();
+    const e = q.get('elf').split(',').map(Number);
+    if (e.length >= 2 && !Number.isNaN(e[1])) rig.pos.set(e[0], 0, e[1]);
+    if (e.length >= 4) { rig.yaw = e[2]; rig.pitch = e[3]; }
+  }
   $('detail').value = qualityName;
   $('detail').addEventListener('change', (e) => applyQuality(e.target.value));
   const sunInput = $('sun');
@@ -250,19 +297,33 @@ async function start() {
     } else if (e.code === 'KeyP') {
       showStats = !showStats;
       statsEl.hidden = !showStats;
+    } else if (e.code === 'KeyM') {
+      sound.setMuted(!sound.muted);
+      showHint(sound.muted ? 'Sound off' : 'Sound on', 2);
     }
   });
   statsEl.hidden = !showStats;
 
   setProgress(0.985, 'Warming up');
+  // Compile every shader now, including those for things not yet on screen
+  // (the shears, the cut hair), so nothing stutters the first time it appears.
+  try {
+    renderer.setRenderTarget(post.hdr);
+    if (renderer.compileAsync) await renderer.compileAsync(scene, camera); else renderer.compile(scene, camera);
+  } catch (err) {
+    console.warn('shader warm-up skipped', err);
+  }
+  renderer.setRenderTarget(null);
   if (shot) { document.body.classList.add('instant'); $('loading').hidden = true; $('hud').hidden = !q.has('hud'); }
   const reveal = () => {
     setProgress(1, 'Ready');
     document.body.classList.add('ready');
     settle = 2.5;
     if (intro) rig.setView(startView, 6.5);
-    if (!shot) setTimeout(() => showHint('<span class="desk">Drag to look around, scroll to zoom. Keys <kbd>1</kbd>&ndash;<kbd>4</kbd> change the view, <kbd>H</kbd> hides these controls.</span>'), 5200);
+    if (!shot) setTimeout(() => showHint('Press <strong>Start shaving</strong> to pick up the shears. <span class="desk">Or drag to look around; <kbd>H</kbd> hides these controls, <kbd>M</kbd> mutes the sound.</span>', 9), 5200);
   };
+
+  if (q.has('debug')) window.__game = { shaving, mammoth, rig, sound, camera };   // dev: poke at the game from the console
 
   // ---- frame loop -----------------------------------------------------------------
   U.uTime.value = num('t', 0);
@@ -279,7 +340,26 @@ async function start() {
     mouthDir.set(0.75, -0.55, 0).applyQuaternion(head.getWorldQuaternion(tmpQ)).normalize();
     breath.update(dt, mouth, mouthDir, mammoth.exhaling);
   };
-  for (let i = 0, n = num('warm', 0); i < n; i++) { U.uTime.value += 1 / 30; mammoth.update(1 / 30); breathe(1 / 30); }
+  if (q.has('snips') && rig.mode === 'elf') {
+    // dev: ?snips=n takes n strokes at once from where the elf stands, turning by ?snipyaw between them
+    for (let i = 0, n = num('snips', 1); i < n; i++) {
+      rig.update(1 / 60);
+      camera.updateMatrixWorld(true);
+      mammoth.update(0);
+      mammoth.sampler.begin(mammoth.furMats.uniforms.uBreath.value);
+      shaving.shears.place(1, camera, rig.feel, shaving.world);
+      console.info(`snip ${i + 1}: ${shaving.snipNow()} locks`);
+      rig.yaw += num('snipyaw', 0); rig.pitch += num('snippitch', 0);
+    }
+    rig.yaw -= num('snipyaw', 0) * num('snips', 1) * num('snipback', 0.5); rig.pitch -= num('snippitch', 0) * num('snips', 1) * num('snipback', 0.5);
+  }
+  if (q.has('open')) shaving.shears.setAngle(shaving.shears.angle * num('open', 1));
+  if (q.has('look')) { const l = q.get('look').split(',').map(Number); rig.yaw = l[0]; rig.pitch = l[1]; }   // dev: where to look after the snips
+  for (let i = 0, n = num('warm', 0); i < n; i++) {
+    U.uTime.value += 1 / 30; mammoth.update(1 / 30); breathe(1 / 30);
+    mammoth.sampler.begin(mammoth.furMats.uniforms.uBreath.value);
+    shaving.clippings.update(1 / 30);
+  }
 
   const frame = () => {
     const now = performance.now();
@@ -311,6 +391,15 @@ async function start() {
 
     rig.update(dt);
     mammoth.update(dt);
+    // the shears follow the eyes; cut hair falls
+    camera.updateMatrixWorld(true);
+    mammoth.sampler.begin(mammoth.furMats.uniforms.uBreath.value);
+    shaving.update(dt, camera, rig.feel);
+    if (frames < 3 && !shot) shaving.warm(camera, frames < 2);   // drawn once behind the loading card
+    if (frames % 12 === 0) {
+      sound.setWind(mammoth.sampler.windGust(camera.position.x, camera.position.z));
+      if (progressEl && !progressEl.hidden) { const pct = mammoth.shorn * 100; progressEl.textContent = `Shorn ${pct.toFixed(pct < 1 ? 3 : pct < 10 ? 2 : 1)}%`; }
+    }
 
     // fewer strands are needed the further away the mammoth is
     const dist = camera.position.distanceTo(centre);
@@ -324,7 +413,19 @@ async function start() {
 
     mammoth.useShadowCounts();
     grass.geometry.instanceCount = Math.min(grass.userData.shadowCount, Math.floor(grass.userData.total * Q.grass));
-    shadowNear.render(renderer, scene, nearCasters());
+    const casters = nearCasters();
+    shadowNear.render(renderer, scene, casters);
+    if (rig.mode === 'elf' && !q.has('noelfshadow')) {
+      // centred a little ahead of the elf, at about the height of its work
+      camera.getWorldDirection(elfAhead); elfAhead.y = 0; elfAhead.normalize();
+      elfCentre.copy(camera.position).addScaledVector(elfAhead, 0.45); elfCentre.y = terrain.height(elfCentre.x, elfCentre.z) + 0.5;
+      shadowElf.fit(elfCentre, sky.sunDir, 1.3, 0.65, 70, true);
+      shadowElf.bind(U.uShadowElf, U.uShadowElfMat, U.uShadowElfInfo);
+      for (const o of casters) o.layers.enable(LAYER_SHADOW_ELF);
+      shadowElf.render(renderer, scene, casters);
+    } else {
+      U.uShadowElfInfo.value.w = 0;
+    }
     grass.geometry.instanceCount = Math.floor(grass.userData.total * Q.grass);
     mammoth.useMainCounts();
 
@@ -342,6 +443,22 @@ async function start() {
     renderer.render(scene, camera);
     post.finish(U.uTime.value);
 
+    if (q.has('debugShadow')) {
+      // dev: show a shadow map (?debugShadow=elf, or the mammoth's own by default)
+      if (!window.__dbg) {
+        window.__dbg = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
+          uniforms: { t: { value: null } }, depthTest: false,
+          vertexShader: 'varying vec2 v; void main(){ v = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
+          fragmentShader: 'uniform sampler2D t; varying vec2 v; void main(){ float d = texture2D(t, v).r; gl_FragColor = d > 0.999 ? vec4(0.25, 0.0, 0.0, 1.0) : vec4(vec3(fract(d * 400.0)), 1.0); }',
+        }));
+        window.__dbg.frustumCulled = false;
+        window.__dbgScene = new THREE.Scene(); window.__dbgScene.add(window.__dbg);
+      }
+      window.__dbg.material.uniforms.t.value = (q.get('debugShadow') === 'elf' ? shadowElf : shadowNear).target.texture;
+      renderer.setRenderTarget(null);
+      renderer.render(window.__dbgScene, camera);
+    }
+
     frames++;
     // the first frame compiles every shader; only lift the loading card once that is done
     if (frames === 2) reveal();
@@ -350,7 +467,7 @@ async function start() {
     }
     if (shot && frames === 2) {
       gl.finish();
-      window.__info = { tris: renderer.info.render.triangles, calls: renderer.info.render.calls, strands: mammoth.strands, hairs: mammoth.hairsDrawn, coatDraws: mammoth.coatDraws, sun: sky.sunColor.toArray().map((v) => +v.toFixed(2)), meter: +meter.toFixed(3), exposure: +renderer.toneMappingExposure.toFixed(3), gpu: gpuName };
+      window.__info = { shorn: +(mammoth.shorn * 100).toFixed(3), clippings: shaving.clippings.count, tris: renderer.info.render.triangles, calls: renderer.info.render.calls, strands: mammoth.strands, hairs: mammoth.hairsDrawn, coatDraws: mammoth.coatDraws, sun: sky.sunColor.toArray().map((v) => +v.toFixed(2)), meter: +meter.toFixed(3), exposure: +renderer.toneMappingExposure.toFixed(3), gpu: gpuName };
       window.__shotReady = true;
       return;
     }

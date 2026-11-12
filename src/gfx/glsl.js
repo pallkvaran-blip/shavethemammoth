@@ -77,6 +77,9 @@ uniform vec4 uShadowNearInfo;   // uv per metre (x, y), depth range in metres, e
 uniform sampler2D uShadowFar;
 uniform mat4 uShadowFarMat;
 uniform vec4 uShadowFarInfo;
+uniform sampler2D uShadowElf;
+uniform mat4 uShadowElfMat;
+uniform vec4 uShadowElfInfo;
 
 vec2 vogelDisk(int i, int n, float phi) {
   float r = sqrt((float(i) + 0.5) / float(n));
@@ -99,15 +102,52 @@ vec2 shadowSlope(vec3 c) {
   #endif
 }
 
+// One filtered lookup into a shadow map: a disc of taps, widened where the
+// thing casting the shadow is far from what it falls on (contact hardening).
+float shadowTaps(sampler2D map, vec3 c, vec4 info, vec2 slope, float sigma, float bias, float radius, float noise) {
+  float range = info.z;
+  #ifdef SHADOW_PENUMBRA
+    float blocker = 0.0;
+    for (int i = 0; i < 4; i++) {
+      vec2 o = vogelDisk(i, 4, noise * 6.2831 + 1.3) * 0.1 * info.xy;
+      blocker += max(0.0, (c.z + dot(slope, o) - textureLod(map, c.xy + o, 0.0).r) * range);
+    }
+    radius = clamp(blocker * 0.25 * 0.018 + radius, radius, 0.28);
+  #endif
+  float acc = 0.0;
+  for (int i = 0; i < SHADOW_TAPS; i++) {
+    vec2 o = vogelDisk(i, SHADOW_TAPS, noise * 6.2831) * radius * info.xy;
+    float d = textureLod(map, c.xy + o, 0.0).r;
+    acc += exp(-sigma * max(0.0, (c.z + dot(slope, o) - d) * range - bias));
+  }
+  return acc / float(SHADOW_TAPS);
+}
+
 // Light reaching a point, 0..1. Shadowing is modelled as absorption through
 // whatever sits between the point and the sun: sigma (1/m) sets how quickly
 // light dies inside the occluder. High sigma gives crisp shadows on solid
 // ground; low sigma lets light soak into fur and grass.
+//
+// Three maps, finest first: a small one that follows the elf, one that holds
+// the whole mammoth, and a coarse one for the land.
 float sunVisibility(vec3 wp, float sigma, float bias, float radius, float noise) {
+  vec3 ce = (uShadowElfMat * vec4(wp, 1.0)).xyz;
   vec3 c = (uShadowNearMat * vec4(wp, 1.0)).xyz;
   vec3 cf = (uShadowFarMat * vec4(wp, 1.0)).xyz;
+  // slopes are taken here, before any branching
+  vec2 gE = shadowSlope(ce);
   vec2 gN = shadowSlope(c);
   vec2 gF = shadowSlope(cf);
+
+  float visElf = 1.0, fadeElf = 0.0;
+  vec3 ee = min(ce, 1.0 - ce);
+  float insideElf = min(ee.x, min(ee.y, ee.z));
+  if (uShadowElfInfo.w > 0.5 && insideElf > 0.0) {
+    visElf = shadowTaps(uShadowElf, ce, uShadowElfInfo, gE, sigma, bias, radius, noise);
+    fadeElf = smoothstep(0.0, 0.06, insideElf);
+    if (fadeElf >= 1.0) return visElf;
+  }
+
   vec3 e = min(c, 1.0 - c);
   float inside = min(e.x, min(e.y, e.z));
   float visFar = 1.0;
@@ -123,25 +163,9 @@ float sunVisibility(vec3 wp, float sigma, float bias, float radius, float noise)
     }
     visFar = acc * 0.125;
   }
-  if (!inNear) return visFar;
-  float range = uShadowNearInfo.z;
-  #ifdef SHADOW_PENUMBRA
-    // contact hardening: estimate the blocker distance, widen the kernel
-    float blocker = 0.0;
-    for (int i = 0; i < 4; i++) {
-      vec2 o = vogelDisk(i, 4, noise * 6.2831 + 1.3) * 0.1 * uShadowNearInfo.xy;
-      blocker += max(0.0, (c.z + dot(gN, o) - textureLod(uShadowNear, c.xy + o, 0.0).r) * range);
-    }
-    radius = clamp(blocker * 0.25 * 0.018 + radius, radius, 0.28);
-  #endif
-  float acc = 0.0;
-  for (int i = 0; i < SHADOW_TAPS; i++) {
-    vec2 o = vogelDisk(i, SHADOW_TAPS, noise * 6.2831) * radius * uShadowNearInfo.xy;
-    float d = textureLod(uShadowNear, c.xy + o, 0.0).r;
-    acc += exp(-sigma * max(0.0, (c.z + dot(gN, o) - d) * range - bias));
-  }
-  float vis = acc / float(SHADOW_TAPS);
-  return mix(visFar, vis, smoothstep(0.0, 0.04, inside));
+  float vis = visFar;
+  if (inNear) vis = mix(visFar, shadowTaps(uShadowNear, c, uShadowNearInfo, gN, sigma, bias, radius, noise), smoothstep(0.0, 0.04, inside));
+  return mix(vis, visElf, fadeElf);
 }
 `;
 

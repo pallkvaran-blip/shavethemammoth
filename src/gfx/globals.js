@@ -38,6 +38,9 @@ export const U = {
   uShadowFar: { value: blackTex },
   uShadowFarMat: { value: new THREE.Matrix4() },
   uShadowFarInfo: { value: new THREE.Vector4(1, 1, 1, 0) },
+  uShadowElf: { value: blackTex },
+  uShadowElfMat: { value: new THREE.Matrix4() },
+  uShadowElfInfo: { value: new THREE.Vector4(1, 1, 1, 0) },
 
   uSkyLut: { value: blackTex },
   uFogParams: { value: new THREE.Vector4(0.004, 0.08, 0, 0.00004) },
@@ -46,3 +49,4 @@ export const U = {
 
 export const LAYER_SHADOW_NEAR = 1;
 export const LAYER_SHADOW_FAR = 2;
+export const LAYER_SHADOW_ELF = 3;

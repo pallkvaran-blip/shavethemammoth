@@ -3,7 +3,8 @@
 import * as THREE from 'three';
 import { buildMammothData, buildBodyGeometry, buildTuskGeometry, buildSkeleton } from './build.js';
 import { nailOutline, NAIL_BASE } from './anatomy.js';
-import { generateGroom } from './groom.js';
+import { generateGroom, UNCUT } from './groom.js';
+import { StrandSampler } from './strand.js';
 import { makeFurGeometry, makeFurMaterials, makeStrandAttributes, isWoolBatch, BATCH } from './furMaterial.js';
 import { makeBodyMaterials } from './bodyMaterial.js';
 import { patchStandardMaterial } from '../gfx/patch.js';
@@ -158,20 +159,20 @@ function makeNailTexture() {
   grad.addColorStop(1.0, '#7c6d55');
   g.fillStyle = grad; g.fillRect(0, 0, W, H);
   // lengthwise striations
-  for (let i = 0; i < 150; i++) {
+  for (let i = 0; i < 70; i++) {
     const x = rnd() * W, dark = rnd() < 0.6;
-    g.strokeStyle = dark ? `rgba(70,54,36,${0.05 + rnd() * 0.13})` : `rgba(245,236,214,${0.04 + rnd() * 0.1})`;
-    g.lineWidth = 0.6 + rnd() * 2.4;
+    g.strokeStyle = dark ? `rgba(70,54,36,${0.04 + rnd() * 0.09})` : `rgba(245,236,214,${0.03 + rnd() * 0.07})`;
+    g.lineWidth = 1.5 + rnd() * 5;
     g.beginPath(); g.moveTo(x, rnd() * H * 0.3);
     let xx = x;
     for (let y = 0; y <= H; y += 24) { xx += (rnd() - 0.5) * 2.5; g.lineTo(xx, y); }
     g.stroke();
   }
   // growth bands across the nail
-  for (let i = 0; i < 9; i++) {
+  for (let i = 0; i < 5; i++) {
     const y = H * (0.15 + 0.8 * rnd());
-    g.strokeStyle = `rgba(80,62,42,${0.05 + rnd() * 0.09})`;
-    g.lineWidth = 1 + rnd() * 3;
+    g.strokeStyle = `rgba(80,62,42,${0.04 + rnd() * 0.06})`;
+    g.lineWidth = 3 + rnd() * 6;
     g.beginPath(); g.moveTo(0, y + 10); g.quadraticCurveTo(W / 2, y - 14, W, y + 10); g.stroke();
   }
   // cracks working up from the worn lower edge
@@ -207,10 +208,10 @@ function makeNailTexture() {
   const b = document.createElement('canvas'); b.width = W; b.height = H;
   const bg = b.getContext('2d');
   bg.fillStyle = '#808080'; bg.fillRect(0, 0, W, H);
-  for (let i = 0; i < 110; i++) {
+  for (let i = 0; i < 40; i++) {
     const x = rnd() * W, v = rnd() < 0.5 ? 70 + rnd() * 30 : 160 + rnd() * 40;
-    bg.strokeStyle = `rgba(${v},${v},${v},${0.15 + rnd() * 0.3})`;
-    bg.lineWidth = 1 + rnd() * 3;
+    bg.strokeStyle = `rgba(${v},${v},${v},${0.12 + rnd() * 0.2})`;
+    bg.lineWidth = 3 + rnd() * 7;
     bg.beginPath(); bg.moveTo(x, 0);
     let xx = x;
     for (let y = 0; y <= H; y += 24) { xx += (rnd() - 0.5) * 2.5; bg.lineTo(xx, y); }
@@ -220,6 +221,8 @@ function makeNailTexture() {
   bump.anisotropy = 8;
   return { map, bump };
 }
+
+const SHOWN_MAX = 0.12;
 
 export class Mammoth {
   static async create({ strands = 240000, cell = 0.025, a2c = true } = {}, progress = () => {}) {
@@ -268,6 +271,12 @@ export class Mammoth {
     m.body.userData.shadowMaterial = bodyMats.depth;
     m.body.layers.enable(LAYER_SHADOW_NEAR);
     m.body.name = 'hide';
+    // how short the coat has been cut over each point of the hide (metres left)
+    m.bodyCut = new Float32Array(data.body.positions.length / 3).fill(UNCUT);
+    // the copy the hide is shaded from stops at 12 cm, so that the edge of a shorn patch falls between vertices, not on them
+    m.bodyCutShown = new Float32Array(m.bodyCut.length).fill(SHOWN_MAX);
+    m.body.geometry.setAttribute('aCut', new THREE.BufferAttribute(m.bodyCutShown, 1));
+    m.sampler = new StrandSampler({ volume: data.volume, skeleton: rig.skeleton });
 
     // ---- rigid parts ride on bones ----------------------------------------
     const rigidDepth = makeDepthMaterial();
@@ -315,7 +324,7 @@ export class Mammoth {
     // toenails: horn plates set into the front of each foot
     const nailTex = makeNailTexture();
     const nailMat = patchStandardMaterial(new THREE.MeshPhysicalMaterial({
-      map: nailTex.map, bumpMap: nailTex.bump, bumpScale: 0.9, vertexColors: true,
+      map: nailTex.map, bumpMap: nailTex.bump, bumpScale: 0.3, vertexColors: true,
       roughness: 0.6, metalness: 0, clearcoat: 0.16, clearcoatRoughness: 0.5, envMapIntensity: 0.6,
     }), { key: 'nail' });
     for (const foot of anat.feet) {
@@ -344,6 +353,10 @@ export class Mammoth {
     const groom = generateGroom(this.data.body, { count: strands });
     this.groom = groom;
     this.strands = strands;
+    if (!this.movingBones) {
+      this.movingBones = new Set();
+      this.rig.bones.forEach((b, i) => { if (/^(neck|head|ear|tail|trunk)/.test(b.name)) this.movingBones.add(i); });
+    }
 
     // Whole-coat meshes, used only to cast the shadow.
     this.furMeshes = [];
@@ -353,6 +366,7 @@ export class Mammoth {
       mesh.frustumCulled = false;
       mesh.userData.shadowMaterial = this.furMats.depth;
       mesh.userData.total = groom[name].count;
+      mesh.userData.group = name;
       mesh.layers.set(LAYER_SHADOW_NEAR);
       mesh.name = 'fur-shadow-' + name;
       this.furMeshes.push(mesh);
@@ -366,14 +380,167 @@ export class Mammoth {
     this.chunks = [];
     for (const name of ['long', 'short']) {
       for (const c of groom[name].chunks) {
+        // does any of this patch ride on a bone that moves (head, trunk, ears, tail)?
+        let mobile = false;
+        for (let i = 0; i < c.count && !mobile; i++) mobile = this.movingBones.has(c.arrays.iSkinIdx[i * 4]) || this.movingBones.has(c.arrays.iSkinIdx[i * 4 + 1]);
         this.chunks.push({
-          ...c, long: name === 'long', attributes: makeStrandAttributes(c.arrays), geos: new Map(), meshes: [],
+          ...c, long: name === 'long', mobile, attributes: makeStrandAttributes(c.arrays), geos: new Map(), meshes: [],
           centre: new THREE.Vector3(...c.center), sphere: new THREE.Sphere(new THREE.Vector3(...c.center), c.radius),
         });
       }
     }
+    this.dirtyChunks = new Set();
+    this.totalLength = 0;
+    this.cutLength = 0;
+    const I = this.data.body.indices, bc = this.bodyCut;
+    for (const c of this.chunks) {
+      const a = c.arrays;
+      const g = groom[c.long ? 'long' : 'short'];
+      for (let i = 0; i < c.count; i++) {
+        const L = a.iA[i * 4];
+        this.totalLength += L;
+        // a coat regrown at another detail level keeps the haircut: each lock takes the shortest cut of its patch of hide
+        if (bc) {
+          const t = a.tri[i] * 3;
+          const cut = Math.min(bc[I[t]], bc[I[t + 1]], bc[I[t + 2]]);
+          if (cut < L) { a.iCut[i] = cut; g.iCut[a.orig[i]] = cut; this.cutLength += L - cut; }
+        }
+      }
+    }
     if (this.body) this.casters = [this.body, ...this.furMeshes, ...this.rigid];
     if (this._detail) this.setFurDetail(this._detail, this._shadowDetail);
+  }
+
+  // ---- shearing ---------------------------------------------------------------
+
+  /**
+   * Which locks a stroke of the blades would cut, and where. The blades sweep
+   * a flat sector of a disc: `pivot`, unit `forward` (its centre line) and
+   * `normal` (of its plane), `radius`, optional `inner` radius and
+   * `halfAngle`. A lock is cut where it crosses that sector. With `below` > 0
+   * the blades are lying on the hide, and everything between them and the
+   * skin (to that depth) goes too: hair rooted under the blades is cut to
+   * stubble. Returns one entry per lock that would be cut.
+   */
+  findCuts({ pivot, forward, normal, radius, inner = 0, halfAngle = Math.PI, minLength = 0.006, below = 0 }) {
+    const S = this.sampler;
+    S.begin(this.furMats.uniforms.uBreath.value);
+    const fx = forward.x, fy = forward.y, fz = forward.z, nx = normal.x, ny = normal.y, nz = normal.z;
+    const sx = ny * fz - nz * fy, sy = nz * fx - nx * fz, sz = nx * fy - ny * fx;   // normal x forward
+    const px = pivot.x, py = pivot.y, pz = pivot.z;
+    const full = halfAngle >= Math.PI - 1e-3;
+    const cr = full ? radius : radius * 0.62;
+    const cx = full ? px : px + fx * radius * 0.5, cy = full ? py : py + fy * radius * 0.5, cz = full ? pz : pz + fz * radius * 0.5;
+    const NS = 12, above = 0.003;
+    const P = [0, 0, 0], Q = [0, 0, 0];
+    const out = [];
+    // is a point (given relative to the pivot) over the sector? leaves its polar coordinates in ru, rphi
+    let ru = 0, rphi = 0;
+    const over = (x, y, z) => {
+      const u = x * fx + y * fy + z * fz, v = x * sx + y * sy + z * sz;
+      ru = Math.hypot(u, v); rphi = Math.atan2(v, u);
+      return ru <= radius && ru >= inner && (full || Math.abs(rphi) <= halfAngle);
+    };
+    for (const c of this.chunks) {
+      // slack for how far a root may be from where it sits in the rest pose
+      const slack = c.mobile ? 0.3 : 0.035;
+      const reach = c.rootRadius + c.maxLength + slack + cr;
+      const ddx = c.centre.x - cx, ddy = c.centre.y - cy, ddz = c.centre.z - cz;
+      if (ddx * ddx + ddy * ddy + ddz * ddz > reach * reach) continue;
+      const a = c.arrays;
+      for (let i = 0; i < c.count; i++) {
+        const L = a.iA[i * 4];
+        const rem = Math.min(L, a.iCut[i]);
+        if (rem <= minLength) continue;
+        // cheap test on the root first
+        const rx = a.iRoot[i * 3] - cx, ry = a.iRoot[i * 3 + 1] - cy, rz = a.iRoot[i * 3 + 2] - cz;
+        const lim = rem + cr + slack;
+        if (rx * rx + ry * ry + rz * rz > lim * lim) continue;
+        S.setup(a, i);
+        const keep = rem / L;
+        S.point(0, P);
+        let dPrev = (P[0] - px) * nx + (P[1] - py) * ny + (P[2] - pz) * nz;
+        let len = -1, hx = 0, hy = 0, hz = 0, tx = 0, ty = 0, tz = 0;
+        if (below > 0 && dPrev <= above && dPrev >= -below && over(P[0] - px, P[1] - py, P[2] - pz)) {
+          // rooted under the blades: down to stubble, each lock a slightly different length
+          len = minLength * (1 + 0.8 * a.iA[i * 4 + 2]);
+          hx = P[0]; hy = P[1]; hz = P[2];
+          S.point(Math.min(1, 0.02 / L), Q);
+          tx = Q[0] - P[0]; ty = Q[1] - P[1]; tz = Q[2] - P[2];
+        } else {
+          for (let j = 1; j <= NS; j++) {
+            S.point((keep * j) / NS, Q);
+            const d = (Q[0] - px) * nx + (Q[1] - py) * ny + (Q[2] - pz) * nz;
+            let at = -1;
+            if ((dPrev <= 0) !== (d <= 0)) {
+              // crosses the plane of the blades: is that crossing between them?
+              const f = dPrev / (dPrev - d);
+              hx = P[0] + (Q[0] - P[0]) * f; hy = P[1] + (Q[1] - P[1]) * f; hz = P[2] + (Q[2] - P[2]) * f;
+              if (over(hx - px, hy - py, hz - pz)) at = j - 1 + f;
+            }
+            if (at < 0 && below > 0 && d <= above && d >= -below && over(Q[0] - px, Q[1] - py, Q[2] - pz)) {
+              // passes under the blades, between them and the skin
+              at = j; hx = Q[0]; hy = Q[1]; hz = Q[2];
+            }
+            if (at >= 0) {
+              len = Math.max(minLength, ((keep * at) / NS) * L);
+              tx = Q[0] - P[0]; ty = Q[1] - P[1]; tz = Q[2] - P[2];
+              break;
+            }
+            P[0] = Q[0]; P[1] = Q[1]; P[2] = Q[2];
+            dPrev = d;
+          }
+        }
+        if (len >= 0 && len < rem - 0.002) {
+          const tl = Math.hypot(tx, ty, tz) || 1;
+          out.push({ chunk: c, i, len, removed: rem - len, from: len / L, to: rem / L, r: ru, phi: rphi, x: hx, y: hy, z: hz, tx: tx / tl, ty: ty / tl, tz: tz / tl });
+        }
+      }
+    }
+    out.sort((p, q) => p.r - q.r);
+    return out;
+  }
+
+  /** Cut one lock (an entry from findCuts). Returns the metres of guide hair removed. */
+  applyCut(cut) {
+    const { chunk, i, len } = cut;
+    const a = chunk.arrays;
+    const before = Math.min(a.iA[i * 4], a.iCut[i]);
+    if (len >= before) return 0;
+    a.iCut[i] = len;
+    this.dirtyChunks.add(chunk);
+    const g = this.groom[chunk.long ? 'long' : 'short'];
+    g.iCut[a.orig[i]] = len;
+    g.cutDirty = true;
+    const I = this.data.body.indices, bc = this.bodyCut, t = a.tri[i] * 3;
+    for (let k = 0; k < 3; k++) {
+      const v = I[t + k];
+      if (len < bc[v]) { bc[v] = len; this.bodyCutShown[v] = Math.min(SHOWN_MAX, len); }
+    }
+    this.bodyCutDirty = true;
+    this.cutLength += before - len;
+    return before - len;
+  }
+
+  /** Send any new cuts to the GPU. Call once a frame. */
+  flushCuts() {
+    if (this.dirtyChunks.size) {
+      for (const c of this.dirtyChunks) {
+        c.attributes.iCut.needsUpdate = true;
+        if (c.attributesBatch) c.attributesBatch.iCut.needsUpdate = true;
+      }
+      this.dirtyChunks.clear();
+    }
+    this.furMeshes.forEach((f) => {
+      const g = this.groom[f.userData.group];
+      if (g.cutDirty) { f.geometry.attributes.iCut.needsUpdate = true; g.cutDirty = false; }
+    });
+    if (this.bodyCutDirty) { this.body.geometry.attributes.aCut.needsUpdate = true; this.bodyCutDirty = false; }
+  }
+
+  /** Share of the coat (by length of hair) that has been cut away, 0..1. */
+  get shorn() {
+    return this.totalLength > 0 ? this.cutLength / this.totalLength : 0;
   }
 
   _chunkGeometry(chunk, segments, repeat = 1) {

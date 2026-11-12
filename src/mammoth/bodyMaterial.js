@@ -11,12 +11,14 @@ attribute vec4 skinIndex;
 attribute vec4 skinWeight;
 attribute vec4 furA;   // hair length, lift, tone, ginger
 attribute vec4 furB;   // lock size, breathing weight, bareness, torso
+attribute float aCut;  // metres of coat left here after shearing
 uniform float uBreath;
 varying vec3 vN;
 varying vec3 vPosW;
 varying vec3 vRest;
 varying vec4 vFurA;
 varying vec4 vFurB;
+varying float vCut;
 void main() {
   mat4 skin = boneMatrix(skinIndex.x) * skinWeight.x + boneMatrix(skinIndex.y) * skinWeight.y
             + boneMatrix(skinIndex.z) * skinWeight.z + boneMatrix(skinIndex.w) * skinWeight.w;
@@ -27,6 +29,7 @@ void main() {
   vRest = position;
   vFurA = furA;
   vFurB = furB;
+  vCut = aCut;
   gl_Position = projectionMatrix * viewMatrix * wp;
 }
 `;
@@ -40,6 +43,7 @@ varying vec3 vPosW;
 varying vec3 vRest;
 varying vec4 vFurA;
 varying vec4 vFurB;
+varying float vCut;
 uniform vec3 uRootColor;
 uniform vec3 uMidColor;
 
@@ -54,7 +58,10 @@ float hide(vec3 p) {
 
 void main() {
   vec3 N = normalize(vN);
-  float furAmt = smoothstep(0.0, 0.035, vFurA.x) * (1.0 - vFurB.z);
+  // where the shears have taken the coat down to stubble, the skin shows
+  float ragged = vnoise(vRest.xy * 140.0 + vRest.z * 57.0) * 0.6 + vnoise(vRest.zy * 310.0 + vRest.x * 91.0) * 0.4;
+  float shorn = 1.0 - smoothstep(0.03, 0.085, vCut + (ragged - 0.5) * 0.05);
+  float furAmt = smoothstep(0.0, 0.035, vFurA.x) * (1.0 - vFurB.z) * (1.0 - shorn);
 
   // bump the bare skin
   float h0 = hide(vRest);
@@ -66,6 +73,11 @@ void main() {
   vec3 Ns = normalize(N - bump * 0.004 * (1.0 - furAmt));
 
   vec3 skinCol = vec3(0.022, 0.018, 0.016) * (0.55 + 0.75 * h0);
+  // freshly sheared skin: paler, greyish pink, peppered with the dark dots of cut hairs
+  float follicles = smoothstep(0.62, 0.8, vnoise(vRest.xy * 620.0 + vRest.z * 233.0) * 0.6 + vnoise(vRest.zy * 620.0 + vRest.x * 171.0) * 0.4);
+  float mottle = vnoise(vRest.xy * 19.0 + vRest.z * 7.0) * 0.6 + vnoise(vRest.zy * 47.0) * 0.4;
+  vec3 shavedCol = mix(vec3(0.120, 0.086, 0.074), vec3(0.165, 0.112, 0.094), mottle) * (0.6 + 0.7 * h0) * (1.0 - 0.5 * follicles);
+  skinCol = mix(skinCol, shavedCol, shorn * (1.0 - vFurB.z));
   float tone = clamp(0.5 + 0.5 * vFurA.z, 0.0, 1.0);
   // Under the coat the hide is a dense mat of hair. Shade it as one, combed
   // the way the hair lies, so the gaps between strands read as deeper fur

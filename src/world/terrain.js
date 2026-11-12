@@ -26,7 +26,7 @@ export class Terrain {
     // Where the mammoth stands now: each foot has sunk through the snow, which
     // fits closely round it and is pushed up into a low rim.
     for (const f of feet) {
-      this.prints.push({ x: f.c[0], z: f.c[2], r: f.r + 0.045, inner: f.r - 0.012, depth: snowDepth + 0.022, rim: 0.014, rimR: f.r + 0.085, rimW: 0.045 });
+      this.prints.push({ x: f.c[0], z: f.c[2], r: f.r + 0.045, inner: f.r - 0.012, depth: snowDepth + 0.022, rim: 0.014, rimR: f.r + 0.085, rimW: 0.045, standing: true });
     }
     // the trail it left walking in from behind
     const path = (s) => [-1.6 - s, 1.5 * Math.sin(s / 9.5) + 0.25 * Math.sin(s / 3.1)];
@@ -85,11 +85,13 @@ export class Terrain {
     return h;
   }
 
-  printOffset(x, z) {
+  /** How far footprints lower (or their rims raise) the snow. `trailOnly` leaves out the holes the mammoth is standing in. */
+  printOffset(x, z, trailOnly = false) {
     const b = this.printBox;
     if (x < b.minX || x > b.maxX || z < b.minZ || z > b.maxZ) return 0;
     let h = 0;
     for (const p of this.prints) {
+      if (trailOnly && p.standing) continue;
       const dx = x - p.x, dz = z - p.z;
       const d2 = dx * dx + dz * dz;
       if (d2 > 0.45) continue;
@@ -172,7 +174,22 @@ export class Terrain {
         idx.push(a, c, b, b, c, d);
       }
     }
-    const nrm = this._gridNormals(pos, nx, nz);
+    let nrm;
+    if (seam) {
+      // Around the feet the mesh is too coarse to shade the holes they stand
+      // in, so its normals leave those out and the shader works them out exactly.
+      nrm = new Float32Array(nx * nz * 3);
+      const e = step * 0.5;
+      const hs = (x, z) => this.height(x, z) - (this.printOffset(x, z) - this.printOffset(x, z, true));
+      for (let k = 0; k < nx * nz; k++) {
+        const x = pos[k * 3], z = pos[k * 3 + 2];
+        const hx = (hs(x + e, z) - hs(x - e, z)) / (2 * e), hz = (hs(x, z + e) - hs(x, z - e)) / (2 * e);
+        const l = Math.hypot(hx, 1, hz);
+        nrm[k * 3] = -hx / l; nrm[k * 3 + 1] = 1 / l; nrm[k * 3 + 2] = -hz / l;
+      }
+    } else {
+      nrm = this._gridNormals(pos, nx, nz);
+    }
     return this._geometry(pos, nrm, mask, idx);
   }
 
@@ -198,7 +215,7 @@ export class Terrain {
     const shore = 1 - smoothstep(0.0, 0.5, h - LAKE_LEVEL);
     mask[k * 4] = lake ? 1 : Math.max(this.cover(x, z), shore);
     mask[k * 4 + 1] = lake;
-    mask[k * 4 + 2] = clamp(-this.printOffset(x, z) / 0.09, 0, 1);
+    mask[k * 4 + 2] = clamp(-this.printOffset(x, z, true) / 0.09, 0, 1);   // the holes being stood in are shaded in the shader
     mask[k * 4 + 3] = shore;
   }
 
@@ -261,6 +278,10 @@ export class Terrain {
 
   async build(progress = () => {}, { detail = 1 } = {}) {
     this.material = makeTerrainMaterial();
+    this.prints.filter((pr) => pr.standing).slice(0, 4).forEach((pr, i) => {
+      const f = this.feet[i];
+      this.material.uniforms.uFeet.value[i].set(f.c[0], f.c[2], f.r, pr.depth);
+    });
     this.group = new THREE.Group();
     this.meshes = [];
     const depth = makeDepthMaterial({ side: THREE.DoubleSide });
@@ -284,7 +305,7 @@ export class Terrain {
     // in. Its box sits on the coarser grid's lines, and its rim is fitted to
     // that grid, so the two join invisibly.
     const feetBox = { x0: -1.8, z0: -1.0, x1: 1.6, z1: 1.0 };
-    add(this._gridMesh(feetBox.x0, feetBox.z0, feetBox.x1, feetBox.z1, 0.02, 0, null, { step: s0, x0: fine.x0, z0: fine.z0 }), 'ground-feet', false, true);
+    add(this._gridMesh(feetBox.x0, feetBox.z0, feetBox.x1, feetBox.z1, detail >= 1 ? 0.01 : 0.0125, 0, null, { step: s0, x0: fine.x0, z0: fine.z0 }), 'ground-feet', false, true);
     await tick();
     add(this._gridMesh(fine.x0, fine.z0, fine.x1, fine.z1, s0, 0, feetBox), 'ground-fine', true, true);
     progress(0.45, 'Laying snow');
@@ -322,6 +343,7 @@ varying vec3 vN;
 varying vec4 vMask;
 uniform vec4 uOccluders[12];  // spheres standing in for the mammoth: xyz, radius
 uniform float uLakeLevel;
+uniform vec4 uFeet[4];        // where the mammoth stands: x, z, radius of the foot, depth of the hole
 
 // snow surface relief: wind-carved ridges (sastrugi) with soft drifts between
 float ridgeN(vec2 p) { float n = vnoise(p); return 1.0 - abs(n * 2.0 - 1.0); }
@@ -395,6 +417,25 @@ void main() {
   float cover = vMask.x;
   float ice = vMask.y;
   float tramp = vMask.z;
+
+  // The holes the mammoth stands in: a steep wall of packed snow round each
+  // foot and a low rim pushed up outside it. Shaded from the exact shape, as
+  // the mesh is too coarse to carry it.
+  vec2 holeSlope = vec2(0.0);
+  for (int i = 0; i < 4; i++) {
+    vec2 d = p - uFeet[i].xy;
+    float dd = length(d);
+    float r = uFeet[i].z;
+    if (dd < r + 0.3) {
+      float a = r + 0.045, b = r - 0.012;                 // outer and inner edge of the wall
+      float t = clamp((dd - a) / (b - a), 0.0, 1.0);
+      float k = (dd - (r + 0.085)) / 0.045;
+      float dh = -uFeet[i].w * 6.0 * t * (1.0 - t) / (b - a) - 0.014 * exp(-k * k) * 2.0 * k / 0.045;
+      holeSlope += dh * d / max(dd, 1e-4);
+      tramp = max(tramp, t * t * (3.0 - 2.0 * t) * min(1.0, uFeet[i].w / 0.09));
+    }
+  }
+  Ng = normalize(vec3(Ng.x / Ng.y - holeSlope.x, 1.0, Ng.z / Ng.y - holeSlope.y));
 
   // ---- far relief ---------------------------------------------------------------
   float high = smoothstep(50.0, 300.0, vPosW.y) * smoothstep(400.0, 1500.0, dist);
@@ -492,6 +533,7 @@ export function makeTerrainMaterial() {
       ...U,
       uOccluders: { value: Array.from({ length: 12 }, () => new THREE.Vector4(0, -100, 0, 0)) },
       uLakeLevel: { value: LAKE_LEVEL },
+      uFeet: { value: Array.from({ length: 4 }, () => new THREE.Vector4(0, 0, 0.1, 0)) },
     },
     defines: { SHADOW_TAPS: 12, SHADOW_PENUMBRA: 1, SHADOW_PLANE_BIAS: 1 },
   });

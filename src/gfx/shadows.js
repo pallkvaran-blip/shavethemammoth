@@ -3,6 +3,8 @@
 // absorbing shadows) instead of a hard yes/no test.
 import * as THREE from 'three';
 
+const _x = new THREE.Vector3(), _y = new THREE.Vector3(), _c = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0);
+
 export class SunShadow {
   constructor(width, height, layer, floatLinear = true) {
     this.layer = layer;
@@ -24,9 +26,19 @@ export class SunShadow {
     this._old = new THREE.Color();
   }
 
-  /** Fit the light frustum: centre point, half extents across the light, depth range. */
-  fit(center, sunDir, halfW, halfH, depth) {
+  /**
+   * Fit the light frustum: centre point, half extents across the light, depth
+   * range. With `snap`, the centre moves only in whole texels, so shadows do
+   * not shimmer as the map follows something.
+   */
+  fit(center, sunDir, halfW, halfH, depth, snap = false) {
     const cam = this.camera;
+    if (snap) {
+      const X = _x.crossVectors(_up, sunDir).normalize(), Y = _y.crossVectors(sunDir, X);
+      const tx = (2 * halfW) / this.target.width, ty = (2 * halfH) / this.target.height;
+      const cx = Math.round(center.dot(X) / tx) * tx, cy = Math.round(center.dot(Y) / ty) * ty, cz = center.dot(sunDir);
+      center = _c.set(0, 0, 0).addScaledVector(X, cx).addScaledVector(Y, cy).addScaledVector(sunDir, cz);
+    }
     cam.left = -halfW; cam.right = halfW; cam.top = halfH; cam.bottom = -halfH;
     cam.near = 0.5; cam.far = depth;
     cam.position.copy(center).addScaledVector(sunDir, depth * 0.5);

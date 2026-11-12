@@ -67,7 +67,9 @@
     font-size: 0.72rem; color: var(--ink-dim); text-align: right; font-variant-numeric: tabular-nums; line-height: 1.5;
     background: var(--veil); padding: 6px 10px; border-radius: 6px; max-width: 60vw; overflow-wrap: anywhere;
   }
-  .bottom { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 10px 16px; }
+  .bottom { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 10px 16px; transition: opacity 0.5s ease; }
+  /* with the shears in hand the view is left clear (where there is no mouse, the buttons stay: they are the way back) */
+  @media (hover: hover) { body.elf .bottom { opacity: 0; pointer-events: none; } }
   .panel {
     pointer-events: auto; background: var(--veil); backdrop-filter: blur(10px) saturate(1.2); -webkit-backdrop-filter: blur(10px) saturate(1.2);
     border: 1px solid var(--line); border-radius: 10px; padding: 6px; min-width: 0;
@@ -79,7 +81,7 @@
   }
   .views button:hover { color: var(--ink); background: rgba(244, 237, 225, 0.08); }
   .views button[aria-pressed="true"] { color: var(--night); background: var(--amber); }
-  .views button.elf { color: var(--amber); }
+  .views button.elf { color: var(--amber); font-weight: 600; }
   .views button.elf[aria-pressed="true"] { color: var(--night); }
   button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
   .settings { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 6px 12px; }
@@ -99,12 +101,19 @@
   }
   #hint.show { opacity: 1; }
   kbd { font: inherit; font-weight: 600; color: var(--amber); }
-  #walk {
-    display: none; pointer-events: auto; align-self: center; margin-bottom: 12px; appearance: none; cursor: pointer;
+  .touch { display: none; align-self: center; gap: 18px; margin-bottom: 12px; }
+  .touch button {
+    pointer-events: auto; appearance: none; cursor: pointer;
     width: 4.6rem; height: 4.6rem; border-radius: 50%; border: 1px solid var(--line); background: var(--veil-strong);
     color: var(--ink); font: inherit; font-weight: 600; letter-spacing: 0.04em; touch-action: none; user-select: none; -webkit-user-select: none;
   }
-  @media (hover: none) { body.elf #walk { display: block; } }
+  #snip { border-color: var(--amber); color: var(--amber); }
+  @media (hover: none) { body.elf .touch { display: flex; } }
+  .readouts { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; min-width: 0; }
+  #progress {
+    font-size: 0.8rem; font-weight: 600; letter-spacing: 0.04em; font-variant-numeric: tabular-nums; color: var(--amber);
+    background: var(--veil); padding: 5px 10px; border-radius: 6px;
+  }
   .mid { display: flex; flex-direction: column; justify-content: flex-end; flex: 1; min-height: 0; }
   @media (max-width: 640px) {
     .bottom { flex-direction: column; align-items: stretch; }
@@ -129,18 +138,24 @@
 <div id="hud">
   <div class="top">
     <p class="wordmark">Shave the <em>Mammoth</em></p>
-    <div id="stats" hidden></div>
+    <div class="readouts">
+      <div id="progress" hidden>Shorn 0.000%</div>
+      <div id="stats" hidden></div>
+    </div>
   </div>
   <div class="mid">
     <div id="hint"></div>
-    <button type="button" id="walk" aria-label="Hold to walk forward">Walk</button>
+    <div class="touch">
+      <button type="button" id="walk" aria-label="Hold to walk forward">Walk</button>
+      <button type="button" id="snip" aria-label="Hold to cut with the shears">Snip</button>
+    </div>
     <div class="bottom">
       <div class="panel views" role="group" aria-label="Views">
         <button type="button" id="view-0" data-view="0" aria-pressed="true">The mammoth</button>
         <button type="button" id="view-1" data-view="1" aria-pressed="false">In profile</button>
         <button type="button" id="view-2" data-view="2" aria-pressed="false">Into the sun</button>
         <button type="button" id="view-3" data-view="3" aria-pressed="false">The coat</button>
-        <button type="button" id="view-elf" class="elf" aria-pressed="false">Elf&rsquo;s-eye view</button>
+        <button type="button" id="view-elf" class="elf" aria-pressed="false">Start shaving</button>
       </div>
       <div class="panel settings">
         <label for="sun">Sun

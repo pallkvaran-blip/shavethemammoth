@@ -1,5 +1,5 @@
-// Camera handling: orbiting the mammoth, gliding between saved views, and an
-// elf's-eye walk at snow level (the scale the game will be played at).
+// Camera handling: orbiting the mammoth, gliding between saved views, and the
+// elf's own view from snow level, where the shaving is done.
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
@@ -30,6 +30,12 @@ export class CameraRig {
     this.yaw = 0; this.pitch = 0;
     this.pos = new THREE.Vector3();
     this.onChange = () => {};
+    this.onSqueeze = () => {};      // the hands close (true) or open (false) on the shears
+    this.onStep = () => {};         // a foot comes down
+    // how the elf is moving, for whatever it carries
+    this.feel = { yawRate: 0, pitchRate: 0, moving: false, running: false, bob: 0 };
+    this.body = null;     // set to the mammoth's StrandSampler, for its distance field
+    this.reach = 0.25;    // how close the elf's eyes may come to the hide, metres
     this._tmp = new THREE.Vector3();
 
     const wake = () => { this.idle = 0; };
@@ -60,6 +66,16 @@ export class CameraRig {
       drag.x = e.clientX; drag.y = e.clientY;
     });
     window.addEventListener('pointerup', () => { drag = null; });
+
+    // shears: the left button, or the space bar, squeezes the handles
+    let held = false;
+    const squeeze = (on) => { if (on !== held) { held = on; this.onSqueeze(on); } };
+    canvas.addEventListener('pointerdown', (e) => { if (this.mode === 'elf' && this.locked && e.button === 0) squeeze(true); });
+    window.addEventListener('pointerup', (e) => { if (e.button === 0) squeeze(false); });
+    window.addEventListener('keydown', (e) => { if (e.code === 'Space' && this.mode === 'elf' && !e.repeat) { e.preventDefault(); squeeze(true); } });
+    window.addEventListener('keyup', (e) => { if (e.code === 'Space') squeeze(false); });
+    window.addEventListener('blur', () => squeeze(false));
+    this._squeeze = squeeze;
   }
 
   setView(view, seconds = 2.4) {
@@ -88,10 +104,11 @@ export class CameraRig {
     this.tween = null;
     this.orbit.enabled = false;
     this.saved = { pos: this.camera.position.clone(), target: this.orbit.target.clone(), fov: this.camera.fov };
-    // stand a few paces in front of the mammoth, looking up at it
-    this.pos.set(5.2, 0, 2.6);
-    this.yaw = Math.atan2(-(0.9 - this.pos.x), -(0 - this.pos.z));
-    this.pitch = 0.42;
+    // stand a couple of paces from a foreleg, looking at it
+    this.pos.set(2.3, 0, 1.75);
+    this.yaw = Math.atan2(-(1.02 - this.pos.x), -(0.57 - this.pos.z));
+    this.pitch = 0.2;
+    this._lastYaw = this.yaw; this._lastPitch = this.pitch;
     this.camera.fov = 62;
     this.camera.near = 0.015;
     this.camera.updateProjectionMatrix();
@@ -107,6 +124,7 @@ export class CameraRig {
     if (this.mode !== 'elf') return;
     this.mode = 'orbit';
     if (document.pointerLockElement === this.canvas) document.exitPointerLock();
+    this._squeeze(false);
     this.camera.near = 0.08;
     this.camera.updateProjectionMatrix();
     this.orbit.enabled = true;
@@ -131,18 +149,39 @@ export class CameraRig {
       const sy = Math.sin(this.yaw), cy = Math.cos(this.yaw);
       this.pos.x += (-sy * f + cy * s) / l * speed * dt;
       this.pos.z += (-cy * f - sy * s) / l * speed * dt;
-      // the mammoth's legs are as wide as tree trunks: walk around them
-      for (const foot of this.feet) {
-        const dx = this.pos.x - foot.c[0], dz = this.pos.z - foot.c[2];
-        const d = Math.hypot(dx, dz), r = foot.r + 0.2;
-        if (d < r && d > 1e-4) { this.pos.x = foot.c[0] + (dx / d) * r; this.pos.z = foot.c[2] + (dz / d) * r; }
+      // The mammoth's legs are as wide as tree trunks: walk around them. The
+      // elf stops an arm's length from the hide, so that the tips of the
+      // shears just reach the skin.
+      const eyeY = this.terrain.height(this.pos.x, this.pos.z) + 0.17;
+      if (this.body) {
+        const sd = this._sd || (this._sd = new Float32Array(4));
+        for (let it = 0; it < 3; it++) {
+          this.body.sampleVolume(this.pos.x, eyeY, this.pos.z, sd);
+          const short = this.reach - sd[3];
+          if (short <= 0) break;
+          const gl = Math.hypot(sd[0], sd[2]);
+          if (gl < 1e-3) break;
+          this.pos.x += (sd[0] / gl) * short; this.pos.z += (sd[2] / gl) * short;
+        }
+      } else {
+        for (const foot of this.feet) {
+          const dx = this.pos.x - foot.c[0], dz = this.pos.z - foot.c[2];
+          const d = Math.hypot(dx, dz), r = foot.r + this.reach;
+          if (d < r && d > 1e-4) { this.pos.x = foot.c[0] + (dx / d) * r; this.pos.z = foot.c[2] + (dz / d) * r; }
+        }
       }
       const moving = f !== 0 || s !== 0;
+      const before = Math.floor((this.bob || 0) / Math.PI);
       this.bob = (this.bob || 0) + (moving ? dt * (run ? 13 : 8.5) : 0);
+      if (moving && Math.floor(this.bob / Math.PI) !== before) this.onStep(run);
       const eye = 0.17 + (moving ? Math.sin(this.bob) * 0.006 : 0);
       this.pos.y = this.terrain.height(this.pos.x, this.pos.z) + eye;
       cam.position.copy(this.pos);
       cam.rotation.set(this.pitch, this.yaw, 0, 'YXZ');
+      const fl = this.feel, inv = 1 / Math.max(dt, 1e-3);
+      fl.yawRate = (this.yaw - (this._lastYaw ?? this.yaw)) * inv; fl.pitchRate = (this.pitch - (this._lastPitch ?? this.pitch)) * inv;
+      this._lastYaw = this.yaw; this._lastPitch = this.pitch;
+      fl.moving = moving; fl.running = run; fl.bob = this.bob;
       return;
     }
     if (this.tween) {
