@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { buildMammothData, buildBodyGeometry, buildTuskGeometry, buildSkeleton } from './build.js';
 import { generateGroom } from './groom.js';
-import { makeFurGeometry, makeFurMaterials } from './furMaterial.js';
+import { makeFurGeometry, makeFurMaterials, makeStrandAttributes, isWoolBatch, BATCH } from './furMaterial.js';
 import { makeBodyMaterials } from './bodyMaterial.js';
 import { patchStandardMaterial } from '../gfx/patch.js';
 import { makeDepthMaterial } from '../gfx/shadows.js';
@@ -110,6 +110,8 @@ export class Mammoth {
     const furMats = makeFurMaterials({ sdfTexture: sdfTex, sdfMin, sdfInvSize: sdfInv, boneTexture: rig.skeleton.boneTexture, a2c });
     m.furMats = furMats;
     m.furMeshes = [];
+    m.chunks = [];
+    m._tmp = new THREE.Vector3();
     progress(0.62, 'Growing the coat');
     await tick();
     m.growCoat(strands);
@@ -167,17 +169,17 @@ export class Mammoth {
     }
 
     const nailMat = patchStandardMaterial(new THREE.MeshPhysicalMaterial({
-      color: 0x5d5346, roughness: 0.72, metalness: 0,
+      color: 0x3b332b, roughness: 0.82, metalness: 0,
     }), { key: 'nail' });
     const nailGeo = new THREE.SphereGeometry(1, 16, 12);
     const footBones = ['foreFoot_R', 'foreFoot_L', 'hindFoot_R', 'hindFoot_L'];
     anat.feet.forEach((foot, i) => {
       for (const th of [-1.05, -0.36, 0.36, 1.05]) {
         const nail = new THREE.Mesh(nailGeo, nailMat);
-        const rr = foot.r - 0.024;
+        const rr = foot.r - 0.004;
         nail.position.set(foot.c[0] + Math.cos(th) * rr, 0.062, foot.c[2] + Math.sin(th) * rr);
-        nail.position.y = 0.052;
-        nail.scale.set(0.028, 0.05, 0.046);
+        nail.position.y = 0.046;
+        nail.scale.set(0.011, 0.04, 0.05);
         nail.rotation.y = -th;
         nail.name = 'nail';
         attach(nail, footBones[i]);
@@ -197,23 +199,79 @@ export class Mammoth {
       if (f.parent) f.parent.remove(f);
       f.geometry.dispose();
     }
+    for (const c of this.chunks || []) {
+      for (const mesh of c.meshes) if (mesh && mesh.parent) mesh.parent.remove(mesh);
+      for (const g of c.geos.values()) g.dispose();
+    }
     const groom = generateGroom(this.data.body, { count: strands });
     this.groom = groom;
     this.strands = strands;
+
+    // Whole-coat meshes, used only to cast the shadow.
     this.furMeshes = [];
-    for (const [name, segs] of [['long', 9], ['short', 3]]) {
+    for (const [name, segs] of [['long', 6], ['short', 3]]) {
       if (!groom[name].count) continue;
-      const mesh = new THREE.Mesh(makeFurGeometry(groom[name], segs), this.furMats.color);
+      const mesh = new THREE.Mesh(makeFurGeometry(makeStrandAttributes(groom[name]), groom[name].count, segs), this.furMats.depth);
       mesh.frustumCulled = false;
       mesh.userData.shadowMaterial = this.furMats.depth;
       mesh.userData.total = groom[name].count;
-      mesh.layers.enable(LAYER_SHADOW_NEAR);
-      mesh.name = 'fur-' + name;
+      mesh.layers.set(LAYER_SHADOW_NEAR);
+      mesh.name = 'fur-shadow-' + name;
       this.furMeshes.push(mesh);
       if (scene) scene.add(mesh);
     }
+
+    // The coat you see is drawn patch by patch (about 40 cm of hide each), so
+    // a patch can be skipped when off screen and given many more hairs when
+    // the camera is close. Every extra hair of a patch is one more draw of
+    // the same strands; meshes for those draws are made on demand.
+    this.chunks = [];
+    for (const name of ['long', 'short']) {
+      for (const c of groom[name].chunks) {
+        this.chunks.push({
+          ...c, long: name === 'long', attributes: makeStrandAttributes(c.arrays), geos: new Map(), meshes: [],
+          centre: new THREE.Vector3(...c.center), sphere: new THREE.Sphere(new THREE.Vector3(...c.center), c.radius),
+        });
+      }
+    }
     if (this.body) this.casters = [this.body, ...this.furMeshes, ...this.rigid];
     if (this._detail) this.setFurDetail(this._detail, this._shadowDetail);
+  }
+
+  _chunkGeometry(chunk, segments, repeat = 1) {
+    const key = segments * 100 + repeat;
+    let geo = chunk.geos.get(key);
+    if (!geo) {
+      if (repeat > 1 && !chunk.attributesBatch) chunk.attributesBatch = makeStrandAttributes(chunk.arrays, repeat);
+      geo = makeFurGeometry(repeat > 1 ? chunk.attributesBatch : chunk.attributes, chunk.count * repeat, segments);
+      // centred on the mesh, so three.js orders the draws by the patch's real distance
+      geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), chunk.radius);
+      chunk.geos.set(key, geo);
+    }
+    return geo;
+  }
+
+  /** Mesh for one draw of a patch: b = 0 is the guides, b >= 1 the b-th batch of extra hairs. */
+  _chunkMesh(chunk, b) {
+    let mesh = chunk.meshes[b];
+    if (!mesh) {
+      mesh = new THREE.Mesh(this._chunkGeometry(chunk, 3), this.furMats.color);
+      // The shaders ignore the mesh transform. Its position lets three.js draw
+      // near patches first; its scale carries the batch size (x) and the index
+      // of the first hair in the batch (y, plus one).
+      mesh.position.copy(chunk.centre).add(this.group.position);
+      mesh.scale.set(b === 0 ? 1 : BATCH, (b === 0 ? 0 : 1 + (b - 1) * BATCH) + 1, 1);
+      mesh.frustumCulled = false;   // culled by hand in updateCoat
+      mesh.name = 'fur';
+      mesh.updateMatrixWorld(true);
+      chunk.meshes[b] = mesh;
+      if (this.scene) this.scene.add(mesh);
+    }
+    return mesh;
+  }
+
+  setCoatVisible(on) {
+    this._coatVisible = on;
   }
 
   addTo(scene) {
@@ -221,6 +279,7 @@ export class Mammoth {
     scene.add(this.group);
     scene.add(this.body);
     for (const f of this.furMeshes) scene.add(f);
+    for (const c of this.chunks) for (const mesh of c.meshes) if (mesh) scene.add(mesh);
   }
 
   /** Fraction of strands to draw (level of detail), compensating with width. */
@@ -228,14 +287,55 @@ export class Mammoth {
     this._detail = fraction;
     this._shadowDetail = shadowFraction;
     this.furMats.color.uniforms.uWidthScale.value = 1 / Math.sqrt(fraction);
-    this.furMats.depth.uniforms.uWidthScale.value = 1.25 / Math.sqrt(shadowFraction);
-    this.useMainCounts();
+    this.furMats.depth.uniforms.uWidthScale.value = 0.7 / Math.sqrt(shadowFraction);
   }
-  useMainCounts() {
-    for (const f of this.furMeshes) f.geometry.instanceCount = Math.max(1, Math.floor(f.userData.total * this._detail));
-  }
+  useMainCounts() {}
   useShadowCounts() {
     for (const f of this.furMeshes) f.geometry.instanceCount = Math.max(1, Math.floor(f.userData.total * this._shadowDetail));
+  }
+
+  /**
+   * Decide, patch by patch, how many hairs each strand is drawn as. The
+   * shader fades hairs in one at a time by distance; this only has to make
+   * sure every patch gets as many draws as its nearest strand will need.
+   */
+  updateCoat(camera, pxScale, childMax) {
+    const u = this.furMats.uniforms;
+    u.uChildMax.value = childMax;
+    u.uOrigin.value.copy(this.group.position);
+    const widthScale = this.furMats.color.uniforms.uWidthScale.value;
+    const hairPx = u.uHairPx.value;
+    const fraction = this._detail || 1;
+    const top = Math.max(1, Math.ceil(childMax));
+    this._frustum = this._frustum || new THREE.Frustum();
+    this._pv = this._pv || new THREE.Matrix4();
+    this._frustum.setFromProjectionMatrix(this._pv.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
+    let hairs = 0, draws = 0;
+    for (const c of this.chunks) {
+      const visible = this._coatVisible !== false && this._frustum.intersectsSphere(c.sphere);
+      let batches = 0;
+      if (visible) {
+        const d = Math.max(0.03, camera.position.distanceTo(c.centre) - c.rootRadius);
+        // most hairs any strand of this patch will show (same formula as the shader)
+        const n = Math.min(top, Math.max(1, (c.maxWidth * widthScale * pxScale) / (d * hairPx) - 0.4));
+        const extra = Math.ceil(n) - 1;
+        batches = 1 + Math.ceil(extra / BATCH);
+        // closer patches get smoother curves
+        const segs = c.long ? (n > 6 ? 12 : n > 1.5 ? 9 : 7) : (n > 6 ? 8 : n > 1.5 ? 5 : 3);
+        const guides = Math.max(1, Math.floor(c.count * fraction));
+        for (let b = 0; b < batches; b++) {
+          const mesh = this._chunkMesh(c, b);
+          const geo = b === 0 ? this._chunkGeometry(c, segs) : this._chunkGeometry(c, isWoolBatch(b) ? 5 : segs, BATCH);
+          geo.instanceCount = b === 0 ? guides : guides * BATCH;
+          if (mesh.geometry !== geo) mesh.geometry = geo;
+          mesh.visible = true;
+        }
+        hairs += guides * Math.ceil(n); draws += batches;
+      }
+      for (let b = batches; b < c.meshes.length; b++) if (c.meshes[b]) c.meshes[b].visible = false;
+    }
+    this.hairsDrawn = hairs;
+    this.coatDraws = draws;
   }
 
   update(dt) {

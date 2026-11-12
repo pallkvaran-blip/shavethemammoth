@@ -7,6 +7,7 @@
 //   tone  -1..1 darker/lighter than the base coat
 //   red   0..1 extra ginger in the coat
 //   clump lock size multiplier
+//   comb  0..1 how strongly the hair is combed along the limb (round cones only)
 
 const fur = (len, extra = {}) => ({ len, ...extra });
 
@@ -75,7 +76,7 @@ export function buildAnatomy() {
     prims.push({
       name: 'trunk' + i, type: 'rc', a: [x0, y0, 0], b: [x1, y1, 0], r1: r0, r2: r1, k: i === 0 ? 0.16 : 0.07,
       bone: 'trunk' + i,
-      fur: fur(0.085 - 0.06 * t0, { lenB: 0.085 - 0.06 * t1, lift: 0.25, tone: -0.15 }),
+      fur: fur(0.085 - 0.06 * t0, { lenB: 0.085 - 0.06 * t1, lift: 0.1, tone: -0.15, comb: 1 }),
     });
   }
 

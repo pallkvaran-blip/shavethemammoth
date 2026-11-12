@@ -167,6 +167,8 @@ export function buildGrass(terrain, { tufts = 9000, radius = 60, seed = 21, avoi
     vertexShader: VERT, fragmentShader: FRAG_DEPTH, uniforms: { ...U },
     defines: { DEPTH_PASS: 1 }, side: THREE.DoubleSide,
   });
+  material.index0AttributeName = 'position';
+  depth.index0AttributeName = 'position';
   const mesh = new THREE.Mesh(geo, material);
   mesh.frustumCulled = false;
   mesh.name = 'grass';

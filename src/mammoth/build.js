@@ -51,6 +51,7 @@ export async function buildMammothData({ cell = 0.025, volumeRes = [144, 88, 64]
   const skinWeight = new Float32Array(n * 4);
   const furA = new Float32Array(n * 4); // length, lift, tone, red
   const furB = new Float32Array(n * 4); // clump, breath, bareness, unused
+  const flow = new Float32Array(n * 3); // direction the hair is combed along the limb, where one is given
   const idx = new Int32Array(64), w = new Float32Array(64), prm = new Float32Array(64);
   const boneAcc = new Float32Array(anat.bones.length);
   const spineBone = boneIndex.get('spine'), neckBone = boneIndex.get('neck');
@@ -77,15 +78,20 @@ export async function buildMammothData({ cell = 0.025, volumeRes = [144, 88, 64]
 
     // grooming: wider, softer blend
     cnt = sdf.influences(x, y, z, 0.32, idx, w, prm);
-    let len = 0, lift = 0, tone = 0, red = 0, clump = 0, torso = 0, wsum = 0;
+    let len = 0, lift = 0, tone = 0, red = 0, clump = 0, torso = 0, wsum = 0, flx = 0, fly = 0, flz = 0;
     for (let j = 0; j < cnt; j++) {
       const o = sdf.prims[idx[j]], f = o.fur, wj = w[j];
       const l = f.lenB !== undefined ? f.len + (f.lenB - f.len) * prm[j] : f.len;
       len += l * wj; lift += (f.lift ?? 0.3) * wj; tone += (f.tone ?? 0) * wj; red += (f.red ?? 0) * wj; clump += (f.clump ?? 1) * wj;
       if (primBone[idx[j]] === spineBone || primBone[idx[j]] === neckBone) torso += wj;
+      if (f.comb && o.t === 2) {
+        const il = f.comb * wj / Math.sqrt(o.l2);
+        flx += o.bax * il; fly += o.bay * il; flz += o.baz * il;
+      }
       wsum += wj;
     }
-    if (wsum > 0) { len /= wsum; lift /= wsum; tone /= wsum; red /= wsum; clump /= wsum; torso /= wsum; } else { len = 0.3; lift = 0.3; clump = 1; }
+    if (wsum > 0) { len /= wsum; lift /= wsum; tone /= wsum; red /= wsum; clump /= wsum; torso /= wsum; flx /= wsum; fly /= wsum; flz /= wsum; } else { len = 0.3; lift = 0.3; clump = 1; }
+    flow[i * 3] = flx; flow[i * 3 + 1] = fly; flow[i * 3 + 2] = flz;
 
     // the top line carries shorter, lighter hair; flanks and underside a long skirt
     const top = smooth(-0.2, 0.85, ny);
@@ -131,7 +137,7 @@ export async function buildMammothData({ cell = 0.025, volumeRes = [144, 88, 64]
 
   return {
     anat, sdf,
-    body: { positions: p, normals, indices: mesh.indices, skinIndex, skinWeight, furA, furB },
+    body: { positions: p, normals, indices: mesh.indices, skinIndex, skinWeight, furA, furB, flow },
     volume,
   };
 }

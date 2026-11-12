@@ -13,6 +13,10 @@ drop down to elf height and walk around its feet, and move the sun.
 | --- | --- |
 | ![Silhouette against the low sun](docs/into-the-sun.jpg) | ![Looking up from the snow](docs/elf-view.jpg) |
 
+The coat from shaving distance, about ten centimetres from a foreleg:
+
+![Individual hairs on the foreleg](docs/coat-close-up.jpg)
+
 It runs in the browser on three.js (WebGL 2). Everything is generated in code at
 load time: there are no model, texture or sound files.
 
@@ -35,7 +39,7 @@ Then open the address Vite prints (http://localhost:5173 by default).
 | `1` `2` `3` `4` | The mammoth, in profile, into the sun, the coat |
 | `E` | Elf's-eye view: `W A S D` to walk, `Shift` to run, mouse to look, `Esc` to return |
 | `H` | Hide or show the controls |
-| `P` | Frame rate, resolution and which graphics card is in use |
+| `P` | Frame rate, resolution, hairs on screen and which graphics card is in use |
 | Sun slider | Height of the sun, from last light to mid-morning |
 | Detail menu | Low, Medium, High, Ultra |
 
@@ -51,15 +55,16 @@ Settings > System > Display > Graphics.
 | Part | Where | Notes |
 | --- | --- | --- |
 | Body | `src/mammoth/anatomy.js`, `sdf.js`, `mesher.js` | The body is a smooth blend of ellipsoids and round cones, turned into a mesh at load. The same description gives the skin weights for the skeleton and the grooming map (hair length, lift, colour) |
-| Coat | `src/mammoth/groom.js`, `furMaterial.js` | About 240,000 strands at High, each one a GPU instance grown in the vertex shader: it leaves the skin, bends under gravity and wind, gathers into locks, and drapes over the body using a baked distance volume. Close up each strand ribbon carries many individual hairs; further off it is drawn as one fine strand |
+| Coat | `src/mammoth/groom.js`, `furMaterial.js`, `mammoth.js` | The groom stores about 240,000 guide strands at High, one per lock of hair. Each is grown in the vertex shader: it leaves the skin, bends under gravity and wind, gathers into locks, and drapes over the body using a baked distance volume. From far away one strand per lock is all the eye can resolve. As the camera approaches, each guide is drawn again and again, and every extra copy becomes a separate hair with its own root, length, curve and colour, some of them short crimped underwool. The coat is split into patches of hide about 40 cm across, so only the patches near the camera pay for this: at shaving distance roughly 600,000 individual hairs are on screen |
 | Hair lighting | `furMaterial.js` | Two highlights (surface and through-the-fibre), light passing through the coat when the sun is behind it, and sunlight that soaks into the coat rather than stopping at its surface |
 | Sky | `src/world/sky.js` | Rayleigh, Mie and ozone scattering baked to a lookup for the current sun; clouds and the sun's disc drawn live. The sky also supplies the ambient light, reflections and haze colour |
 | Land | `src/world/terrain.js`, `grass.js`, `rocks.js`, `particles.js` | Wind-carved snow, a footprint trail, frozen grass, scattered stones, a frozen lake towards the sun, mountains, drifting ice crystals and the mammoth's breath |
 | Light and shadow | `src/gfx/` | Shadows store depth so materials can measure how much lies between them and the sun: crisp on snow, soft inside fur and grass |
 | Picture | `src/gfx/post.js` | HDR rendering, bloom, light shafts, a film-style tone curve that keeps colour in the highlights, vignette and grain |
 
-Shaving is designed in from the start: every strand's length is a per-strand value
-on the GPU, so cutting hair means writing shorter lengths where the clippers pass.
+Shaving is designed in from the start: every guide strand's length is a per-strand
+value on the GPU and its extra hairs derive their lengths from it, so cutting hair
+means writing shorter lengths where the clippers pass.
 
 ## Developer notes
 
@@ -74,7 +79,7 @@ on the GPU, so cutting hair means writing shorter lengths where the clippers pas
 
 ## What comes next
 
-1. The coat from elf distance: denser hair near the camera and a proper skin surface underneath.
-2. Clippers and cutting: shorten strands where the blade passes, loose tufts falling away.
-3. Climbing on the mammoth, and the mammoth reacting.
-4. Sound.
+1. Clippers and cutting: shorten strands where the blade passes, loose tufts falling away,
+   and the bare skin that shows underneath.
+2. Climbing on the mammoth, and the mammoth reacting.
+3. Sound.

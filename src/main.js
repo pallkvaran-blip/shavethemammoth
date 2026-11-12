@@ -21,14 +21,14 @@ const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').ma
 // run time (resolution and how much of the coat is drawn) to hold a steady
 // frame rate on whatever graphics card it finds.
 const PRESETS = {
-  low: { strands: 110000, shadow: [2048, 1024], samples: 2, scale: 0.72, dpr: 1, furShadow: 0.4, grass: 0.55, dust: 0.4 },
-  medium: { strands: 160000, shadow: [2048, 1024], samples: 4, scale: 0.86, dpr: 1, furShadow: 0.5, grass: 0.8, dust: 0.7 },
-  high: { strands: 240000, shadow: [4096, 2048], samples: 4, scale: 1, dpr: 1.25, furShadow: 0.6, grass: 1, dust: 1 },
-  ultra: { strands: 400000, shadow: [4096, 2048], samples: 4, scale: 1, dpr: 2, furShadow: 0.7, grass: 1, dust: 1 },
+  low: { children: 5, strands: 110000, shadow: [2048, 1024], samples: 2, scale: 0.72, dpr: 1, furShadow: 0.4, grass: 0.55, dust: 0.4 },
+  medium: { children: 8, strands: 160000, shadow: [2048, 1024], samples: 4, scale: 0.86, dpr: 1, furShadow: 0.5, grass: 0.8, dust: 0.7 },
+  high: { children: 12, strands: 240000, shadow: [4096, 2048], samples: 4, scale: 1, dpr: 1.25, furShadow: 0.6, grass: 1, dust: 1 },
+  ultra: { children: 20, strands: 400000, shadow: [4096, 2048], samples: 4, scale: 1, dpr: 2, furShadow: 0.7, grass: 1, dust: 1 },
 };
 const ADAPT = [
-  { scale: 1, fur: 1 }, { scale: 0.88, fur: 0.8 }, { scale: 0.78, fur: 0.64 },
-  { scale: 0.68, fur: 0.5 }, { scale: 0.6, fur: 0.4 }, { scale: 0.52, fur: 0.33 },
+  { scale: 1, fur: 1, kids: 1 }, { scale: 0.88, fur: 0.85, kids: 0.85 }, { scale: 0.78, fur: 0.7, kids: 0.7 },
+  { scale: 0.68, fur: 0.58, kids: 0.6 }, { scale: 0.6, fur: 0.48, kids: 0.5 }, { scale: 0.52, fur: 0.4, kids: 0.42 },
 ];
 
 const remembered = (() => { try { return localStorage.getItem('mammoth-detail'); } catch { return null; } })();
@@ -112,7 +112,7 @@ async function start() {
   const mammoth = await Mammoth.create({ strands: Q.strands, cell: 0.025, a2c: Q.samples > 0 }, (p, l) => setProgress(0.38 + p * 0.58, l));
   mammoth.addTo(scene);
   mammoth.setFurDetail(1, Q.furShadow);
-  if (q.has('nofur')) mammoth.furMeshes.forEach((f) => (f.visible = false));
+  if (q.has('nofur')) mammoth.setCoatVisible(false);
   // rough stand-ins for the body, used to darken the snow beneath it
   const occ = terrain.material.uniforms.uOccluders.value;
   [[0.9, 1.95, 0, 1.05], [-0.9, 1.85, 0, 1.0], [2.1, 2.3, 0, 0.6], [2.7, 1.2, 0, 0.3],
@@ -315,6 +315,8 @@ async function start() {
     const far = THREE.MathUtils.clamp(10 / Math.max(dist, 0.1), 0.42, 1);
     const coat = furBase * ADAPT[adaptLevel].fur;
     mammoth.setFurDetail(THREE.MathUtils.clamp(coat * far, 0.05, 1), Q.furShadow * Math.min(1, coat * 1.4));
+    U.uPxScale.value = size.y * 0.5 * camera.projectionMatrix.elements[5];
+    mammoth.updateCoat(camera, U.uPxScale.value, Math.max(2, num('children', Q.children) * ADAPT[adaptLevel].kids));
 
     breathe(dt);
 
@@ -342,11 +344,11 @@ async function start() {
     // the first frame compiles every shader; only lift the loading card once that is done
     if (frames === 2) reveal();
     if (showStats && frames % 20 === 0) {
-      statsEl.textContent = `${fps ? fps.toFixed(0) : '–'} fps · ${size.x}×${size.y} · ${(renderer.info.render.triangles / 1e6).toFixed(1)}M triangles · detail ${qualityName}${adaptLevel ? ' −' + adaptLevel : ''} · ${gpuName}`;
+      statsEl.textContent = `${fps ? fps.toFixed(0) : '–'} fps · ${size.x}×${size.y} · ${Math.round((mammoth.hairsDrawn || 0) / 1000)}k hairs · ${(renderer.info.render.triangles / 1e6).toFixed(1)}M triangles · detail ${qualityName}${adaptLevel ? ' −' + adaptLevel : ''} · ${gpuName}`;
     }
     if (shot && frames === 2) {
       gl.finish();
-      window.__info = { tris: renderer.info.render.triangles, calls: renderer.info.render.calls, strands: mammoth.strands, sun: sky.sunColor.toArray().map((v) => +v.toFixed(2)), meter: +meter.toFixed(3), exposure: +renderer.toneMappingExposure.toFixed(3), gpu: gpuName };
+      window.__info = { tris: renderer.info.render.triangles, calls: renderer.info.render.calls, strands: mammoth.strands, hairs: mammoth.hairsDrawn, coatDraws: mammoth.coatDraws, sun: sky.sunColor.toArray().map((v) => +v.toFixed(2)), meter: +meter.toFixed(3), exposure: +renderer.toneMappingExposure.toFixed(3), gpu: gpuName };
       window.__shotReady = true;
       return;
     }

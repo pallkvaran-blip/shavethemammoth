@@ -19,7 +19,7 @@ export const LONG_HAIR = 0.19; // strands longer than this get the many-segment 
  * @returns {{long: object, short: object}} instance attribute arrays per group
  */
 export function generateGroom(body, { count = 240000, seed = 7, clumpSize = 11 } = {}) {
-  const P = body.positions, N = body.normals, I = body.indices, FA = body.furA, FB = body.furB;
+  const P = body.positions, N = body.normals, I = body.indices, FA = body.furA, FB = body.furB, FL = body.flow;
   const SI = body.skinIndex, SW = body.skinWeight;
   const rng = mulberry32(seed);
   const triCount = I.length / 3;
@@ -45,6 +45,7 @@ export function generateGroom(body, { count = 240000, seed = 7, clumpSize = 11 }
   const nrm = new Float32Array(S * 3);
   const sLen = new Float32Array(S), sLift = new Float32Array(S), sTone = new Float32Array(S), sRed = new Float32Array(S);
   const sClump = new Float32Array(S), sBreath = new Float32Array(S);
+  const sFlow = new Float32Array(S * 3);
   const skinI = new Uint8Array(S * 4), skinW = new Uint8Array(S * 4);
 
   for (let s = 0; s < S; s++) {
@@ -63,6 +64,7 @@ export function generateGroom(body, { count = 240000, seed = 7, clumpSize = 11 }
     const f = (arr, k) => arr[ia * 4 + k] * b0 + arr[ib * 4 + k] * b1 + arr[ic * 4 + k] * b2;
     sLen[s] = f(FA, 0); sLift[s] = f(FA, 1); sTone[s] = f(FA, 2); sRed[s] = f(FA, 3);
     sClump[s] = f(FB, 0); sBreath[s] = f(FB, 1);
+    for (let k = 0; k < 3; k++) sFlow[s * 3 + k] = FL[ia * 3 + k] * b0 + FL[ib * 3 + k] * b1 + FL[ic * 3 + k] * b2;
     const iv = b0 >= b1 && b0 >= b2 ? ia : b1 >= b2 ? ib : ic;
     // keep the two strongest bones
     let w0 = SW[iv * 4], w1 = SW[iv * 4 + 1];
@@ -102,10 +104,18 @@ export function generateGroom(body, { count = 240000, seed = 7, clumpSize = 11 }
     let cx = -1, cy = 0, cz = 0.75 * Math.tanh(z * 5);
     const cd = cx * nx + cy * ny + cz * nz;
     cx -= nx * cd; cy -= ny * cd; cz -= nz * cd;
-    const lift = 0.12 + sLift[s] * 0.95;
-    let dx = fx + cx * top * 0.9 + nx * lift + (rng() - 0.5) * 0.3;
-    let dy = fy + cy * top * 0.9 + ny * lift + (rng() - 0.5) * 0.3;
-    let dz = fz + cz * top * 0.9 + nz * lift + (rng() - 0.5) * 0.3;
+    // where the hair is combed along a limb (the trunk), it follows the limb and lies flatter
+    let wx = sFlow[s * 3], wy = sFlow[s * 3 + 1], wz = sFlow[s * 3 + 2];
+    const wn = wx * nx + wy * ny + wz * nz;
+    wx -= nx * wn; wy -= ny * wn; wz -= nz * wn;
+    const combed = Math.min(1, Math.hypot(sFlow[s * 3], sFlow[s * 3 + 1], sFlow[s * 3 + 2]));
+    fx = fx * (1 - 0.7 * combed) + wx * 1.5; fy = fy * (1 - 0.7 * combed) + wy * 1.5; fz = fz * (1 - 0.7 * combed) + wz * 1.5;
+    const lift = (0.12 + sLift[s] * 0.95) * (1 - 0.45 * combed);
+    // long hair is unruly; short hair lies in a consistent flow
+    const jit = 0.1 + 0.2 * smooth(0.06, 0.4, sLen[s]);
+    let dx = fx + cx * top * 0.9 + nx * lift + (rng() - 0.5) * jit;
+    let dy = fy + cy * top * 0.9 + ny * lift + (rng() - 0.5) * jit;
+    let dz = fz + cz * top * 0.9 + nz * lift + (rng() - 0.5) * jit;
     // never point into the skin
     const dn = dx * nx + dy * ny + dz * nz;
     if (dn < 0.08) { const add = 0.08 - dn; dx += nx * add; dy += ny * add; dz += nz * add; }
@@ -148,7 +158,8 @@ export function generateGroom(body, { count = 240000, seed = 7, clumpSize = 11 }
       }
     }
     // a lock can only gather hair from within reach
-    const reach = 0.03 + 0.28 * sLen[s];
+    // (short hair only forms small tufts; otherwise its tips knit into a net)
+    const reach = 0.005 + 0.26 * sLen[s];
     if (best >= 0 && bd < reach * reach) strandClump[s] = best;
   }
 
@@ -179,7 +190,7 @@ export function generateGroom(body, { count = 240000, seed = 7, clumpSize = 11 }
       const len = sLen[s] * (0.72 + 0.42 * lr0 + 0.22 * (r1 - 0.5)) * (flyaway ? 0.8 : 1);
       const width = clamp(0.0055 + 0.024 * len, 0.0055, 0.019) * (0.8 + 0.4 * r2);
       const droop = clamp((0.22 + 0.78 * smooth(0.04, 0.55, len)) * (0.85 + 0.3 * lr1), 0, 0.97);
-      const tight = flyaway ? 0.1 + 0.3 * r3 : 0.42 + 0.38 * r3;
+      const tight = (flyaway ? 0.1 + 0.3 * r3 : 0.42 + 0.38 * r3) * (0.45 + 0.55 * smooth(0.04, 0.22, len));
       // layer height: how far above the skin this strand rides
       const fluff = sLift[s] * (0.012 + 0.17 * len) * (0.2 + 1.0 * lr2 + 0.45 * r3) * (flyaway ? 1.5 : 1);
       g.iA[i * 4] = len; g.iA[i * 4 + 1] = width; g.iA[i * 4 + 2] = r1; g.iA[i * 4 + 3] = lr3;
@@ -191,8 +202,62 @@ export function generateGroom(body, { count = 240000, seed = 7, clumpSize = 11 }
       g.iSkinIdx[i * 4] = skinI[s * 4]; g.iSkinIdx[i * 4 + 1] = skinI[s * 4 + 1];
       g.iSkinWgt[i * 4] = skinW[s * 4]; g.iSkinWgt[i * 4 + 1] = skinW[s * 4 + 1];
     }
+    g.chunks = chunkStrands(g, make);
     out[name] = g;
   }
   out.lockCount = centres.length;
   return out;
+}
+
+const ATTRS = [['iRoot', 3], ['iOff', 3], ['iDir', 3], ['iNormal', 3], ['iA', 4], ['iB', 4], ['iCol', 4], ['iSkinIdx', 4], ['iSkinWgt', 4]];
+
+/**
+ * A second copy of the strands, sorted into patches of hide about 40 cm
+ * across. Each patch can then be drawn on its own: skipped when off screen,
+ * and given many more hairs when the camera is close to it. Inside a patch
+ * the strands keep their random order, so drawing only the first part of a
+ * patch thins it evenly.
+ */
+function chunkStrands(g, make, cell = 0.4) {
+  const n = g.count;
+  const buckets = new Map();
+  for (let i = 0; i < n; i++) {
+    const kx = Math.floor(g.iRoot[i * 3] / cell) + 64, ky = Math.floor(g.iRoot[i * 3 + 1] / cell) + 64, kz = Math.floor(g.iRoot[i * 3 + 2] / cell) + 64;
+    const key = kx | (ky << 8) | (kz << 16);
+    let list = buckets.get(key);
+    if (!list) buckets.set(key, (list = []));
+    list.push(i);
+  }
+  // fold tiny patches into a neighbour so there are not hundreds of near-empty draws
+  const lists = [...buckets.entries()].sort((a, b) => a[0] - b[0]).map((e) => e[1]);
+  const merged = [];
+  for (const list of lists) {
+    const last = merged[merged.length - 1];
+    if (last && (list.length < 220 || last.length < 220) && last.length + list.length < 2600) last.push(...list);
+    else merged.push(list.slice());
+  }
+  const sorted = make(n);
+  const chunks = [];
+  let at = 0;
+  for (const list of merged) {
+    const start = at;
+    let cx = 0, cy = 0, cz = 0, maxW = 0, maxL = 0;
+    for (const i of list) {
+      for (const [name, size] of ATTRS) {
+        const src = g[name], dst = sorted[name];
+        for (let k = 0; k < size; k++) dst[at * size + k] = src[i * size + k];
+      }
+      cx += g.iRoot[i * 3]; cy += g.iRoot[i * 3 + 1]; cz += g.iRoot[i * 3 + 2];
+      maxW = Math.max(maxW, g.iA[i * 4 + 1]); maxL = Math.max(maxL, g.iA[i * 4]);
+      at++;
+    }
+    const count = list.length;
+    cx /= count; cy /= count; cz /= count;
+    let r = 0;
+    for (const i of list) r = Math.max(r, Math.hypot(g.iRoot[i * 3] - cx, g.iRoot[i * 3 + 1] - cy, g.iRoot[i * 3 + 2] - cz));
+    const arrays = {};
+    for (const [name, size] of ATTRS) arrays[name] = sorted[name].subarray(start * size, (start + count) * size);
+    chunks.push({ count, arrays, center: [cx, cy, cz], rootRadius: r, radius: r + maxL + 0.3, maxWidth: maxW });
+  }
+  return chunks;
 }
