@@ -1,0 +1,20 @@
+{
+  "name": "shavethemammoth",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "build:artifact": "vite build --mode artifact && node tools/make-artifact.mjs",
+    "preview": "vite preview",
+    "shot": "node tools/shot.mjs"
+  },
+  "dependencies": {
+    "three": "0.186.1"
+  },
+  "devDependencies": {
+    "vite": "^8.3.8"
+  },
+  "description": "A first-person game about a very small creature shaving a very large woolly mammoth. Browser, three.js."
+}

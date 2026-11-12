@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Shave the Mammoth</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;1,9..144,400&family=Figtree:wght@400;500;600&display=swap">
+<style>
+  /* Layout: the scene fills the frame. A wordmark rests top-left; one quiet strip of controls sits on the bottom edge. */
+  :root {
+    --night: #0b0d12;                      /* ground behind the scene while it loads */
+    --ink: #f4ede1;                        /* snow-warm text */
+    --ink-dim: rgba(244, 237, 225, 0.66);
+    --veil: rgba(13, 15, 21, 0.46);        /* backing for controls over bright snow */
+    --veil-strong: rgba(13, 15, 21, 0.78);
+    --line: rgba(244, 237, 225, 0.2);
+    --amber: #eab676;                      /* the low sun */
+    --font-display: 'Fraunces', 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
+    --font-ui: 'Figtree', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color-scheme: dark;
+  }
+  [hidden] { display: none !important; }
+  body.instant * { transition: none !important; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: var(--night); color: var(--ink); overflow: hidden;
+    font-family: var(--font-ui); font-size: 14px; line-height: 1.4;
+    -webkit-font-smoothing: antialiased; overscroll-behavior: none;
+  }
+  #view { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; outline: none; }
+
+  /* ---- loading card ---- */
+  #loading {
+    position: fixed; inset: 0; z-index: 5; display: grid; place-items: center; background: var(--night);
+    padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+    transition: opacity 1.6s ease 0.2s;
+  }
+  body.ready #loading { opacity: 0; pointer-events: none; }
+  .card { width: min(22rem, 100%); text-align: center; }
+  .card h1 {
+    font-family: var(--font-display); font-weight: 400; font-size: clamp(1.9rem, 6vw, 2.6rem); line-height: 1.05;
+    letter-spacing: -0.01em; margin: 0 0 1.4rem; text-wrap: balance;
+  }
+  .card h1 em { font-style: italic; color: var(--amber); }
+  #track { height: 1px; background: var(--line); overflow: hidden; }
+  #bar { height: 100%; background: var(--amber); transform-origin: left; transform: scaleX(0); transition: transform 0.3s ease; }
+  #status { margin-top: 0.8rem; font-size: 0.8rem; color: var(--ink-dim); letter-spacing: 0.04em; min-height: 1.2em; }
+
+  /* ---- heads-up display ---- */
+  #hud {
+    position: fixed; inset: 0; z-index: 3; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between;
+    padding-top: max(14px, env(safe-area-inset-top, 0px)); padding-bottom: max(14px, env(safe-area-inset-bottom, 0px));
+    padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+    opacity: 0; transition: opacity 1.2s ease 1.4s;
+  }
+  body.ready #hud { opacity: 1; }
+  body.bare #hud { opacity: 0; transition-delay: 0s; transition-duration: 0.4s; }
+  body.bare #hud * { pointer-events: none !important; }
+  .top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+  .wordmark {
+    font-family: var(--font-display); font-size: 1.15rem; font-weight: 400; letter-spacing: 0.005em; margin: 0;
+    text-shadow: 0 1px 14px rgba(0, 0, 0, 0.5);
+  }
+  .wordmark em { font-style: italic; color: var(--amber); }
+  #stats {
+    font-size: 0.72rem; color: var(--ink-dim); text-align: right; font-variant-numeric: tabular-nums; line-height: 1.5;
+    background: var(--veil); padding: 6px 10px; border-radius: 6px; max-width: 60vw; overflow-wrap: anywhere;
+  }
+  .bottom { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 10px 16px; }
+  .panel {
+    pointer-events: auto; background: var(--veil); backdrop-filter: blur(10px) saturate(1.2); -webkit-backdrop-filter: blur(10px) saturate(1.2);
+    border: 1px solid var(--line); border-radius: 10px; padding: 6px; min-width: 0;
+  }
+  .views { display: flex; flex-wrap: wrap; gap: 2px; }
+  .views button {
+    appearance: none; border: 0; background: transparent; color: var(--ink-dim); font: inherit; font-weight: 500;
+    padding: 7px 11px; border-radius: 6px; cursor: pointer; white-space: nowrap; transition: color 0.2s, background 0.2s;
+  }
+  .views button:hover { color: var(--ink); background: rgba(244, 237, 225, 0.08); }
+  .views button[aria-pressed="true"] { color: var(--night); background: var(--amber); }
+  .views button.elf { color: var(--amber); }
+  .views button.elf[aria-pressed="true"] { color: var(--night); }
+  button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+  .settings { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 6px 12px; }
+  .settings label { display: flex; align-items: center; gap: 8px; color: var(--ink-dim); font-size: 0.8rem; letter-spacing: 0.03em; }
+  .settings select {
+    appearance: none; background: transparent; color: var(--ink); border: 1px solid var(--line); border-radius: 6px;
+    font: inherit; font-size: 0.85rem; padding: 4px 22px 4px 8px; cursor: pointer;
+    background-image: linear-gradient(45deg, transparent 50%, var(--ink-dim) 50%), linear-gradient(135deg, var(--ink-dim) 50%, transparent 50%);
+    background-position: calc(100% - 12px) 55%, calc(100% - 8px) 55%; background-size: 4px 4px; background-repeat: no-repeat;
+  }
+  .settings select option { background: var(--night); color: var(--ink); }
+  .settings input[type="range"] { width: 7rem; accent-color: var(--amber); }
+  #hint {
+    pointer-events: none; align-self: center; text-align: center; font-size: 0.82rem; color: var(--ink); letter-spacing: 0.03em;
+    background: var(--veil-strong); padding: 7px 14px; border-radius: 999px; margin-bottom: 10px; max-width: 100%;
+    opacity: 0; transition: opacity 0.5s ease;
+  }
+  #hint.show { opacity: 1; }
+  kbd { font: inherit; font-weight: 600; color: var(--amber); }
+  .mid { display: flex; flex-direction: column; justify-content: flex-end; flex: 1; min-height: 0; }
+  @media (max-width: 640px) {
+    .bottom { flex-direction: column; align-items: stretch; }
+    .views button { padding: 7px 9px; }
+    .settings input[type="range"] { flex: 1; width: auto; min-width: 5rem; }
+  }
+  @media (hover: none) { .desk { display: none; } }
+  @media (prefers-reduced-motion: reduce) { #loading, #hud, #hint { transition-duration: 0.01s; } }
+</style>
+</head>
+<body>
+<canvas id="view" tabindex="0" aria-label="A woolly mammoth standing on a snowy steppe at sunset"></canvas>
+
+<div id="loading" role="status" aria-live="polite">
+  <div class="card">
+    <h1>Shave the <em>Mammoth</em></h1>
+    <div id="track"><div id="bar"></div></div>
+    <div id="status">Waking up</div>
+  </div>
+</div>
+
+<div id="hud">
+  <div class="top">
+    <p class="wordmark">Shave the <em>Mammoth</em></p>
+    <div id="stats" hidden></div>
+  </div>
+  <div class="mid">
+    <div id="hint"></div>
+    <div class="bottom">
+      <div class="panel views" role="group" aria-label="Views">
+        <button type="button" id="view-0" data-view="0" aria-pressed="true">The mammoth</button>
+        <button type="button" id="view-1" data-view="1" aria-pressed="false">In profile</button>
+        <button type="button" id="view-2" data-view="2" aria-pressed="false">Into the sun</button>
+        <button type="button" id="view-3" data-view="3" aria-pressed="false">The coat</button>
+        <button type="button" id="view-elf" class="elf" aria-pressed="false">Elf&rsquo;s-eye view</button>
+      </div>
+      <div class="panel settings">
+        <label for="sun">Sun
+          <input type="range" id="sun" min="2" max="30" step="0.5" value="6.5" aria-label="Height of the sun above the horizon">
+        </label>
+        <label for="detail">Detail
+          <select id="detail">
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high" selected>High</option>
+            <option value="ultra">Ultra</option>
+          </select>
+        </label>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>
