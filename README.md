@@ -11,7 +11,11 @@ height. You can also orbit the mammoth, jump between a few views and move the su
 
 | Shears in hand | A foreleg part-shorn |
 | --- | --- |
-| ![The shears held in front of a foreleg](docs/shears.jpg) | ![The shears lying on the hide beside a shorn patch](docs/shearing.jpg) |
+| ![The shears held in front of a foreleg](docs/shears.jpg) | ![The shears lying on the hide over a shorn patch](docs/shearing.jpg) |
+
+The hair that was cut, where it fell:
+
+![Cut hair lying on the snow in front of the foot](docs/cut-hair.jpg)
 
 | Into the sun | From elf height |
 | --- | --- |
@@ -56,8 +60,18 @@ Walk up to the mammoth. Held away from it, the shears point ahead with the blade
 level, and a snip trims whatever hair hangs between them. Press them into the coat
 and they turn to lie flat on the hide, pointing up the limb, as a shearer holds
 them: a snip there takes everything between the blades and the skin down to
-stubble. The cut hair falls, drifts on the wind and stays where it lands. The
-readout at the top right shows how much of the coat has gone.
+stubble.
+
+The blades part the hair they lie in: hair that would pass through a blade is
+pushed off it, either out past its back or into the gap, where it is cut with the
+rest. Steel does not pass through the hide, the toenails or the snow either; the
+hands give way instead.
+
+The hair that falls is the hair that was cut. Each lock's cut-off part goes on
+being drawn from the same strand, by the same shader, and starts exactly where it
+was. Then it comes away as one piece: squeezed out of the coat, it drops, turns,
+and settles on the snow, where it stays. The readout at the top right shows how
+much of the coat has gone.
 
 The elf stands about 20 cm tall at the eye and the shears are 27 cm long, so for
 now only the feet, the lower legs and the tip of the trunk are within reach.
@@ -79,9 +93,11 @@ Settings > System > Display > Graphics.
 | Sky | `src/world/sky.js` | Rayleigh, Mie and ozone scattering baked to a lookup for the current sun; clouds and the sun's disc drawn live. The sky also supplies the ambient light, reflections and haze colour |
 | Land | `src/world/terrain.js`, `grass.js`, `rocks.js`, `particles.js` | Wind-carved snow, a footprint trail, frozen grass, scattered stones, a frozen lake towards the sun, mountains, drifting ice crystals and the mammoth's breath. The mammoth stands sunk a few centimetres into the snow, which fits round each foot |
 | Light and shadow | `src/gfx/` | Shadows store depth so materials can measure how much lies between them and the sun: crisp on snow, soft inside fur and grass. Three maps: the land, the mammoth, and a fine one that follows the elf |
-| Shears | `src/game/shears.js` | Two identical forgings, one turned over on the other: bevelled blades, cranked tangs, brass ferrules, turned handles, a bolt and nut. Held in front of the eyes with sway and bob; the hands draw back rather than push the blades through anything solid, and lay the shears along the hide when pressed into the coat |
+| Shears | `src/game/shears.js` | Two identical forgings, one turned over on the other: bevelled blades, cranked tangs, brass ferrules, turned handles, a bolt and nut. Held in front of the eyes with sway and bob, or laid along the hide when pressed into the coat. Some fifty small spheres along every part of both halves are kept out of the mammoth and the snow each frame |
+| What is solid | `src/mammoth/collider.js` | The body's own description (ellipsoids and round cones) evaluated exactly, each piece carried by its bone so the swaying trunk is where it looks, with the toenails added. The baked distance volume the fur drapes over is too coarse to hold a blade a few millimetres off the skin |
 | Cutting | `src/mammoth/strand.js`, `mammoth.js`, `src/game/shaving.js` | The fur is shaped on the GPU, so the same recipe is followed in JavaScript for the guide strand of each lock to find the ones between the blades. Each is cut as a blade reaches it during the stroke, by writing a shorter length for it; its hairs follow. The hide shows as skin where the coat is down to stubble |
-| Cut hair | `src/game/clippings.js` | Every severed lock becomes a loose tuft with the colour of the hair it came from: it falls, flutters in the gusts, slides off the mammoth and settles on the snow |
+| Hair and steel | `src/mammoth/furMaterial.js`, `shears.js` | The fur's vertex shader is told where the blades are and moves hair off them. As a last guarantee the tool is drawn as if 5.5 cm nearer the eye than it is, so any hair lying that close in front of it is hidden behind it and no strand can be seen passing through steel |
+| Cut hair | `src/game/clippings.js`, `furMaterial.js` | A cut copies the strand (and the pose of the skin and the wind at that moment) into a pool drawn by a variant of the fur shader, which grows the same hairs and keeps only the part beyond the cut. That part is then moved as one rigid piece: it falls, turns, flutters, slides off the mammoth and is laid flat on the snow |
 | Sound | `src/game/audio.js` | Synthesised with the Web Audio API: blades sliding and meeting, hair parting, boots in snow, wind that follows the gusts on screen |
 | Picture | `src/gfx/post.js` | HDR rendering, bloom, light shafts, a film-style tone curve that keeps colour in the highlights, vignette and grain |
 
@@ -94,9 +110,12 @@ Settings > System > Display > Graphics.
   in hand), `snips=n` with `snipyaw` (take n strokes, turning between them), `look=yaw,pitch`,
   `open` (blade angle, 0 to 1), `warm=n` (advance n frames first), `cutdisc=x,y,z,nx,ny,nz,r`
   (shear everything crossing a disc), `shearsat=x,y,z` (lay the shears down to look at them),
-  `debugShadow`, and `debug` (exposes the game as `window.__game`).
+  `debugShadow`, `adapt=n` (start n notches down the automatic quality scale), and `debug`
+  (exposes the game as `window.__game`).
 - `tools/smoke.mjs` drives the live page through every control and reports script errors;
-  `tools/snip-test.mjs` picks up the shears and cuts with real key presses.
+  `tools/snip-test.mjs` picks up the shears and cuts with real key presses;
+  `tools/collide-test.mjs` puts the elf in 3,000 places and measures whether any part of
+  the shears ends up inside the mammoth or the snow.
 - `dev/body.html` shows the bare body from four sides, for working on the anatomy.
 - `npm run build:artifact` writes a single page (`dist-artifact/shave-the-mammoth.html`)
   that loads three.js from a CDN.

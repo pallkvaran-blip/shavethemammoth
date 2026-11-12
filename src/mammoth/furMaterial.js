@@ -13,20 +13,44 @@ import * as THREE from 'three';
 import { COMMON, SHADOWS, ATMOSPHERE, SKINNING } from '../gfx/glsl.js';
 import { U } from '../gfx/globals.js';
 
-const VERT = /* glsl */ `
+// One vertex shader grows every hair. With CLIPPING defined it draws hair that
+// has been cut off instead: the very same curves (same strand, same recipe),
+// restricted to the part that came away, then carried as a rigid piece to
+// wherever that piece has since fallen.
+export const FUR_VERT = /* glsl */ `
 precision highp sampler3D;
 ${COMMON}
 ${SKINNING}
-attribute vec3 iRoot;
-attribute vec3 iOff;      // root minus the root of the lock it belongs to
-attribute vec3 iDir;      // direction the lock leaves the skin
-attribute vec3 iNormal;
+#ifdef CLIPPING
+  attribute vec4 cRoot;     // root, in the rest pose; w = the length the lock was cut to
+  attribute vec4 cOff;      // root minus the root of its lock; w = the length it had before
+  attribute vec4 cDir;      // direction the lock leaves the skin; w = how many of its hairs were showing
+  attribute vec4 cNrm;      // skin normal at the root; w = when it was cut
+  attribute vec4 cM0;       // the skin's position at that moment (the bone matrix, by rows)
+  attribute vec4 cM1;
+  attribute vec4 cM2;
+  attribute vec4 cWind;     // the wind's push on the lock at that moment; w = its colour (three bytes packed into one number)
+  attribute vec4 cPivot;    // the middle of the piece at that moment; w = when it touched the snow
+  attribute vec4 cPos;      // where that middle is now; w = height of the snow it rests on (far below while it falls)
+  attribute vec4 cQuat;     // how the piece has turned since
+  #define iRoot cRoot.xyz
+  #define iOff cOff.xyz
+  #define iDir cDir.xyz
+  #define iNormal cNrm.xyz
+#else
+  attribute vec3 iRoot;
+  attribute vec3 iOff;      // root minus the root of the lock it belongs to
+  attribute vec3 iDir;      // direction the lock leaves the skin
+  attribute vec3 iNormal;
+  attribute vec4 iSkinIdx;
+  attribute vec4 iSkinWgt;
+  attribute float iCut;     // metres of this lock left after shearing
+#endif
 attribute vec4 iA;        // length, lock width, strand seed, lock seed
 attribute vec4 iB;        // droop, lock tightness, layer height, breathing weight
-attribute vec4 iCol;      // tone, ginger, lock variation, strand variation
-attribute vec4 iSkinIdx;
-attribute vec4 iSkinWgt;
-attribute float iCut;     // metres of this lock left after shearing
+#ifndef CLIPPING
+  attribute vec4 iCol;    // tone, ginger, lock variation, strand variation
+#endif
 
 uniform sampler3D uSdf;
 uniform vec3 uSdfMin;
@@ -40,12 +64,67 @@ uniform float uChildMax;    // most hairs one lock may show
 uniform float uMinPx;       // thinnest a hair is ever drawn, in pixels
 uniform vec3 uOrigin;       // where the mammoth stands
 
+uniform vec3 uShP;          // the shears: their pivot,
+uniform vec3 uShN;          // the normal of the plane the blades lie in,
+uniform vec3 uShA[2];       // along each blade from the pivot,
+uniform vec3 uShC[2];       // and across each blade towards its cutting edge
+uniform float uShOn;        // 0 when the shears are put away
+
 varying vec2 vUV;
 varying vec3 vTan;
 varying vec3 vVolN;
 varying vec3 vPosW;
 varying vec4 vCol;
 varying vec4 vHair;     // hair seed, coverage, wool, depth in the coat (0 at the skin)
+
+vec3 rotateQ(vec4 q, vec3 v) { return v + 2.0 * cross(q.xyz, cross(q.xyz, v) + q.w * v); }
+
+float bladeBack(float u) {
+  float s = clamp(u / 0.135, 0.0, 1.0);
+  return mix(0.0195 * (1.0 - 0.5 * pow(s, 1.5)), 0.0012, smoothstep(0.86, 1.0, s));
+}
+
+// Hair cannot pass through steel. Each blade parts the hair it lies in: hair
+// that would cross a blade is pushed off it to whichever side is nearer, either
+// out past its back or in past its cutting edge, into the gap between the
+// blades, where it waits to be cut. Hair rooted under a blade that is lying on
+// the hide stays pressed beneath it. "along" is the distance from the hair's
+// root (a root cannot move); "loose" is 1 for hair that has been cut off.
+vec3 shearsPush(vec3 p, vec3 root, float along, float loose) {
+  vec3 rel = p - uShP;
+  if (uShOn <= 0.0 || dot(rel, rel) > 0.05) return p;
+  float ramp = smoothstep(0.004, 0.022, along) * uShOn;
+  vec3 rr = root - uShP;
+  float dr = dot(rr, uShN);
+  for (int i = 0; i < 2; i++) {
+    rel = p - uShP;
+    float d = dot(rel, uShN);
+    float u = dot(rel, uShA[i]), w = dot(rel, uShC[i]);
+    float back = bladeBack(u);
+    float inside = smoothstep(0.0, 0.01, u) * (1.0 - smoothstep(0.133, 0.139, u)) * step(-back - 0.004, w) * step(w, 0.007);
+    if (inside > 0.0) {
+      float ru = dot(rr, uShA[i]), rw = dot(rr, uShC[i]);
+      float under = step(0.0, ru) * step(ru, 0.139) * step(-bladeBack(ru) - 0.004, rw) * step(rw, 0.009) * step(-0.04, dr) * step(dr, 0.001) * (1.0 - loose);
+      if (under > 0.5) {
+        p -= uShN * (max(0.0, d + 0.005) * inside * uShOn);
+      } else {
+        float D = d > 0.0 ? 0.05 : 0.03;
+        float to = w > -0.45 * back ? 0.007 : -back - 0.004;
+        p += uShC[i] * ((to - w) * inside * (1.0 - smoothstep(D * 0.35, D, abs(d))) * ramp);
+      }
+    }
+  }
+  // nor does anything lie across the pivot
+  rel = p - uShP;
+  float dn = dot(rel, uShN);
+  vec3 inPlane = rel - uShN * dn;
+  float r = length(inPlane);
+  if (r < 0.016 && r > 1e-4) {
+    float D = dn > 0.0 ? 0.05 : 0.03;
+    p += inPlane * ((0.016 - r) / r * (1.0 - smoothstep(D * 0.35, D, abs(dn))) * ramp);
+  }
+  return p;
+}
 
 void main() {
   float t = position.y;
@@ -59,7 +138,15 @@ void main() {
   float k = 0.0;
   float show = 1.0;
   float nShow = 1.0;    // hairs this lock shows at this distance
-  #ifndef DEPTH_PASS
+  #if defined(CLIPPING)
+    k = float(gl_InstanceID % CLIP_HAIRS);
+    // as many hairs as the lock was showing when it was cut; fewer once it lies on the snow, or far away
+    float eyeDist = max(length(cameraPosition - cPos.xyz), 0.03);
+    nShow = min(cDir.w, 1.0 + 1.6 * lockW * uPxScale / (eyeDist * uHairPx));
+    if (cPos.w > -500.0) nShow = min(nShow, mix(12.0, 7.0, smoothstep(0.1, 0.8, uTime - cPivot.w)));
+    show = clamp(nShow - k, 0.0, 1.0);
+    if (show <= 0.0 || cOff.w <= 0.0) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
+  #elif !defined(DEPTH_PASS)
     int batch = int(modelMatrix[0][0] + 0.5);
     k = floor(modelMatrix[1][1] - 0.5) + float(gl_InstanceID % batch);
     vec3 eyeVec = cameraPosition - (iRoot + uOrigin);
@@ -90,20 +177,34 @@ void main() {
   float wool = step(4.5, k) * step(0.5, mod(floor((k - 1.0) / 4.0), 2.0));
   float L = iA.x * uLengthScale * mix(1.0, 0.5 + 0.62 * h4, isChild);
   L = mix(L, clamp(iA.x * 0.3, 0.025, 0.085) * (0.6 + 0.8 * h4), wool);
-  // Shears: the lock has been cut to iCut metres, and each of its hairs ends
-  // within a few percent of that. What is left keeps its shape: the curve is
-  // simply followed a shorter way.
-  float Lc = min(L, iCut * (0.93 + 0.14 * h1));
-  if (Lc < 0.003) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
-  t *= Lc / L;
+  // Shears: a lock is cut to a length, and each of its hairs ends within a few
+  // percent of that. What is left keeps its shape: the curve is simply
+  // followed a shorter way.
+  float trim = 0.93 + 0.14 * h1;
+  #ifdef CLIPPING
+    // the part of this hair that came away: from where it was cut to where it used to end
+    float Lnew = min(L, cRoot.w * trim), Lold = min(L, cOff.w * trim);
+    if (Lold - Lnew < 0.002) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
+    t = mix(Lnew, Lold, t) / L;
+  #else
+    float Lc = min(L, iCut * trim);
+    if (Lc < 0.003) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
+    t *= Lc / L;
+  #endif
 
-  mat4 skin = boneMatrix(iSkinIdx.x) * iSkinWgt.x;
-  if (iSkinWgt.y > 0.004) skin += boneMatrix(iSkinIdx.y) * iSkinWgt.y;   // most hair rides on a single bone
-  mat3 skinR = mat3(skin);
-  vec3 rootW = (skin * vec4(root, 1.0)).xyz;
-
-  // wind, brought back into the rest pose where the hair is shaped
-  vec3 windR = transpose(skinR) * windPush(rootW, cs) * mix(1.0, 0.2, wool);
+  #ifdef CLIPPING
+    mat4 skin = transpose(mat4(cM0, cM1, cM2, vec4(0.0, 0.0, 0.0, 1.0)));
+    mat3 skinR = mat3(skin);
+    vec3 rootW = (skin * vec4(root, 1.0)).xyz;
+    vec3 windR = cWind.xyz * mix(1.0, 0.2, wool);
+  #else
+    mat4 skin = boneMatrix(iSkinIdx.x) * iSkinWgt.x;
+    if (iSkinWgt.y > 0.004) skin += boneMatrix(iSkinIdx.y) * iSkinWgt.y;   // most hair rides on a single bone
+    mat3 skinR = mat3(skin);
+    vec3 rootW = (skin * vec4(root, 1.0)).xyz;
+    // wind, brought back into the rest pose where the hair is shaped
+    vec3 windR = transpose(skinR) * windPush(rootW, cs) * mix(1.0, 0.2, wool);
+  #endif
 
   float stray = isChild * step(0.93, h3);   // a few hairs break rank
   vec3 d0 = normalize(mix(iDir, n0, wool * 0.5) + (t1 * (h4 - 0.5) + t2 * (h5 - 0.5)) * ((0.06 + 0.22 * stray + 1.1 * wool) * isChild));
@@ -161,6 +262,29 @@ void main() {
 
   vec3 posW = (skin * vec4(pos, 1.0)).xyz;
   vec3 tanW = normalize(skinR * tan);
+  // soft "volume" normal: mostly the body's shape, a little of the strand's own lean
+  vec3 volN = normalize(skinR * mix(grad, n0, 0.35));
+  float coat = clamp(skinDist / max(0.025, min(iA.x * 0.45, 0.2)), 0.0, 1.0);
+
+  #ifdef CLIPPING
+    // it has come away: carry it, as one rigid piece, to where it is now
+    float age = uTime - cNrm.w;
+    posW = cPos.xyz + rotateQ(cQuat, posW - cPivot.xyz);
+    tanW = rotateQ(cQuat, tanW);
+    volN = rotateQ(cQuat, volN);
+    coat = mix(coat, 1.0, smoothstep(0.0, 0.25, age));     // no longer buried in the coat
+    if (cPos.w > -500.0) {
+      // come to rest: soft hair settles onto the snow rather than standing on end
+      float settled = smoothstep(0.0, 0.18, uTime - cPivot.w);
+      float up = max(0.0, posW.y - cPos.w);
+      posW.y = mix(posW.y, cPos.w + 0.0015 + 0.004 * h2 + up * 0.3, settled);
+      tanW = normalize(vec3(tanW.x, tanW.y * mix(1.0, 0.3, settled), tanW.z));
+      volN = normalize(volN + vec3(0.0, 1.5 * settled, 0.0));
+    }
+    posW = shearsPush(posW, rootW, t * L, smoothstep(0.0, 0.12, age));
+  #elif !defined(DEPTH_PASS)
+    posW = shearsPush(posW, rootW, t * L, 0.0);
+  #endif
 
   #ifdef DEPTH_PASS
     vec3 toEye = uSunDir;
@@ -192,11 +316,15 @@ void main() {
 
   vUV = vec2(position.x + 0.5, t);
   vTan = tanW;
-  // soft "volume" normal: mostly the body's shape, a little of the strand's own lean
-  vVolN = normalize(skinR * mix(grad, n0, 0.35));
+  vVolN = volN;
   vPosW = posW;
-  vCol = iCol;
-  vHair = vec4(cseed, coverage, wool, clamp(skinDist / max(0.025, min(iA.x * 0.45, 0.2)), 0.0, 1.0));
+  #ifdef CLIPPING
+    float packed = cWind.w;
+    vCol = vec4(mod(packed, 256.0), mod(floor(packed / 256.0), 256.0), floor(packed / 65536.0), 0.0) / 255.0;
+  #else
+    vCol = iCol;
+  #endif
+  vHair = vec4(cseed, coverage, wool, coat);
   gl_Position = projectionMatrix * viewMatrix * vec4(posW, 1.0);
 }
 `;
@@ -381,6 +509,11 @@ export function makeFurMaterials({ sdfTexture, sdfMin, sdfInvSize, boneTexture, 
     uChildMax: { value: 24 },
     uMinPx: { value: 1.25 },
     uOrigin: { value: new THREE.Vector3() },
+    uShP: { value: new THREE.Vector3() },
+    uShN: { value: new THREE.Vector3(0, 1, 0) },
+    uShA: { value: [new THREE.Vector3(1, 0, 0), new THREE.Vector3(1, 0, 0)] },
+    uShC: { value: [new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 0, -1)] },
+    uShOn: { value: 0 },
     uSigma: { value: 15 },
     uFrost: { value: 0.55 },
     uRootColor: { value: new THREE.Color(0.011, 0.008, 0.007) },
@@ -390,7 +523,7 @@ export function makeFurMaterials({ sdfTexture, sdfMin, sdfInvSize, boneTexture, 
     uWoolColor: { value: new THREE.Color(0.165, 0.125, 0.092) },
   };
   const color = new THREE.ShaderMaterial({
-    vertexShader: VERT,
+    vertexShader: FUR_VERT,
     fragmentShader: FUR_FRAG,
     uniforms: { ...U, ...own, uWidthScale: { value: 1 } },
     defines: { SHADOW_TAPS: 6, ...(a2c ? { USE_A2C: 1 } : {}) },
@@ -400,7 +533,7 @@ export function makeFurMaterials({ sdfTexture, sdfMin, sdfInvSize, boneTexture, 
   // keep the one per-vertex attribute in slot 0; some drivers are slow when slot 0 is per-instance
   color.index0AttributeName = 'position';
   const depth = new THREE.ShaderMaterial({
-    vertexShader: VERT,
+    vertexShader: FUR_VERT,
     fragmentShader: FRAG_DEPTH,
     uniforms: { ...U, ...own, uWidthScale: { value: 0.7 } },
     defines: { DEPTH_PASS: 1 },

@@ -59,7 +59,7 @@ async function start() {
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(VIEWS[0].fov, 1, 0.08, 30000);
   const size = new THREE.Vector2();
-  let adaptLevel = 0;
+  let adaptLevel = Math.min(ADAPT.length - 1, Math.max(0, num('adapt', 0) | 0));   // dev: ?adapt=5 starts at the lightest setting
   // frame-rate watchdog state
   let wAcc = 0, wFrames = 0, goodStreak = 0, fps = 0, settle = 2.5;
   const post = new Post(renderer, { samples: Q.samples });
@@ -126,7 +126,8 @@ async function start() {
       const forward = new THREE.Vector3(1, 0, 0).cross(normal).normalize();
       if (forward.lengthSq() < 0.5) forward.set(0, 0, 1).cross(normal).normalize();
       const cuts = mammoth.findCuts({ pivot: new THREE.Vector3(c[0], c[1], c[2]), forward, normal, radius: c[6] });
-      cuts.forEach((cut, k) => { if (mammoth.applyCut(cut) > 0 && k % 2 === 0) shaving.clippings.spawn(cut, 0, 0, 0, 1.4); });
+      shaving.env.eye.set(c[0], c[1], c[2] + 0.5);
+      cuts.forEach((cut, k) => { if (mammoth.applyCut(cut) > 0 && k % 2 === 0) shaving.clippings.spawn(cut, shaving.env); });
       console.info(`cutdisc: ${cuts.length} locks cut`);
     }
     mammoth.flushCuts();
@@ -324,6 +325,8 @@ async function start() {
   };
 
   if (q.has('debug')) window.__game = { shaving, mammoth, rig, sound, camera };   // dev: poke at the game from the console
+  if (q.has('nopush')) shaving.noPush = true;                                      // dev: hair ignores the blades
+  if (q.has('noclippings')) shaving.clippings.mesh.visible = false;
 
   // ---- frame loop -----------------------------------------------------------------
   U.uTime.value = num('t', 0);
@@ -347,8 +350,11 @@ async function start() {
       camera.updateMatrixWorld(true);
       mammoth.update(0);
       mammoth.sampler.begin(mammoth.furMats.uniforms.uBreath.value);
+      // the coat's level of detail as the first frame will have it, so the cut hair matches
+      U.uPxScale.value = size.y * 0.5 * camera.projectionMatrix.elements[5];
+      mammoth.updateCoat(camera, U.uPxScale.value, Math.max(2, num('children', Q.children)));
       shaving.shears.place(1, camera, rig.feel, shaving.world);
-      console.info(`snip ${i + 1}: ${shaving.snipNow()} locks`);
+      console.info(`snip ${i + 1}: ${shaving.snipNow(camera)} locks, shears ${shaving.shears.lying > 0.5 ? 'flat on the hide' : 'held free'}`);
       rig.yaw += num('snipyaw', 0); rig.pitch += num('snippitch', 0);
     }
     rig.yaw -= num('snipyaw', 0) * num('snips', 1) * num('snipback', 0.5); rig.pitch -= num('snippitch', 0) * num('snips', 1) * num('snipback', 0.5);
@@ -371,7 +377,7 @@ async function start() {
     if (sunPending !== null) { setSun(sunPending); sunPending = null; }
 
     if (!shot && document.visibilityState === 'visible') {
-      if (settle > 0) settle -= Math.min(rawDt, 0.25);
+      if (settle > 0) settle -= Math.min(rawDt, 1);   // (on a machine far too slow, a few frames are enough to know it)
       else { wAcc += Math.min(rawDt, 1.5); wFrames++; }
       if (wAcc > 1.3) {
         const avg = wAcc / wFrames;

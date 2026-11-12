@@ -18,7 +18,7 @@ const step = async (name, fn, wait = 2500) => {
   await page.waitForTimeout(wait);
   console.log(`ok: ${name}`);
 };
-await page.goto(base + '?q=low&strands=20000&stats', { waitUntil: 'load' });
+await page.goto(base + '?q=low&strands=20000&adapt=5&stats', { waitUntil: 'load' });
 await page.waitForFunction(() => document.body.classList.contains('ready'), null, { timeout: 240000 });
 await page.waitForTimeout(4000);
 await step('view 2', () => page.click('#view-1'));

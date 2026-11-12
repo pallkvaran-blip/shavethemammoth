@@ -32,6 +32,7 @@ export class StrandSampler {
     this.M = new Float32Array(16);
     this.sd = new Float32Array(4);
     this.wind = [0, 0, 0];
+    this.windRest = [0, 0, 0];   // the wind's push on the strand last set up, in the rest pose
     this.time = 0;
     this.breath = 0;
   }
@@ -130,6 +131,7 @@ export class StrandSampler {
     const wrx = M[0] * wv[0] + M[1] * wv[1] + M[2] * wv[2];
     const wry = M[4] * wv[0] + M[5] * wv[1] + M[6] * wv[2];
     const wrz = M[8] * wv[0] + M[9] * wv[1] + M[10] * wv[2];
+    this.windRest[0] = wrx; this.windRest[1] = wry; this.windRest[2] = wrz;
 
     let dx = a.iDir[i3], dy = a.iDir[i3 + 1], dz = a.iDir[i3 + 2];
     let l = Math.hypot(dx, dy, dz) || 1; dx /= l; dy /= l; dz /= l;

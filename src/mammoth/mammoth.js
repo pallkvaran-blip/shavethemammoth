@@ -5,6 +5,7 @@ import { buildMammothData, buildBodyGeometry, buildTuskGeometry, buildSkeleton }
 import { nailOutline, NAIL_BASE } from './anatomy.js';
 import { generateGroom, UNCUT } from './groom.js';
 import { StrandSampler } from './strand.js';
+import { BodyCollider } from './collider.js';
 import { makeFurGeometry, makeFurMaterials, makeStrandAttributes, isWoolBatch, BATCH } from './furMaterial.js';
 import { makeBodyMaterials } from './bodyMaterial.js';
 import { patchStandardMaterial } from '../gfx/patch.js';
@@ -277,6 +278,7 @@ export class Mammoth {
     m.bodyCutShown = new Float32Array(m.bodyCut.length).fill(SHOWN_MAX);
     m.body.geometry.setAttribute('aCut', new THREE.BufferAttribute(m.bodyCutShown, 1));
     m.sampler = new StrandSampler({ volume: data.volume, skeleton: rig.skeleton });
+    m.collider = new BodyCollider({ sdf: data.sdf, anat, rig });
 
     // ---- rigid parts ride on bones ----------------------------------------
     const rigidDepth = makeDepthMaterial();
@@ -422,24 +424,36 @@ export class Mammoth {
    * skin (to that depth) goes too: hair rooted under the blades is cut to
    * stubble. Returns one entry per lock that would be cut.
    */
-  findCuts({ pivot, forward, normal, radius, inner = 0, halfAngle = Math.PI, minLength = 0.006, below = 0 }) {
+  findCuts({ pivot, forward, normal, radius, inner = 0, halfAngle = Math.PI, minLength = 0.006, below = 0, blades = null }) {
     const S = this.sampler;
     S.begin(this.furMats.uniforms.uBreath.value);
     const fx = forward.x, fy = forward.y, fz = forward.z, nx = normal.x, ny = normal.y, nz = normal.z;
     const sx = ny * fz - nz * fy, sy = nz * fx - nx * fz, sz = nx * fy - ny * fx;   // normal x forward
     const px = pivot.x, py = pivot.y, pz = pivot.z;
     const full = halfAngle >= Math.PI - 1e-3;
-    const cr = full ? radius : radius * 0.62;
+    const cr = (full ? radius : radius * 0.62) + (blades ? 0.02 : 0);
     const cx = full ? px : px + fx * radius * 0.5, cy = full ? py : py + fy * radius * 0.5, cz = full ? pz : pz + fz * radius * 0.5;
     const NS = 12, above = 0.003;
     const P = [0, 0, 0], Q = [0, 0, 0];
     const out = [];
     // is a point (given relative to the pivot) over the sector? leaves its polar coordinates in ru, rphi
     let ru = 0, rphi = 0;
-    const over = (x, y, z) => {
+    const over = (x, y, z, gathered = false) => {
       const u = x * fx + y * fy + z * fz, v = x * sx + y * sy + z * sz;
       ru = Math.hypot(u, v); rphi = Math.atan2(v, u);
-      return ru <= radius && ru >= inner && (full || Math.abs(rphi) <= halfAngle);
+      if (ru <= radius && ru >= inner && (full || Math.abs(rphi) <= halfAngle)) return true;
+      // Hair that would pass through a blade has been parted by it instead. The
+      // half nearer the cutting edge was swept into the gap, and is cut with the rest.
+      if (gathered && blades) {
+        for (const b of blades) {
+          const bu = x * b.a.x + y * b.a.y + z * b.a.z, bw = x * b.c.x + y * b.c.y + z * b.c.z;
+          if (bu < 0.008 || bu > 0.137) continue;
+          const s = bu / 0.135;
+          const back = s < 0.86 ? 0.0195 * (1 - 0.5 * Math.pow(s, 1.5)) : 0.0195 * (1 - 0.5 * Math.pow(0.86, 1.5)) * Math.max(0.06, (1 - s) / 0.14);
+          if (bw <= 0.007 && bw >= -0.45 * back) return true;
+        }
+      }
+      return false;
     };
     for (const c of this.chunks) {
       // slack for how far a root may be from where it sits in the rest pose
@@ -476,7 +490,7 @@ export class Mammoth {
               // crosses the plane of the blades: is that crossing between them?
               const f = dPrev / (dPrev - d);
               hx = P[0] + (Q[0] - P[0]) * f; hy = P[1] + (Q[1] - P[1]) * f; hz = P[2] + (Q[2] - P[2]) * f;
-              if (over(hx - px, hy - py, hz - pz)) at = j - 1 + f;
+              if (over(hx - px, hy - py, hz - pz, true)) at = j - 1 + f;
             }
             if (at < 0 && below > 0 && d <= above && d >= -below && over(Q[0] - px, Q[1] - py, Q[2] - pz)) {
               // passes under the blades, between them and the skin
@@ -493,7 +507,7 @@ export class Mammoth {
         }
         if (len >= 0 && len < rem - 0.002) {
           const tl = Math.hypot(tx, ty, tz) || 1;
-          out.push({ chunk: c, i, len, removed: rem - len, from: len / L, to: rem / L, r: ru, phi: rphi, x: hx, y: hy, z: hz, tx: tx / tl, ty: ty / tl, tz: tz / tl });
+          out.push({ chunk: c, i, len, prev: a.iCut[i], removed: rem - len, from: len / L, to: rem / L, r: ru, phi: rphi, x: hx, y: hy, z: hz, tx: tx / tl, ty: ty / tl, tz: tz / tl });
         }
       }
     }
@@ -682,5 +696,6 @@ export class Mammoth {
 
     this.group.updateMatrixWorld(true);
     this.rig.skeleton.update();
+    this.collider.begin();
   }
 }
