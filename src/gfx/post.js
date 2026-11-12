@@ -65,13 +65,17 @@ void main() {
   float w = 1.0, wsum = 0.0;
   for (int i = 0; i < N; i++) {
     vec4 s = texture2D(tSrc, uv);
-    // alpha marks sky pixels (0) versus solid things (1)
-    acc += min(s.rgb, vec3(30.0)) * (1.0 - smoothstep(0.0, 0.08, s.a)) * w;
+    // alpha marks sky pixels (0) versus solid things (1); only the glare
+    // around the sun itself streams out, so anything standing in front of
+    // it throws a visible shaft of shadow
+    float dSun = length((uv - uSunUV) * vec2(uAspect, 1.0));
+    float core = exp(-dSun * dSun * 26.0);
+    acc += min(s.rgb, vec3(24.0)) * (1.0 - smoothstep(0.0, 0.08, s.a)) * core * w;
     wsum += w;
     w *= 0.972;
     uv += delta;
   }
-  float falloff = exp(-dist * 1.6);
+  float falloff = exp(-dist * 1.3);
   gl_FragColor = vec4(acc / wsum * falloff * uStrength, 1.0);
 }`;
 

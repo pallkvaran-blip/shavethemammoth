@@ -7,6 +7,12 @@ This first milestone is the mammoth itself, its coat, the light and the land aro
 it. There is no shaving yet. You can orbit the mammoth, jump between a few views,
 drop down to elf height and walk around its feet, and move the sun.
 
+![The mammoth at sunset](docs/hero.jpg)
+
+| Into the sun | From elf height |
+| --- | --- |
+| ![Silhouette against the low sun](docs/into-the-sun.jpg) | ![Looking up from the snow](docs/elf-view.jpg) |
+
 It runs in the browser on three.js (WebGL 2). Everything is generated in code at
 load time: there are no model, texture or sound files.
 
@@ -48,7 +54,7 @@ Settings > System > Display > Graphics.
 | Coat | `src/mammoth/groom.js`, `furMaterial.js` | About 240,000 strands at High, each one a GPU instance grown in the vertex shader: it leaves the skin, bends under gravity and wind, gathers into locks, and drapes over the body using a baked distance volume. Close up each strand ribbon carries many individual hairs; further off it is drawn as one fine strand |
 | Hair lighting | `furMaterial.js` | Two highlights (surface and through-the-fibre), light passing through the coat when the sun is behind it, and sunlight that soaks into the coat rather than stopping at its surface |
 | Sky | `src/world/sky.js` | Rayleigh, Mie and ozone scattering baked to a lookup for the current sun; clouds and the sun's disc drawn live. The sky also supplies the ambient light, reflections and haze colour |
-| Land | `src/world/terrain.js`, `grass.js`, `rocks.js`, `particles.js` | Wind-carved snow, a footprint trail, frozen grass, boulders, a frozen lake towards the sun, mountains, drifting ice crystals and the mammoth's breath |
+| Land | `src/world/terrain.js`, `grass.js`, `rocks.js`, `particles.js` | Wind-carved snow, a footprint trail, frozen grass, scattered stones, a frozen lake towards the sun, mountains, drifting ice crystals and the mammoth's breath |
 | Light and shadow | `src/gfx/` | Shadows store depth so materials can measure how much lies between them and the sun: crisp on snow, soft inside fur and grass |
 | Picture | `src/gfx/post.js` | HDR rendering, bloom, light shafts, a film-style tone curve that keeps colour in the highlights, vignette and grain |
 
@@ -61,6 +67,7 @@ on the GPU, so cutting hair means writing shorter lengths where the clippers pas
   `node tools/shot.mjs shots/a.png "shot&q=high&view=2" 1600 900` (needs `npm run dev` running).
   Useful query options: `q` (detail), `view`, `cam=x,y,z,tx,ty,tz`, `fov`, `el` (sun height),
   `az` (sun bearing), `elf` (start at elf height), `t` (time offset), `stats`.
+- `tools/smoke.mjs` drives the live page through every control and reports script errors.
 - `dev/body.html` shows the bare body from four sides, for working on the anatomy.
 - `npm run build:artifact` writes a single page (`dist-artifact/shave-the-mammoth.html`)
   that loads three.js from a CDN.

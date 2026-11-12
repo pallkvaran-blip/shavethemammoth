@@ -116,8 +116,8 @@ void main() {
     // hair-like rather than turning into flat blades.
     float pxPerM = uPxScale / max(-(viewMatrix * vec4(posW, 1.0)).z, 0.05);
     float lockPx = width * pxPerM;
-    vSingle = 1.0 - smoothstep(5.0, 11.0, lockPx);
-    float strandPx = max(1.4, lockPx * 0.38);
+    vSingle = 1.0 - smoothstep(6.0, 14.0, lockPx);
+    float strandPx = max(1.4, lockPx * 0.27);
     width = mix(lockPx, strandPx, vSingle) / pxPerM;
   #endif
   width *= mix(1.0, 0.4, t);
@@ -145,7 +145,7 @@ float hairLayer(vec2 uv, float seed, float n, out float across, out float hid) {
   float h2 = hash11(id * 2.11 + seed * 37.3 + 4.7);
   float hl = 0.55 + 0.45 * h1;                                    // each hair ends at its own length
   float cx = 0.5 + 0.09 * sin(uv.y * (2.0 + 4.0 * h2) + h1 * 6.2831); // and wanders a little
-  float hw = mix(0.40, 0.22, smoothstep(0.0, 0.25, uv.y));         // bunched thick at the root
+  float hw = mix(0.30, 0.21, smoothstep(0.0, 0.25, uv.y));         // a little thicker at the root
   hw *= 0.45 + 0.55 * smoothstep(hl, hl - 0.3, uv.y);              // tapering to a point
   float d = abs(fx - cx);
   float fw = max(fwidth(x), 1e-4);
@@ -187,6 +187,7 @@ varying float vLayer;
 varying float vSingle;
 
 uniform float uSigma;       // how fast sunlight is absorbed inside the coat
+uniform float uFrost;
 uniform vec3 uRootColor;
 uniform vec3 uMidColor;
 uniform vec3 uLightColor;
@@ -237,6 +238,9 @@ void main() {
 
   vec3 albedo = hairColor(vCol.x, vCol.y, t, vCol.z * 0.75 + vCol.w * 0.25);
   albedo *= (0.8 + 0.4 * hr) * (0.72 + 0.56 * vCol.z);
+  // rime: frost gathers on the tips of hair that faces the sky
+  float rime = smoothstep(0.5, 0.92, N.y) * smoothstep(0.45, 1.0, t) * smoothstep(0.55, 0.8, fract(vInfo.x * 7.13 + vInfo.z * 3.7));
+  albedo = mix(albedo, vec3(0.60, 0.64, 0.70), rime * uFrost);
 
   // how buried this bit of hair is: roots and under-layers sit in the dark
   float buried = mix(0.35, 1.0, vLayer);
@@ -343,6 +347,7 @@ export function makeFurMaterials({ sdfTexture, sdfMin, sdfInvSize, boneTexture, 
     uBreath: { value: 0 },
     uLengthScale: { value: 1 },
     uSigma: { value: 15 },
+    uFrost: { value: 0.55 },
     uRootColor: { value: new THREE.Color(0.011, 0.008, 0.007) },
     uMidColor: { value: new THREE.Color(0.076, 0.047, 0.029) },
     uLightColor: { value: new THREE.Color(0.185, 0.118, 0.070) },

@@ -119,7 +119,7 @@ export class Breath {
           vec3 V = normalize(cameraPosition - vPosW);
           float mu = clamp(dot(-V, uSunDir), 0.0, 1.0);
           vec3 col = uSunColor * (0.16 + 1.6 * pow(mu, 4.0)) + ambientLight(vec3(0.0, 1.0, 0.0)) * 0.55;
-          gl_FragColor = vec4(col * soft * vAlpha * 0.085, 0.0);
+          gl_FragColor = vec4(col * soft * vAlpha * 0.17, 0.0);
         }`,
       ...additive,
     });

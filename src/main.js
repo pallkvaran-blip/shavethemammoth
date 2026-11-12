@@ -58,6 +58,8 @@ async function start() {
   const camera = new THREE.PerspectiveCamera(VIEWS[0].fov, 1, 0.08, 30000);
   const size = new THREE.Vector2();
   let adaptLevel = 0;
+  // frame-rate watchdog state
+  let wAcc = 0, wFrames = 0, goodStreak = 0, fps = 0, settle = 2.5;
   const post = new Post(renderer, { samples: Q.samples });
   const resize = () => {
     const w = window.innerWidth, h = window.innerHeight;
@@ -136,7 +138,7 @@ async function start() {
   post.matFinal.uniforms.uHueKeep.value = num('hue', 0.5);
   post.matFinal.uniforms.uSaturation.value = num('sat', 1.08);
   post.matFinal.uniforms.uContrast.value = num('con', 0.18);
-  post.matFinal.uniforms.uRays.value = num('rays', 0.55);
+  post.matFinal.uniforms.uRays.value = num('rays', 0.22);
 
   // ---- camera -----------------------------------------------------------------
   const rig = new CameraRig(camera, canvas, terrain, anat.feet);
@@ -147,10 +149,10 @@ async function start() {
   } else if (shot || reducedMotion) {
     rig.snap(startView);
   } else {
-    // open low and wide, then rise to meet the mammoth
+    // open low and wide; once the scene is on screen, rise to meet the mammoth
     rig.snap({ pos: [17.5, 0.55, 8.2], target: [0.9, 2.3, 0], fov: 40 });
-    rig.setView(startView, 6.5);
   }
+  const intro = !q.has('cam') && !shot && !reducedMotion && !q.has('elf');
   if (q.has('elf')) {
     // dev: start at snow level, e.g. ?elf=x,z,yaw,pitch
     rig.enterElf();
@@ -160,6 +162,8 @@ async function start() {
   }
   resize();
   window.addEventListener('resize', resize);
+  // coming back to the tab: do not mistake the pause for a slow frame
+  document.addEventListener('visibilitychange', () => { settle = 1.5; wAcc = 0; wFrames = 0; });
 
   // ---- detail settings ----------------------------------------------------------
   let furBase = 1;
@@ -206,7 +210,14 @@ async function start() {
   const goView = (i) => { rig.setView(VIEWS[i]); markView(i); };
   viewButtons.forEach((b, i) => b.addEventListener('click', () => goView(i)));
   elfButton?.addEventListener('click', () => (rig.mode === 'elf' ? rig.leaveElf() : rig.enterElf()));
+  const walk = $('walk');
+  if (walk) {
+    const go = (on) => (e) => { e.preventDefault(); on ? rig.keys.add('KeyW') : rig.keys.delete('KeyW'); };
+    walk.addEventListener('pointerdown', go(true));
+    for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) walk.addEventListener(ev, go(false));
+  }
   rig.onChange = (mode) => {
+    document.body.classList.toggle('elf', mode === 'elf');
     if (mode === 'elf') {
       markView('elf');
       showHint('You are the size of an elf. <span class="desk"><kbd>W A S D</kbd> to walk, <kbd>Shift</kbd> to run, mouse to look, <kbd>Esc</kbd> to return.</span>', 9);
@@ -241,10 +252,15 @@ async function start() {
   });
   statsEl.hidden = !showStats;
 
-  setProgress(1, 'Ready');
-  document.body.classList.add('ready');
+  setProgress(0.985, 'Warming up');
   if (shot) { document.body.classList.add('instant'); $('loading').hidden = true; $('hud').hidden = !q.has('hud'); }
-  else setTimeout(() => showHint('<span class="desk">Drag to look around, scroll to zoom. Keys <kbd>1</kbd>&ndash;<kbd>4</kbd> change the view, <kbd>H</kbd> hides these controls.</span>'), 5200);
+  const reveal = () => {
+    setProgress(1, 'Ready');
+    document.body.classList.add('ready');
+    settle = 2.5;
+    if (intro) rig.setView(startView, 6.5);
+    if (!shot) setTimeout(() => showHint('<span class="desk">Drag to look around, scroll to zoom. Keys <kbd>1</kbd>&ndash;<kbd>4</kbd> change the view, <kbd>H</kbd> hides these controls.</span>'), 5200);
+  };
 
   // ---- frame loop -----------------------------------------------------------------
   U.uTime.value = num('t', 0);
@@ -254,8 +270,14 @@ async function start() {
   const centre = new THREE.Vector3(0.5, 1.8, 0);
   let last = performance.now();
   let frames = 0;
-  // frame-rate watchdog
-  let wAcc = 0, wFrames = 0, goodStreak = 0, fps = 0, settle = 2.5;
+  const breathe = (dt) => {
+    // breath leaves the mouth, just behind the root of the trunk
+    const head = mammoth.bone('head');
+    head.localToWorld(mouth.set(0.72, -0.62, 0));
+    mouthDir.set(0.75, -0.55, 0).applyQuaternion(head.getWorldQuaternion(tmpQ)).normalize();
+    breath.update(dt, mouth, mouthDir, mammoth.exhaling);
+  };
+  for (let i = 0, n = num('warm', 0); i < n; i++) { U.uTime.value += 1 / 30; mammoth.update(1 / 30); breathe(1 / 30); }
 
   const frame = () => {
     const now = performance.now();
@@ -266,9 +288,9 @@ async function start() {
 
     if (sunPending !== null) { setSun(sunPending); sunPending = null; }
 
-    if (!shot && document.visibilityState === 'visible' && rawDt < 0.5) {
-      if (settle > 0) settle -= rawDt;
-      else { wAcc += rawDt; wFrames++; }
+    if (!shot && document.visibilityState === 'visible') {
+      if (settle > 0) settle -= Math.min(rawDt, 0.25);
+      else { wAcc += Math.min(rawDt, 1.5); wFrames++; }
       if (wAcc > 1.3) {
         const avg = wAcc / wFrames;
         fps = 1 / avg;
@@ -294,11 +316,7 @@ async function start() {
     const coat = furBase * ADAPT[adaptLevel].fur;
     mammoth.setFurDetail(THREE.MathUtils.clamp(coat * far, 0.05, 1), Q.furShadow * Math.min(1, coat * 1.4));
 
-    // breath leaves the mouth, just behind the root of the trunk
-    const head = mammoth.bone('head');
-    head.localToWorld(mouth.set(0.72, -0.62, 0));
-    mouthDir.set(0.75, -0.55, 0).applyQuaternion(head.getWorldQuaternion(tmpQ)).normalize();
-    breath.update(dt, mouth, mouthDir, mammoth.exhaling);
+    breathe(dt);
 
     mammoth.useShadowCounts();
     grass.geometry.instanceCount = Math.min(grass.userData.shadowCount, Math.floor(grass.userData.total * Q.grass));
@@ -321,6 +339,8 @@ async function start() {
     post.finish(U.uTime.value);
 
     frames++;
+    // the first frame compiles every shader; only lift the loading card once that is done
+    if (frames === 2) reveal();
     if (showStats && frames % 20 === 0) {
       statsEl.textContent = `${fps ? fps.toFixed(0) : '–'} fps · ${size.x}×${size.y} · ${(renderer.info.render.triangles / 1e6).toFixed(1)}M triangles · detail ${qualityName}${adaptLevel ? ' −' + adaptLevel : ''} · ${gpuName}`;
     }

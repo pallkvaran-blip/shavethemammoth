@@ -30,7 +30,7 @@ function makeIvoryTexture() {
   for (let i = 0; i < 520; i++) {
     const x = rnd() * w, y0 = rnd() * h, len = 60 + rnd() * 500;
     const dark = rnd() < 0.7;
-    g.strokeStyle = dark ? `rgba(110,82,48,${0.03 + rnd() * 0.09})` : `rgba(255,250,235,${0.03 + rnd() * 0.08})`;
+    g.strokeStyle = dark ? `rgba(120,92,58,${0.02 + rnd() * 0.05})` : `rgba(255,250,235,${0.03 + rnd() * 0.06})`;
     g.lineWidth = 0.6 + rnd() * 2.2;
     g.beginPath(); g.moveTo(x, y0);
     let xx = x;
@@ -51,7 +51,30 @@ function makeIvoryTexture() {
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.ClampToEdgeWrapping;
   tex.anisotropy = 8;
-  return tex;
+
+  // relief: fine grooves along the tusk, the odd crack and growth ring
+  const b = document.createElement('canvas');
+  b.width = w; b.height = h;
+  const bg = b.getContext('2d');
+  bg.fillStyle = '#808080'; bg.fillRect(0, 0, w, h);
+  for (let i = 0; i < 700; i++) {
+    const x = rnd() * w, y0 = rnd() * h, len = 80 + rnd() * 700;
+    const v = rnd() < 0.6 ? 60 + rnd() * 40 : 150 + rnd() * 50;
+    bg.strokeStyle = `rgba(${v},${v},${v},${0.10 + rnd() * 0.25})`;
+    bg.lineWidth = 0.8 + rnd() * 2.6;
+    bg.beginPath(); bg.moveTo(x, y0);
+    let xx = x;
+    for (let y = y0; y < y0 + len; y += 18) { xx += (rnd() - 0.5) * 1.8; bg.lineTo(xx, y); }
+    bg.stroke();
+  }
+  for (let i = 0; i < 40; i++) {
+    bg.fillStyle = `rgba(70,70,70,${0.08 + rnd() * 0.14})`;
+    bg.fillRect(0, rnd() * h, w, 1 + rnd() * 2);
+  }
+  const bump = new THREE.CanvasTexture(b);
+  bump.wrapS = THREE.RepeatWrapping; bump.wrapT = THREE.ClampToEdgeWrapping;
+  bump.anisotropy = 8;
+  return { map: tex, bump };
 }
 
 export class Mammoth {
@@ -112,9 +135,10 @@ export class Mammoth {
       m.rigid.push(mesh);
     };
 
+    const ivoryTex = makeIvoryTexture();
     const ivory = patchStandardMaterial(new THREE.MeshPhysicalMaterial({
-      map: makeIvoryTexture(), color: 0xffffff, roughness: 0.36, metalness: 0,
-      clearcoat: 0.35, clearcoatRoughness: 0.28, sheen: 0, envMapIntensity: 1,
+      map: ivoryTex.map, bumpMap: ivoryTex.bump, bumpScale: 0.8, color: 0xf2ead8, roughness: 0.4, metalness: 0,
+      clearcoat: 0.3, clearcoatRoughness: 0.3, sheen: 0, envMapIntensity: 1,
     }), { key: 'ivory' });
     m.ivory = ivory;
     for (const side of [1, -1]) {

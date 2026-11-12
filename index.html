@@ -99,6 +99,12 @@
   }
   #hint.show { opacity: 1; }
   kbd { font: inherit; font-weight: 600; color: var(--amber); }
+  #walk {
+    display: none; pointer-events: auto; align-self: center; margin-bottom: 12px; appearance: none; cursor: pointer;
+    width: 4.6rem; height: 4.6rem; border-radius: 50%; border: 1px solid var(--line); background: var(--veil-strong);
+    color: var(--ink); font: inherit; font-weight: 600; letter-spacing: 0.04em; touch-action: none; user-select: none; -webkit-user-select: none;
+  }
+  @media (hover: none) { body.elf #walk { display: block; } }
   .mid { display: flex; flex-direction: column; justify-content: flex-end; flex: 1; min-height: 0; }
   @media (max-width: 640px) {
     .bottom { flex-direction: column; align-items: stretch; }
@@ -127,6 +133,7 @@
   </div>
   <div class="mid">
     <div id="hint"></div>
+    <button type="button" id="walk" aria-label="Hold to walk forward">Walk</button>
     <div class="bottom">
       <div class="panel views" role="group" aria-label="Views">
         <button type="button" id="view-0" data-view="0" aria-pressed="true">The mammoth</button>
