@@ -3,8 +3,8 @@
 // grass, a frozen lake lying towards the sun and mountains on the far horizon.
 //
 // Heights are computed on the CPU (so other systems can ask for them) and
-// laid out as three nested meshes: very fine around the mammoth, fine out to
-// 50 m, then a radial sheet that runs to the mountains.
+// laid out as nested meshes: finest around the feet, very fine around the
+// mammoth, fine out to 50 m, then a radial sheet that runs to the mountains.
 import * as THREE from 'three';
 import { noise2, fbm2, ridged2, smoothstep, clamp } from './noise.js';
 import { COMMON, SHADOWS, ATMOSPHERE } from '../gfx/glsl.js';
@@ -16,12 +16,18 @@ const tick = () => new Promise((r) => setTimeout(r, 0));
 export const LAKE_LEVEL = -2.2;
 
 export class Terrain {
-  constructor({ sunAzimuth = -12, feet = [] } = {}) {
+  constructor({ sunAzimuth = -12, feet = [], snowDepth = 0.035 } = {}) {
     this.sunAz = (sunAzimuth * Math.PI) / 180;
     this.sx = Math.cos(this.sunAz); this.sz = Math.sin(this.sunAz);
+    // the snow lies this far above the plane of the mammoth's soles (y = 0)
+    this.snow = snowDepth;
+    this.feet = feet;
     this.prints = [];
-    // where the mammoth stands now
-    for (const f of feet) this.prints.push({ x: f.c[0], z: f.c[2], r: f.r + 0.07, depth: 0.05, rim: 0.012 });
+    // Where the mammoth stands now: each foot has sunk through the snow, which
+    // fits closely round it and is pushed up into a low rim.
+    for (const f of feet) {
+      this.prints.push({ x: f.c[0], z: f.c[2], r: f.r + 0.045, inner: f.r - 0.012, depth: snowDepth + 0.022, rim: 0.014, rimR: f.r + 0.085, rimW: 0.045 });
+    }
     // the trail it left walking in from behind
     const path = (s) => [-1.6 - s, 1.5 * Math.sin(s / 9.5) + 0.25 * Math.sin(s / 3.1)];
     const stride = 1.75;
@@ -88,8 +94,8 @@ export class Terrain {
       const d2 = dx * dx + dz * dz;
       if (d2 > 0.45) continue;
       const d = Math.sqrt(d2);
-      h -= p.depth * smoothstep(p.r, p.r * 0.5, d);
-      const k = (d - p.r * 1.08) / 0.07;
+      h -= p.depth * smoothstep(p.r, p.inner ?? p.r * 0.5, d);
+      const k = (d - (p.rimR ?? p.r * 1.08)) / (p.rimW ?? 0.07);
       h += p.rim * Math.exp(-k * k);
     }
     return h;
@@ -106,8 +112,8 @@ export class Terrain {
   /** Ground height. Returns the lake's surface where the land dips below it. */
   height(x, z) {
     const r = Math.hypot(x, z);
-    const calm = 0.2 + 0.8 * smoothstep(1.5, 6, r);
-    const h = this.land(x, z) + this.micro(x, z) * calm + this.printOffset(x, z) - 0.012;
+    const calm = 0.08 + 0.92 * smoothstep(1.5, 6, r);
+    const h = this.land(x, z) + this.micro(x, z) * calm + this.printOffset(x, z) + this.snow;
     return Math.max(h, LAKE_LEVEL);
   }
 
@@ -126,15 +132,31 @@ export class Terrain {
 
   // ---- meshes ---------------------------------------------------------------
 
-  _gridMesh(x0, z0, x1, z1, step, bias, hole) {
+  /**
+   * A regular grid of ground. With `seam`, the outer ring of vertices is
+   * fitted to the edges of a coarser grid of that spacing (origin seam.x0,
+   * seam.z0), so the two meshes meet without a step or a crack.
+   */
+  _gridMesh(x0, z0, x1, z1, step, bias, hole, seam) {
     const nx = Math.round((x1 - x0) / step) + 1, nz = Math.round((z1 - z0) / step) + 1;
     const pos = new Float32Array(nx * nz * 3);
     const mask = new Float32Array(nx * nz * 4);
+    const along = (a, b, t) => a + (b - a) * t;
     for (let j = 0; j < nz; j++) {
       for (let i = 0; i < nx; i++) {
         const x = x0 + i * step, z = z0 + j * step;
         const k = i + j * nx;
-        const h = this.height(x, z);
+        let h = this.height(x, z);
+        if (seam && (i === 0 || i === nx - 1 || j === 0 || j === nz - 1)) {
+          const cs = seam.step;
+          if (i === 0 || i === nx - 1) {
+            const a = seam.z0 + Math.floor((z - seam.z0) / cs + 1e-6) * cs;
+            h = along(this.height(x, a), this.height(x, a + cs), Math.min(1, Math.max(0, (z - a) / cs)));
+          } else {
+            const a = seam.x0 + Math.floor((x - seam.x0) / cs + 1e-6) * cs;
+            h = along(this.height(a, z), this.height(a + cs, z), Math.min(1, Math.max(0, (x - a) / cs)));
+          }
+        }
         pos[k * 3] = x; pos[k * 3 + 1] = h - bias; pos[k * 3 + 2] = z;
         this._mask(x, z, h, mask, k);
       }
@@ -258,7 +280,13 @@ export class Terrain {
     const s0 = detail >= 1 ? 0.05 : 0.08;
     progress(0.05, 'Laying snow');
     await tick();
-    add(this._gridMesh(fine.x0, fine.z0, fine.x1, fine.z1, s0, 0), 'ground-fine', true, true);
+    // The snow right around the feet, fine enough to hold the holes they stand
+    // in. Its box sits on the coarser grid's lines, and its rim is fitted to
+    // that grid, so the two join invisibly.
+    const feetBox = { x0: -1.8, z0: -1.0, x1: 1.6, z1: 1.0 };
+    add(this._gridMesh(feetBox.x0, feetBox.z0, feetBox.x1, feetBox.z1, 0.02, 0, null, { step: s0, x0: fine.x0, z0: fine.z0 }), 'ground-feet', false, true);
+    await tick();
+    add(this._gridMesh(fine.x0, fine.z0, fine.x1, fine.z1, s0, 0, feetBox), 'ground-fine', true, true);
     progress(0.45, 'Laying snow');
     await tick();
     const hole = { x0: fine.x0 + 0.6, z0: fine.z0 + 0.6, x1: fine.x1 - 0.6, z1: fine.z1 - 0.6 };
@@ -292,7 +320,7 @@ ${ATMOSPHERE}
 varying vec3 vPosW;
 varying vec3 vN;
 varying vec4 vMask;
-uniform vec4 uOccluders[8];   // spheres standing in for the mammoth: xyz, radius
+uniform vec4 uOccluders[12];  // spheres standing in for the mammoth: xyz, radius
 uniform float uLakeLevel;
 
 // snow surface relief: wind-carved ridges (sastrugi) with soft drifts between
@@ -346,7 +374,7 @@ float glitter(vec3 wp, vec3 N, vec3 H, float dist) {
 }
 float sphereOcclusion(vec3 p, vec3 n) {
   float occ = 0.0;
-  for (int i = 0; i < 8; i++) {
+  for (int i = 0; i < 12; i++) {
     vec3 d = uOccluders[i].xyz - p;
     float l2 = dot(d, d);
     float r2 = uOccluders[i].w * uOccluders[i].w;
@@ -462,7 +490,7 @@ export function makeTerrainMaterial() {
     fragmentShader: FRAG,
     uniforms: {
       ...U,
-      uOccluders: { value: Array.from({ length: 8 }, () => new THREE.Vector4(0, -100, 0, 0)) },
+      uOccluders: { value: Array.from({ length: 12 }, () => new THREE.Vector4(0, -100, 0, 0)) },
       uLakeLevel: { value: LAKE_LEVEL },
     },
     defines: { SHADOW_TAPS: 12, SHADOW_PENUMBRA: 1, SHADOW_PLANE_BIAS: 1 },

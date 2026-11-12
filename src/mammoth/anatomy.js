@@ -97,11 +97,13 @@ export function buildAnatomy() {
     { name: 'foreUpper', type: 'rc', a: [0.98, 1.65, 0.56], b: [0.94, 1.05, 0.57], r1: 0.31, r2: 0.245, k: 0.22, bone: 'foreUpper', sided: true, fur: fur(0.5, { lenB: 0.32, ...legFur, clump: 1.2 }) },
     { name: 'foreLower', type: 'rc', a: [0.94, 1.05, 0.57], b: [0.98, 0.42, 0.57], r1: 0.245, r2: 0.205, k: 0.1, bone: 'foreLower', sided: true, fur: fur(0.26, { lenB: 0.16, ...legFur }) },
     { name: 'foreFoot', type: 'rc', a: [0.98, 0.42, 0.57], b: [1.02, 0.15, 0.57], r1: 0.205, r2: 0.258, k: 0.08, bone: 'foreFoot', sided: true, fur: fur(0.14, { lenB: 0.085, ...legFur }) },
+    { name: 'forePad', type: 'ell', c: [1.02, 0.06, 0.57], r: [0.262, 0.2, 0.262], k: 0.05, bone: 'foreFoot', sided: true, fur: fur(0.085, legFur) },
     // hind
     { name: 'thigh', type: 'ell', c: [-1.28, 1.56, 0.50], r: [0.52, 0.68, 0.38], rot: [0, 0, 8], k: 0.3, bone: 'spine', fur: fur(0.55, { lift: 0.3, tone: -0.1, clump: 1.3 }) },
     { name: 'hindUpper', type: 'rc', a: [-1.22, 1.40, 0.53], b: [-1.08, 0.95, 0.54], r1: 0.34, r2: 0.25, k: 0.22, bone: 'hindUpper', sided: true, fur: fur(0.46, { lenB: 0.30, ...legFur, clump: 1.2 }) },
     { name: 'hindLower', type: 'rc', a: [-1.08, 0.95, 0.54], b: [-1.26, 0.42, 0.54], r1: 0.25, r2: 0.20, k: 0.1, bone: 'hindLower', sided: true, fur: fur(0.25, { lenB: 0.16, ...legFur }) },
     { name: 'hindFoot', type: 'rc', a: [-1.26, 0.42, 0.54], b: [-1.22, 0.15, 0.54], r1: 0.20, r2: 0.248, k: 0.08, bone: 'hindFoot', sided: true, fur: fur(0.14, { lenB: 0.085, ...legFur }) },
+    { name: 'hindPad', type: 'ell', c: [-1.22, 0.06, 0.54], r: [0.252, 0.2, 0.252], k: 0.05, bone: 'hindFoot', sided: true, fur: fur(0.085, legFur) },
   ]));
 
   // ---- skeleton ----------------------------------------------------------
@@ -147,14 +149,28 @@ export function buildAnatomy() {
 
   const eye = { pos: [2.285, 2.385, 0.47], radius: 0.031 };
 
+  // Toenails, as on an Asian elephant: five on each forefoot, four on each
+  // hind foot, set in an arc around the front. a = bearing from straight
+  // ahead (radians), w = half the nail's width, h = its height (metres).
+  const deg = Math.PI / 180;
+  const foreNails = [[-64, 0.044, 0.070], [-32, 0.054, 0.084], [0, 0.060, 0.090], [32, 0.054, 0.084], [64, 0.044, 0.070]];
+  const hindNails = [[-51, 0.046, 0.072], [-17, 0.055, 0.084], [17, 0.055, 0.084], [51, 0.046, 0.072]];
+  const nails = (list) => list.map(([a, w, h]) => ({ a: a * deg, w, h }));
   const feet = [
-    { c: [1.02, 0, 0.57], r: 0.258 },
-    { c: [1.02, 0, -0.57], r: 0.258 },
-    { c: [-1.22, 0, 0.54], r: 0.248 },
-    { c: [-1.22, 0, -0.54], r: 0.248 },
+    { c: [1.02, 0, 0.57], r: 0.262, bone: 'foreFoot_R', nails: nails(foreNails) },
+    { c: [1.02, 0, -0.57], r: 0.262, bone: 'foreFoot_L', nails: nails(foreNails) },
+    { c: [-1.22, 0, 0.54], r: 0.252, bone: 'hindFoot_R', nails: nails(hindNails) },
+    { c: [-1.22, 0, -0.54], r: 0.252, bone: 'hindFoot_L', nails: nails(hindNails) },
   ];
 
   const bounds = { min: [-2.75, -0.06, -1.3], max: [3.2, 3.45, 1.3] };
 
   return { prims, bones, tusk, eye, feet, bounds };
 }
+
+/** How far the snow lies above the plane of the mammoth's soles: it stands sunk into it. */
+export const SNOW_DEPTH = 0.035;
+/** Height above the sole at which the nails start. */
+export const NAIL_BASE = 0.004;
+/** Outline of a toenail: half-width (0..1) at height v (0 at the sole, 1 at the cuticle). */
+export const nailOutline = (v) => Math.pow(Math.max(0, 1 - Math.pow(Math.min(1, Math.max(0, v)), 3.2)), 1 / 3.2);

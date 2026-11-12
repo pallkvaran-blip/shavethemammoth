@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { BodySDF } from './sdf.js';
 import { sampleGrid, surfaceNets, orientOutward, relax, bakeVolume } from './mesher.js';
-import { buildAnatomy } from './anatomy.js';
+import { buildAnatomy, nailOutline, NAIL_BASE } from './anatomy.js';
 
 const tick = () => new Promise((r) => setTimeout(r, 0));
 const smooth = (a, b, x) => {
@@ -115,6 +115,29 @@ export async function buildMammothData({ cell = 0.025, volumeRes = [144, 88, 64]
       const tip = 1 - smooth(0.05, 0.16, dt);
       len *= 1 - 0.8 * tip;
       bare = Math.max(bare, 1 - smooth(0.03, 0.09, dt));
+    }
+    // nothing grows on the toenails, and a rim of bare skin frames each one
+    if (y < 0.16) {
+      for (const f of anat.feet) {
+        const dx = x - f.c[0], dz = z - f.c[2];
+        if (dx * dx + dz * dz > (f.r + 0.12) * (f.r + 0.12)) continue;
+        const ang = Math.atan2(dz, dx);
+        for (const nail of f.nails) {
+          let da = ang - nail.a;
+          da = Math.atan2(Math.sin(da), Math.cos(da));
+          const v = (y - NAIL_BASE) / nail.h;
+          if (v > 1.2) continue;
+          const half = nail.w * nailOutline(v) + 0.01;
+          const m = (1 - smooth(half - 0.004, half + 0.006, Math.abs(da) * f.r)) * (1 - smooth(1.04, 1.18, v));
+          if (m > 0) { len *= 1 - m; bare = Math.max(bare, m); }
+        }
+      }
+      // the bottom of the foot is under the snow
+      len *= smooth(0.02, 0.06, y);
+    }
+    if (y < 0.24) {
+      // short hair low on the foot, so the nails show beneath its fringe
+      len *= 0.42 + 0.58 * smooth(0.1, 0.24, y);
     }
     if (bare > 0.5) len = 0;
 

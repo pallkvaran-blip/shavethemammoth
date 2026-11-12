@@ -8,7 +8,7 @@ import { buildGrass } from './world/grass.js';
 import { buildRocks } from './world/rocks.js';
 import { buildSnowDust, Breath } from './world/particles.js';
 import { Mammoth } from './mammoth/mammoth.js';
-import { buildAnatomy } from './mammoth/anatomy.js';
+import { buildAnatomy, SNOW_DEPTH } from './mammoth/anatomy.js';
 import { CameraRig, VIEWS } from './controls.js';
 
 const q = new URLSearchParams(location.search);
@@ -93,7 +93,7 @@ async function start() {
 
   // ---- land -----------------------------------------------------------------
   const anat = buildAnatomy();
-  const terrain = new Terrain({ sunAzimuth: azimuth, feet: anat.feet });
+  const terrain = new Terrain({ sunAzimuth: azimuth, feet: anat.feet, snowDepth: SNOW_DEPTH });
   scene.add(await terrain.build((p, l) => setProgress(0.05 + p * 0.3, l), { detail: 1 }));
 
   // keep the trail and the mammoth's own patch of ground clear
@@ -116,7 +116,9 @@ async function start() {
   // rough stand-ins for the body, used to darken the snow beneath it
   const occ = terrain.material.uniforms.uOccluders.value;
   [[0.9, 1.95, 0, 1.05], [-0.9, 1.85, 0, 1.0], [2.1, 2.3, 0, 0.6], [2.7, 1.2, 0, 0.3],
-    [1.0, 0.5, 0.57, 0.34], [1.0, 0.5, -0.57, 0.34], [-1.24, 0.5, 0.54, 0.33], [-1.24, 0.5, -0.54, 0.33]]
+    [1.0, 0.5, 0.57, 0.34], [1.0, 0.5, -0.57, 0.34], [-1.24, 0.5, 0.54, 0.33], [-1.24, 0.5, -0.54, 0.33],
+    // low on each foot, for the tight shadow where it meets the snow
+    ...anat.feet.map((f) => [f.c[0], 0.11, f.c[2], f.r + 0.03])]
     .forEach((o, i) => occ[i].set(o[0], o[1], o[2], o[3]));
 
   // ---- shadows ----------------------------------------------------------------

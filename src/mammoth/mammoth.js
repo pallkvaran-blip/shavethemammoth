@@ -2,6 +2,7 @@
 // quiet idle animation (breathing, a swaying trunk, flicking ears and tail).
 import * as THREE from 'three';
 import { buildMammothData, buildBodyGeometry, buildTuskGeometry, buildSkeleton } from './build.js';
+import { nailOutline, NAIL_BASE } from './anatomy.js';
 import { generateGroom } from './groom.js';
 import { makeFurGeometry, makeFurMaterials, makeStrandAttributes, isWoolBatch, BATCH } from './furMaterial.js';
 import { makeBodyMaterials } from './bodyMaterial.js';
@@ -75,6 +76,149 @@ function makeIvoryTexture() {
   bump.wrapS = THREE.RepeatWrapping; bump.wrapT = THREE.ClampToEdgeWrapping;
   bump.anisotropy = 8;
   return { map: tex, bump };
+}
+
+/**
+ * Toenails for one foot. Each nail is a domed plate that follows the real
+ * surface of the foot (found from the body's distance field), thickest low
+ * in the middle and running out flush with the skin at its edges.
+ */
+function buildNailGeometry(foot, sdf) {
+  const NU = 16, NV = 14;
+  const positions = [], uvs = [], colors = [], indices = [];
+  let seed = Math.round(foot.c[0] * 131 + foot.c[2] * 977) >>> 0;
+  const rnd = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
+  for (const nail of foot.nails) {
+    const base = positions.length / 3;
+    // each nail a slightly different shade of horn
+    const tint = 0.62 + 0.2 * rnd(), warm = 0.98 + 0.07 * rnd();
+    const lean = (rnd() - 0.5) * 0.12;   // nails are never perfectly upright
+    for (let j = 0; j <= NV; j++) {
+      const v = j / NV;
+      const y = NAIL_BASE + v * nail.h;
+      const half = nail.w * nailOutline(v * 0.985);
+      for (let i = 0; i <= NU; i++) {
+        const u = (i / NU) * 2 - 1;
+        const phi = nail.a + (u * half + lean * nail.h * v) / foot.r;
+        const cx = Math.cos(phi), cz = Math.sin(phi);
+        // walk in from outside until we meet the skin
+        let r = foot.r + 0.09;
+        for (let k = 0; k < 24; k++) {
+          const d = sdf.dist(foot.c[0] + cx * r, y, foot.c[2] + cz * r);
+          r -= d;
+          if (Math.abs(d) < 0.0003) break;
+        }
+        // dome: full in the lower middle, nothing at the sides and the cuticle
+        const dome = Math.sqrt(Math.max(0, 1 - u * u)) * Math.sqrt(Math.max(0, 1 - Math.pow(v, 2.4)));
+        const ridge = 1 + 0.06 * Math.cos(u * 9 + nail.a * 7) * (1 - v);   // faint lengthwise ridging
+        r += 0.0012 + 0.017 * dome * ridge * (0.6 + 0.4 * Math.min(1, v * 5 + 0.2));
+        positions.push(foot.c[0] + cx * r, y, foot.c[2] + cz * r);
+        uvs.push(u * 0.5 + 0.5, v);
+        colors.push(tint * warm, tint, tint / warm);
+      }
+    }
+    for (let j = 0; j < NV; j++) {
+      for (let i = 0; i < NU; i++) {
+        const a = base + i + j * (NU + 1), b = a + 1, c = a + NU + 1, d = c + 1;
+        indices.push(a, c, b, b, c, d);
+      }
+    }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  geo.setIndex(indices);
+  geo.computeVertexNormals();
+  // make sure the plates face outwards
+  const n = geo.attributes.normal, p = geo.attributes.position;
+  const out = (p.getX(8) - foot.c[0]) * n.getX(8) + (p.getZ(8) - foot.c[2]) * n.getZ(8);
+  if (out < 0) {
+    const ix = geo.index.array;
+    for (let i = 0; i < ix.length; i += 3) { const t = ix[i + 1]; ix[i + 1] = ix[i + 2]; ix[i + 2] = t; }
+    geo.computeVertexNormals();
+  }
+  return geo;
+}
+
+/** Horn: pale and worn low down, darker and stained towards the cuticle, ridged lengthwise. */
+function makeNailTexture() {
+  const W = 256, H = 256;
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const g = c.getContext('2d');
+  let s = 4711;
+  const rnd = () => { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 4294967296; };
+  // canvas y = 0 is the cuticle (v = 1), y = H the sole
+  const grad = g.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0.0, '#5d4c3a');
+  grad.addColorStop(0.12, '#8f7b5f');
+  grad.addColorStop(0.4, '#b3a182');
+  grad.addColorStop(0.8, '#c6b898');
+  grad.addColorStop(0.94, '#a79879');
+  grad.addColorStop(1.0, '#7c6d55');
+  g.fillStyle = grad; g.fillRect(0, 0, W, H);
+  // lengthwise striations
+  for (let i = 0; i < 150; i++) {
+    const x = rnd() * W, dark = rnd() < 0.6;
+    g.strokeStyle = dark ? `rgba(70,54,36,${0.05 + rnd() * 0.13})` : `rgba(245,236,214,${0.04 + rnd() * 0.1})`;
+    g.lineWidth = 0.6 + rnd() * 2.4;
+    g.beginPath(); g.moveTo(x, rnd() * H * 0.3);
+    let xx = x;
+    for (let y = 0; y <= H; y += 24) { xx += (rnd() - 0.5) * 2.5; g.lineTo(xx, y); }
+    g.stroke();
+  }
+  // growth bands across the nail
+  for (let i = 0; i < 9; i++) {
+    const y = H * (0.15 + 0.8 * rnd());
+    g.strokeStyle = `rgba(80,62,42,${0.05 + rnd() * 0.09})`;
+    g.lineWidth = 1 + rnd() * 3;
+    g.beginPath(); g.moveTo(0, y + 10); g.quadraticCurveTo(W / 2, y - 14, W, y + 10); g.stroke();
+  }
+  // cracks working up from the worn lower edge
+  for (let i = 0; i < 5; i++) {
+    let x = W * (0.12 + 0.76 * rnd()), y = H;
+    g.strokeStyle = `rgba(38,28,18,${0.35 + rnd() * 0.3})`;
+    g.lineWidth = 0.8 + rnd() * 1.2;
+    g.beginPath(); g.moveTo(x, y);
+    const top = H * (0.45 + 0.4 * rnd());
+    while (y > top) { y -= 8 + rnd() * 10; x += (rnd() - 0.5) * 5; g.lineTo(x, y); }
+    g.stroke();
+  }
+  // grime: darker towards the sides, speckled all over
+  const side = g.createLinearGradient(0, 0, W, 0);
+  side.addColorStop(0, 'rgba(48,36,26,0.55)'); side.addColorStop(0.16, 'rgba(48,36,26,0)');
+  side.addColorStop(0.84, 'rgba(48,36,26,0)'); side.addColorStop(1, 'rgba(48,36,26,0.55)');
+  g.fillStyle = side; g.fillRect(0, 0, W, H);
+  for (let i = 0; i < 2600; i++) {
+    g.fillStyle = `rgba(${40 + rnd() * 30},${30 + rnd() * 24},${20 + rnd() * 16},${rnd() * 0.16})`;
+    g.fillRect(rnd() * W, rnd() * H, 1 + rnd() * 2, 1 + rnd() * 3);
+  }
+  // blotchy staining
+  for (let i = 0; i < 26; i++) {
+    const x = rnd() * W, y = H * (0.25 + 0.75 * rnd()), r = 10 + rnd() * 34;
+    const blot = g.createRadialGradient(x, y, 0, x, y, r);
+    blot.addColorStop(0, `rgba(60,44,28,${0.1 + rnd() * 0.16})`); blot.addColorStop(1, 'rgba(60,44,28,0)');
+    g.fillStyle = blot; g.fillRect(x - r, y - r, r * 2, r * 2);
+  }
+  const map = new THREE.CanvasTexture(c);
+  map.colorSpace = THREE.SRGBColorSpace;
+  map.anisotropy = 8;
+
+  const b = document.createElement('canvas'); b.width = W; b.height = H;
+  const bg = b.getContext('2d');
+  bg.fillStyle = '#808080'; bg.fillRect(0, 0, W, H);
+  for (let i = 0; i < 110; i++) {
+    const x = rnd() * W, v = rnd() < 0.5 ? 70 + rnd() * 30 : 160 + rnd() * 40;
+    bg.strokeStyle = `rgba(${v},${v},${v},${0.15 + rnd() * 0.3})`;
+    bg.lineWidth = 1 + rnd() * 3;
+    bg.beginPath(); bg.moveTo(x, 0);
+    let xx = x;
+    for (let y = 0; y <= H; y += 24) { xx += (rnd() - 0.5) * 2.5; bg.lineTo(xx, y); }
+    bg.stroke();
+  }
+  const bump = new THREE.CanvasTexture(b);
+  bump.anisotropy = 8;
+  return { map, bump };
 }
 
 export class Mammoth {
@@ -168,23 +312,17 @@ export class Mammoth {
       attach(eye, 'head');
     }
 
+    // toenails: horn plates set into the front of each foot
+    const nailTex = makeNailTexture();
     const nailMat = patchStandardMaterial(new THREE.MeshPhysicalMaterial({
-      color: 0x3b332b, roughness: 0.82, metalness: 0,
+      map: nailTex.map, bumpMap: nailTex.bump, bumpScale: 0.9, vertexColors: true,
+      roughness: 0.6, metalness: 0, clearcoat: 0.16, clearcoatRoughness: 0.5, envMapIntensity: 0.6,
     }), { key: 'nail' });
-    const nailGeo = new THREE.SphereGeometry(1, 16, 12);
-    const footBones = ['foreFoot_R', 'foreFoot_L', 'hindFoot_R', 'hindFoot_L'];
-    anat.feet.forEach((foot, i) => {
-      for (const th of [-1.05, -0.36, 0.36, 1.05]) {
-        const nail = new THREE.Mesh(nailGeo, nailMat);
-        const rr = foot.r - 0.004;
-        nail.position.set(foot.c[0] + Math.cos(th) * rr, 0.062, foot.c[2] + Math.sin(th) * rr);
-        nail.position.y = 0.046;
-        nail.scale.set(0.011, 0.04, 0.05);
-        nail.rotation.y = -th;
-        nail.name = 'nail';
-        attach(nail, footBones[i]);
-      }
-    });
+    for (const foot of anat.feet) {
+      const nails = new THREE.Mesh(buildNailGeometry(foot, data.sdf), nailMat);
+      nails.name = 'nails';
+      attach(nails, foot.bone);
+    }
 
     m.casters = [m.body, ...m.furMeshes, ...m.rigid];
     m.time = 0;
