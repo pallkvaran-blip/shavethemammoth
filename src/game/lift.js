@@ -41,7 +41,7 @@ function crateTexture() {
     g.fillStyle = '#b3251c'; g.fillRect(0, 0, w, h);
     g.fillStyle = '#1a0806';
     for (let y = 14; y < h - 30; y += 22) for (let x = 10; x < w - 10; x += 20) g.fillRect(x, y, 13, 14);
-    g.fillStyle = '#f0e6d0'; g.font = 'bold 15px Georgia, serif'; g.textAlign = 'center';
+    g.fillStyle = '#f0e6d0'; g.font = '700 17px "Grenze", Georgia, serif'; g.textAlign = 'center';
     g.fillText('PROPERTY OF', w / 2, h - 16); g.fillText('A DAIRY', w / 2, h - 3);
   }, true);
 }

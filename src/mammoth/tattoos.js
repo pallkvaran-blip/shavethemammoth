@@ -8,7 +8,7 @@
 import * as THREE from 'three';
 
 const INK = '#16242c', RED = '#9c241c', GREEN = '#1f5a3a';
-const SERIF = "Georgia, 'Times New Roman', serif", BLOCK = "'Arial Black', Impact, 'Helvetica Neue', Arial, sans-serif";
+const SERIF = "'Grenze', 'Palatino Linotype', Georgia, serif", BLOCK = "'Arial Black', Impact, 'Helvetica Neue', Arial, sans-serif";
 
 /** Lettering, fitted to a width, with the slight bleed of old ink. */
 function words(g, text, x, y, size, { font = SERIF, style = 'bold', colour = INK, fit = 0, align = 'center', spacing = 0 } = {}) {

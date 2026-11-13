@@ -13,7 +13,7 @@
 // which makes him a head taller than the elf, and he stands on a box to be
 // sure of it.
 import * as THREE from 'three';
-import { Model, signTexture, plankTexture } from './model.js';
+import { Model, signTexture, plankTexture, GOTHIC, HAND } from './model.js';
 import { canvasTexture } from '../tool.js';
 import { buildFigure } from './figure.js';
 import { bakeFigure } from './bake.js';
@@ -24,7 +24,7 @@ import { gnomeRecipe, browAt, sub, unit, EYE, EYE_R, HAT, BELLY, BELLY_R, BELT_Y
 function jerseyLettering() {
   return canvasTexture(512, 192, (g, w, h) => {
     g.clearRect(0, 0, w, h);
-    g.font = 'bold 150px Georgia, serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.font = `700 172px ${HAND}`; g.textAlign = 'center'; g.textBaseline = 'middle';
     g.lineJoin = 'round';
     g.strokeStyle = '#2a120a'; g.lineWidth = 26; g.strokeText('#1 FAN', w / 2, h * 0.54);
     g.fillStyle = '#f6edd6'; g.fillText('#1 FAN', w / 2, h * 0.54);
@@ -34,7 +34,7 @@ function jerseyLettering() {
 function foamLettering() {
   return canvasTexture(256, 256, (g, w, h) => {
     g.clearRect(0, 0, w, h);
-    g.fillStyle = '#f4f0e6'; g.font = 'bold 150px Georgia, serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillStyle = '#f4f0e6'; g.font = `700 176px ${HAND}`; g.textAlign = 'center'; g.textBaseline = 'middle';
     g.fillText('#1', w / 2, h / 2 + 8);
   }, true);
 }
@@ -174,8 +174,8 @@ export function buildStall() {
   const wood = M.mat(0xffffff, { rough: 0.8, map: planks });
   const post = M.mat(0x5d4028, { rough: 0.85 });
   const cloth = M.mat(0xffffff, { rough: 0.9, map: stripes('#f2ead8', '#a8261b', 10), side: THREE.DoubleSide });
-  const board = M.mat(0xffffff, { rough: 0.75, map: signTexture([{ text: "GNORMAN'S", size: 64, style: 'bold' }, { text: 'sharp things & sundries', size: 30, style: 'italic' }]) });
-  const rules = M.mat(0xffffff, { rough: 0.8, map: signTexture([{ text: 'GOLD ONLY', size: 34, style: 'bold' }, { text: 'no credit · no refunds', size: 22 }, { text: 'no hair · no haggling', size: 22 }, { text: 'no mammoths', size: 22 }], { w: 256, h: 192, ground: '#e7dcc2', ink: '#2a1a10' }) });
+  const board = M.mat(0xffffff, { rough: 0.75, map: signTexture([{ text: 'Gnorman’s', size: 88, style: '700', font: GOTHIC }, { text: 'sharp things & sundries', size: 32, style: 'italic 500' }]) });
+  const rules = M.mat(0xffffff, { rough: 0.8, map: signTexture([{ text: 'Gold only', size: 52, style: '700', font: GOTHIC }, { text: 'no credit · no refunds', size: 24, style: '500' }, { text: 'no hair · no haggling', size: 24, style: '500' }, { text: 'no mammoths', size: 24, style: '500' }], { w: 256, h: 192, ground: '#e7dcc2', ink: '#2a1a10' }) });
   const brass = M.mat(0xc9a13f, { rough: 0.35, metal: 1 });
   const glassy = M.mat(0x4d8f4a, { rough: 0.15, coat: 1 });
   const glow = M.mat(0x2a1a06, { rough: 0.4, emissive: 0xffb95a, glow: 14 });
@@ -225,7 +225,7 @@ export function buildStall() {
     bottle.position.set(0.2, 0.162, 0.13);
     const cork = M.add(all, new THREE.CylinderGeometry(0.0046, 0.0042, 0.009, 12), post, 'cork');
     cork.position.set(0.2, 0.2355, 0.13);
-    const label = M.add(all, new THREE.CylinderGeometry(0.0149, 0.0149, 0.02, 24, 1, true, -1.0, 2.0), M.mat(0xffffff, { rough: 0.85, map: signTexture([{ text: 'HAIR', size: 44, style: 'bold' }, { text: 'TONIC', size: 44, style: 'bold' }, { text: 'results not typical', size: 17, style: 'italic' }], { w: 256, h: 160, ground: '#e9dfc4', ink: '#3a1a10' }) }), 'label');
+    const label = M.add(all, new THREE.CylinderGeometry(0.0149, 0.0149, 0.02, 24, 1, true, -1.0, 2.0), M.mat(0xffffff, { rough: 0.85, map: signTexture([{ text: 'Hair', size: 52, style: '700', font: GOTHIC }, { text: 'Tonic', size: 52, style: '700', font: GOTHIC }, { text: 'results not typical', size: 19, style: 'italic 500' }], { w: 256, h: 160, ground: '#e9dfc4', ink: '#3a1a10' }) }), 'label');
     label.position.set(0.2, 0.182, 0.13);
   }
   M.box(all, wood, [0.09, 0.07, 0.09], [-0.25, 0.197, 0.12]).rotation.y = 0.3;      // (to one side: nobody stands a crate in front of the shopkeeper)

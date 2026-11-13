@@ -73,9 +73,18 @@ let Q = { ...PRESETS[qualityName] };
 if (q.has('strands')) Q.strands = +q.get('strands');
 if (q.has('msaa')) Q.samples = +q.get('msaa');
 
+// The lettering: nothing is shown in it until it has arrived (or has had long enough to), and what is painted on signs
+// and knitted into jerseys in the scene waits for it too.
+const FACES = ['24px "Jacquard 24"', '500 24px "Grenze Gotisch"', '700 24px "Grenze Gotisch"', '16px "Grenze"', '500 16px "Grenze"', '600 16px "Grenze"', '700 16px "Grenze"', 'italic 16px "Grenze"', 'italic 500 16px "Grenze"', 'italic 600 16px "Grenze"'];
+const lettering = (() => {
+  const all = document.fonts && document.fonts.load ? Promise.all(FACES.map((f) => document.fonts.load(f).catch(() => null))) : Promise.resolve();
+  return Promise.race([all, new Promise((done) => setTimeout(done, 3500))]).then(() => { document.body.classList.add('fonts'); });
+})();
+
 const setProgress = (p, label) => {
   const bar = $('bar'), text = $('status');
-  if (bar) bar.style.transform = `scaleX(${Math.min(1, p).toFixed(3)})`;
+  // (the rows of knitting are worked that far: whole stitches only)
+  if (bar) bar.style.width = `${Math.round(Math.min(1, p) * Math.floor(bar.parentElement.clientWidth / 14)) * 14}px`;
   if (text && label) text.textContent = label;
 };
 
@@ -152,6 +161,7 @@ async function start() {
   if (q.has('bare')) for (const o of [land, rocks.group, grass, dust]) o.visible = false;
 
   // ---- mammoth --------------------------------------------------------------
+  await lettering;                                  // (his tattoos are lettered, and so are the traders' signs)
   const mammoth = await Mammoth.create({ strands: Q.strands, cell: 0.025, a2c: Q.samples > 0 }, (p, l) => setProgress(0.38 + p * 0.58, l));
   mammoth.addTo(scene);
   mammoth.setFurDetail(1, Q.furShadow);
@@ -710,5 +720,6 @@ async function start() {
 start().catch((err) => {
   console.error(err);
   const text = $('status');
-  if (text) text.textContent = 'The scene could not start: ' + err.message;
+  if (text) { text.textContent = 'The scene could not start: ' + err.message; text.classList.add('failed'); }
+  document.body.classList.add('fonts');
 });
