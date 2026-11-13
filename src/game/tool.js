@@ -342,6 +342,7 @@ export class Tool {
     this._freeP = new THREE.Vector3(); this._freeQ = new THREE.Quaternion();
     this._flatP = new THREE.Vector3(); this._flatQ = new THREE.Quaternion();
     this._tp = new THREE.Vector3(); this._tq = new THREE.Quaternion();
+    this._wp = new THREE.Vector3(); this._wq = new THREE.Quaternion(); this._camWas = new THREE.Matrix4();
     this.poseP = new THREE.Vector3(); this.poseQ = new THREE.Quaternion();
     this._scale = new THREE.Vector3(); this._one = new THREE.Vector3(1, 1, 1);
     this.flat = 0; this.lying = 0; this.poseReady = false;
@@ -588,6 +589,16 @@ export class Tool {
     // ---- blend, and let the hands follow a little behind ----------------------------
     const P = this._tp.copy(this._freeP), Q = this._tq.copy(this._freeQ);
     if (hit && wgt > 0) { P.lerp(this._flatP, wgt); Q.slerp(this._flatQ, wgt); }
+    // A tool lying on the hide is on the hide, not in front of the eyes: when
+    // the head turns it stays where it was on the mammoth, and is slid from
+    // there to where it is wanted. (Followed in the frame of the eyes instead,
+    // it would swing up off the skin with every quick look, and an electric
+    // tool would miss half of what it was run over.)
+    if (this.poseReady && this.lying > 0.01) {
+      this._m.copy(camera.matrixWorld).invert().multiply(this._camWas).multiply(this._local.compose(this.poseP, this.poseQ, this._one));
+      this._m.decompose(this._wp, this._wq, this._scale);
+      this.poseP.lerp(this._wp, this.lying); this.poseQ.slerp(this._wq, this.lying);
+    }
     const follow = this.poseReady ? Math.min(1, dt * 16) : 1;
     this.poseP.lerp(P, follow); this.poseQ.slerp(Q, follow);
     this.poseReady = true;
@@ -606,6 +617,7 @@ export class Tool {
     this.group.updateMatrixWorld(true);
     /** 0 = held free, 1 = lying flat on the hide */
     this.lying = wgt;
+    this._camWas.copy(camera.matrixWorld);
   }
 
   /** The flat wedge between the blades, in the world: what a stroke from here would cut. */

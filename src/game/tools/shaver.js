@@ -93,10 +93,11 @@ function bodyTextures() {
 
 export function buildBeardShaver() {
   const kit = new Kit('beard-shaver', 0.03);
-  const tex = steelTextures({ seed: 733, tone: '#a4a8ad', rust: 0 });
+  const tex = steelTextures({ seed: 733, tone: '#bcc0c5', rust: 0 });
   const body = bodyTextures();
-  const steel = kit.patch(new THREE.MeshPhysicalMaterial({ map: tex.body, metalness: 0.9, roughness: 0.3, roughnessMap: tex.rough, bumpMap: tex.rough, bumpScale: 0.02, envMapIntensity: 1.1 }));
-  const dark = kit.patch(new THREE.MeshPhysicalMaterial({ map: tex.body, color: 0x8b8f96, metalness: 0.9, roughness: 0.34, roughnessMap: tex.rough, envMapIntensity: 1 }));
+  // (bright steel, but not so much of a mirror that it only shows the sky above it)
+  const steel = kit.patch(new THREE.MeshPhysicalMaterial({ map: tex.body, metalness: 0.7, roughness: 0.32, roughnessMap: tex.rough, bumpMap: tex.rough, bumpScale: 0.02, envMapIntensity: 1.1 }));
+  const dark = kit.patch(new THREE.MeshPhysicalMaterial({ map: tex.body, color: 0x9a9ea5, metalness: 0.72, roughness: 0.36, roughnessMap: tex.rough, envMapIntensity: 1 }));
   const gloss = kit.patch(new THREE.MeshPhysicalMaterial({ color: 0x15161a, metalness: 0, roughness: 0.3, clearcoat: 0.5, clearcoatRoughness: 0.25 }));
   const soft = kit.patch(new THREE.MeshPhysicalMaterial({ map: body.colour, metalness: 0.1, roughness: 0.9, roughnessMap: body.rough, clearcoat: 0.12, clearcoatRoughness: 0.5 }));
   const chrome = kit.patch(new THREE.MeshPhysicalMaterial({ color: 0xc9ccd0, metalness: 1, roughness: 0.16, roughnessMap: tex.rough, envMapIntensity: 1.2 }));

@@ -482,7 +482,8 @@ async function start() {
 
     if (sunPending !== null) { setSun(sunPending); sunPending = null; }
 
-    if (!shot && document.visibilityState === 'visible') {
+    // (dev: ?fixed holds the detail where it starts, however slow the frames)
+    if (!shot && !q.has('fixed') && document.visibilityState === 'visible') {
       if (settle > 0) settle -= Math.min(rawDt, 1);   // (on a machine far too slow, a few frames are enough to know it)
       else { wAcc += Math.min(rawDt, 1.5); wFrames++; }
       if (wAcc > 1.3) {

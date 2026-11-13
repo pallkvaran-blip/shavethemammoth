@@ -142,8 +142,8 @@ export function buildElectricShears() {
   const tex = steelTextures({ seed: 409, tone: '#9da1a6', rust: 0.04 });
   const body = bodyTextures();
   const knurl = knurlTexture();
-  const steel = kit.patch(new THREE.MeshPhysicalMaterial({ map: tex.body, metalness: 0.86, roughness: 0.36, roughnessMap: tex.rough, bumpMap: tex.rough, bumpScale: 0.03, envMapIntensity: 1 }));
-  const bright = kit.patch(new THREE.MeshPhysicalMaterial({ map: tex.body, color: 0xdfe2e5, metalness: 0.92, roughness: 0.27, roughnessMap: tex.rough, bumpMap: tex.rough, bumpScale: 0.02, envMapIntensity: 1.1 }));
+  const steel = kit.patch(new THREE.MeshPhysicalMaterial({ map: tex.body, metalness: 0.74, roughness: 0.36, roughnessMap: tex.rough, bumpMap: tex.rough, bumpScale: 0.03, envMapIntensity: 1 }));
+  const bright = kit.patch(new THREE.MeshPhysicalMaterial({ map: tex.body, color: 0xdfe2e5, metalness: 0.8, roughness: 0.27, roughnessMap: tex.rough, bumpMap: tex.rough, bumpScale: 0.02, envMapIntensity: 1.1 }));
   // the head is a casting under grey hammer-finish enamel, chipped to bare metal here and there
   const cast = kit.patch(new THREE.MeshPhysicalMaterial({ map: enamelTexture(), metalness: 0.45, roughness: 0.5, roughnessMap: tex.rough, bumpMap: tex.rough, bumpScale: 0.1, envMapIntensity: 0.7, clearcoat: 0.25, clearcoatRoughness: 0.4 }));
   const moulded = kit.patch(new THREE.MeshPhysicalMaterial({ map: body.colour, metalness: 0, roughness: 0.66, bumpMap: body.relief, bumpScale: 0.35, clearcoat: 0.08, clearcoatRoughness: 0.6 }));

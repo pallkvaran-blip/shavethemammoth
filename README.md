@@ -147,7 +147,8 @@ Settings > System > Display > Graphics.
   instead), `look=yaw,pitch`, `open` (blade angle, 0 to 1), `warm=n` (advance n
   frames first), `cutdisc=x,y,z,nx,ny,nz,r` (shear everything crossing a disc),
   `shearsat=x,y,z` (lay the tool down to look at it),
-  `debugShadow`, `adapt=n` (start n notches down the automatic quality scale), `away=x` (hold the
+  `debugShadow`, `adapt=n` (start n notches down the automatic quality scale), `fixed` (stay
+  there, however slow the frames), `away=x` (hold the
   tool part way put away, 0 to 1), `legend=n` (hold line n of the opening legend; `nolegend` on
   the live page goes without it), `sync` (wait for the graphics side every frame: the tests use
   it, because without a graphics card frames are queued faster than they are drawn), `bare`
