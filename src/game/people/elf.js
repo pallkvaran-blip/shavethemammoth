@@ -26,7 +26,7 @@ const clamp01 = (v) => Math.min(1, Math.max(0, v));
 
 export function buildElf({ bare = false, baked = null } = {}) {
   const recipe = elfRecipe();
-  const { data, hair } = baked || bakeFigure(recipe, { bare });
+  const { data, far, hair } = baked || bakeFigure(recipe, { bare });
   const skin = folkMaterial('skin', { color: 0xe6bca8, a: [1, 1, 1, 0.5], roughness: 0.48, clearcoat: 0.1, clearcoatRoughness: 0.45 });
   const mustard = { color: 0xc8962a, sheen: 0.7, sheenRoughness: 0.55, sheenColor: 0xf0cf7a };
   const M = {
@@ -42,7 +42,7 @@ export function buildElf({ bare = false, baked = null } = {}) {
     hatRib: folkMaterial('knit', { color: 0xf1e3c6, a: [0.0021, 0.0017, 0, 0], b: [2, 0, 0, 0], sheen: 0.6, sheenRoughness: 0.6, sheenColor: 0xffffff }),
     bobble: folkMaterial('felt', { color: 0xf1e3c6, a: [0.0007, 1, 0, 0], sheen: 0.8, sheenRoughness: 0.6 }),
   };
-  const fig = buildFigure('elf', recipe.bones, data, M);
+  const fig = buildFigure('elf', recipe.bones, data, M, far);
   const { group, rig, B, meshes, hang } = fig;
 
   // ---- things that are simply made and hung on a bone: eyes, lids, a tooth, bells ----
@@ -183,7 +183,7 @@ export function buildElf({ bare = false, baked = null } = {}) {
 
   return {
     group, meshes, height: 0.2, eye: 0.17, back,
-    want, pose, rig, data, materials: M, detail: fig.detail,
+    want, pose, rig, data, materials: M, see: fig.see,
     /** Where a hand is (world): 'R', 'L', or 'both' for the point midway between them. ('R' is the one he lifts things with.) */
     hand(which, out = _v) {
       if (which === 'both') return B.handL.getWorldPosition(out).add(B.handR.getWorldPosition(_w)).multiplyScalar(0.5);

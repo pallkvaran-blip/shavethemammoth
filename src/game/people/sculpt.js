@@ -316,6 +316,48 @@ export function meshLayer(sculpt, { cell = 0.0015, rig = null, occluder = null, 
 meshLayer.log = [];
 
 /**
+ * The same mesh with fewer faces, for when the figure is too far off for the fine one to show: its points are gathered
+ * into cells `size` across (those facing different ways kept apart, so that the two sides of an ear stay two sides),
+ * one point of each cell is kept, and the faces that still have three corners are kept with it.
+ */
+export function coarsen(data, size) {
+  const P = data.position, N = data.normal, n = P.length / 3, inv = 1 / size, off = 2048;
+  const cluster = new Int32Array(n), cells = new Map(), sum = [];
+  for (let i = 0; i < n; i++) {
+    const kx = Math.floor(P[i * 3] * inv) + off, ky = Math.floor(P[i * 3 + 1] * inv) + off, kz = Math.floor(P[i * 3 + 2] * inv) + off;
+    const way = (N[i * 3] > 0 ? 1 : 0) | (N[i * 3 + 1] > 0 ? 2 : 0) | (N[i * 3 + 2] > 0 ? 4 : 0);
+    const key = (kx + 4096 * (ky + 4096 * kz)) * 8 + way;
+    let c = cells.get(key);
+    if (c === undefined) { c = sum.length / 4; cells.set(key, c); sum.push(0, 0, 0, 0); }
+    cluster[i] = c;
+    sum[c * 4] += P[i * 3]; sum[c * 4 + 1] += P[i * 3 + 1]; sum[c * 4 + 2] += P[i * 3 + 2]; sum[c * 4 + 3]++;
+  }
+  // of each cell, the point nearest the middle of its points
+  const count = sum.length / 4, keep = new Int32Array(count).fill(-1), best = new Float64Array(count).fill(1e9);
+  for (let i = 0; i < n; i++) {
+    const c = cluster[i], k = sum[c * 4 + 3];
+    const dx = P[i * 3] - sum[c * 4] / k, dy = P[i * 3 + 1] - sum[c * 4 + 1] / k, dz = P[i * 3 + 2] - sum[c * 4 + 2] / k, d = dx * dx + dy * dy + dz * dz;
+    if (d < best[c]) { best[c] = d; keep[c] = i; }
+  }
+  const I = data.index, faces = [], had = new Set();
+  for (let t = 0; t < I.length; t += 3) {
+    let a = cluster[I[t]], b = cluster[I[t + 1]], c = cluster[I[t + 2]];
+    if (a === b || b === c || a === c) continue;
+    // (the same face once only, whichever corner it was first given from)
+    if (b < a && b < c) { const x = a; a = b; b = c; c = x; } else if (c < a && c < b) { const x = a; a = c; c = b; b = x; }
+    const key = a + count * (b + count * c);
+    if (had.has(key)) continue;
+    had.add(key);
+    faces.push(a, b, c);
+  }
+  const pick = (from, w, Type) => { const to = new Type(count * w); for (let v = 0; v < count; v++) for (let j = 0; j < w; j++) to[v * w + j] = from[keep[v] * w + j]; return to; };
+  return {
+    position: pick(P, 3, Float32Array), normal: pick(N, 3, Float32Array), uv: pick(data.uv, 2, Float32Array), shade: pick(data.shade, 2, Float32Array), tint: pick(data.tint, 4, Float32Array),
+    skinIndex: pick(data.skinIndex, 4, Uint16Array), skinWeight: pick(data.skinWeight, 4, Float32Array), index: new Uint32Array(faces),
+  };
+}
+
+/**
  * Points scattered over a layer's surface, for things to grow from: `want(x, y, z, nx, ny, nz)` says how thickly
  * (0 for not at all, 1 for as thick as it gets). Returns up to `count` of { p: [x, y, z], n: [nx, ny, nz] }.
  */

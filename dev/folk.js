@@ -77,6 +77,8 @@ if (who === 'vulture' || who === 'all') {
 }
 // (for finding out which part of a material is doing what: ?fa=<layer>:x,y,z,w sets its first four numbers)
 if (q.has('fa')) { const [name, v] = q.get('fa').split(':'); for (const f of figures) if (f.materials && f.materials[name]) f.materials[name].userData.folk.uFolkA.value.fromArray(v.split(',').map(Number)); }
+// (?far draws them as they are drawn from a long way off: fewer faces, fewer strands)
+if (q.has('far')) for (const f of figures) if (f.see) f.see(num('far', 99) || 99);
 const built = performance.now() - t0;
 let tris = 0;
 scene.traverse((o) => { if (o.isMesh && o.geometry.index) tris += o.geometry.index.count / 3; });

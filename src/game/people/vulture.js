@@ -28,7 +28,7 @@ const WIG_HAIR = {
 
 export function buildVulture({ bare = false, baked = null } = {}) {
   const recipe = vultureRecipe();
-  const { data, hair } = baked || bakeFigure(recipe, { bare });
+  const { data, far, hair } = baked || bakeFigure(recipe, { bare });
   const skin = folkMaterial('skin', { color: 0xc8736a, a: [0.35, 1.6, 1.2, 0.3], roughness: 0.56, clearcoat: 0.08, clearcoatRoughness: 0.5 });
   const under = folkMaterial('plain', { color: 0x0f0c0a, a: [0.004, 0.5, 0, 0], roughness: 0.95 });
   const M = {
@@ -39,7 +39,7 @@ export function buildVulture({ bare = false, baked = null } = {}) {
     ruff: folkMaterial('felt', { color: 0xd9d2c4, a: [0.001, 1, 0, 0] }),
     rug: folkMaterial('cloth', { color: 0x5a2d14, a: [0.0012, 0.6, 0, 0] }),
   };
-  const fig = buildFigure('vulture', recipe.bones, data, M);
+  const fig = buildFigure('vulture', recipe.bones, data, M, far);
   const { group, rig, B, meshes, hang } = fig;
 
   // ---- eyes: yellow, unblinking for longer than is comfortable ----
@@ -69,16 +69,31 @@ export function buildVulture({ bare = false, baked = null } = {}) {
     eyeglass.rotation.y = 0.3;
     // the chain: links, hanging in a curve from the rim to somewhere in his ruff
     const from = new THREE.Vector3(EYE[0] + 0.0148, EYE[1] - 0.006, EYE[2] + 0.005), to = new THREE.Vector3(0.036, 0.345, 0.03);
-    const chain = new THREE.Group(), n = 30, link = new THREE.TorusGeometry(0.00165, 0.00042, 5, 10), up = new THREE.Vector3(0, 1, 0), at = new THREE.Vector3(), next = new THREE.Vector3();
+    const n = 30, link = new THREE.TorusGeometry(0.00165, 0.00042, 5, 10), up = new THREE.Vector3(0, 1, 0), at = new THREE.Vector3(), next = new THREE.Vector3();
     const point = (t, out) => out.lerpVectors(from, to, t).add(new THREE.Vector3(0.012, -0.03, 0.006).multiplyScalar(4 * t * (1 - t)));
+    // (all the links are one mesh: thirty things to draw would be thirty times the bother for something this small)
+    const per = link.attributes.position.count, lp = link.attributes.position, ln = link.attributes.normal, li = link.index;
+    const pos = new Float32Array(n * per * 3), nor = new Float32Array(n * per * 3), idx = new Uint16Array(n * li.count);
+    const one = new THREE.Object3D(), v = new THREE.Vector3(), turn = new THREE.Matrix3();
     for (let i = 0; i < n; i++) {
-      const m = new THREE.Mesh(link, gold);
       point((i + 0.5) / n, at); point((i + 1) / n, next);
-      m.position.copy(at);
-      m.quaternion.setFromUnitVectors(up, next.sub(at).normalize());
-      m.rotateY(i % 2 ? Math.PI / 2 : 0);
-      chain.add(m);
+      one.position.copy(at);
+      one.quaternion.setFromUnitVectors(up, next.sub(at).normalize());
+      one.rotateY(i % 2 ? Math.PI / 2 : 0);
+      one.updateMatrix();
+      turn.setFromMatrix4(one.matrix);
+      for (let k = 0; k < per; k++) {
+        v.fromBufferAttribute(lp, k).applyMatrix4(one.matrix).toArray(pos, (i * per + k) * 3);
+        v.fromBufferAttribute(ln, k).applyMatrix3(turn).toArray(nor, (i * per + k) * 3);
+      }
+      for (let k = 0; k < li.count; k++) idx[i * li.count + k] = li.getX(k) + i * per;
     }
+    const links = new THREE.BufferGeometry();
+    links.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    links.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+    links.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(n * per * 2), 2));
+    links.setIndex(new THREE.BufferAttribute(idx, 1));
+    const chain = new THREE.Mesh(links, gold);
     hang('head', chain, [0, 0, 0]);
     chain.position.set(-rig.rest.head.x, -rig.rest.head.y, -rig.rest.head.z);
   }
@@ -101,7 +116,7 @@ export function buildVulture({ bare = false, baked = null } = {}) {
   fig.bound([0, 0.26, 0], 0.42);
   let turn = 0, nod = 0, blinkIn = 3, blink = 0;
   return {
-    group, meshes, height: 0.47, rug: B.rug, rig, data, materials: M, detail: fig.detail,
+    group, meshes, height: 0.47, rug: B.rug, rig, data, materials: M, see: fig.see,
     update(dt, t, look, near, pleased = 0) {
       turn += (THREE.MathUtils.clamp(look, -1, 1) * near - turn) * Math.min(1, dt * 3);
       // he looks you up and down; a sale gets a quick greedy nod
@@ -192,7 +207,8 @@ export function buildWigTable({ baked = null } = {}) {
   let tipped = 0;
   return {
     group: M.group, meshes: M.meshes, radius: 0.36,
-    detail(f) { for (const w of wigs) w.detail(f); },
+    /** How far off the eye is (see figure.js): fewer strands to a wig at a distance. */
+    see(dist, quality = 1) { const f = Math.min(1, 2.2 / Math.max(dist, 0.01)) * (dist > 6 ? 0.6 : 1) * quality; for (const w of wigs) w.detail(f); },
     /** @param weighing 0..1: there is hair in the pan */
     update(dt, t, weighing) {
       tipped += (weighing - tipped) * Math.min(1, dt * 4);

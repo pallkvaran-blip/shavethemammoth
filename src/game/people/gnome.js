@@ -41,7 +41,7 @@ function foamLettering() {
 
 export function buildGnome({ bare = false, baked = null } = {}) {
   const recipe = gnomeRecipe();
-  const { data, hair } = baked || bakeFigure(recipe, { bare });
+  const { data, far, hair } = baked || bakeFigure(recipe, { bare });
   const skin = folkMaterial('skin', { color: 0xd9a07c, a: [0.5, 1.2, 1.15, 0.6], roughness: 0.52, clearcoat: 0.12, clearcoatRoughness: 0.4 });
   const lettering = jerseyLettering(), number = foamLettering();
   lettering.wrapS = lettering.wrapT = number.wrapS = number.wrapT = THREE.ClampToEdgeWrapping;
@@ -62,7 +62,7 @@ export function buildGnome({ bare = false, baked = null } = {}) {
       picture: { map: number, at: foamAt(-0.034, 0.008), u: F_ACROSS.map((v) => v * 0.068), v: F_UP.map((v) => v * 0.068) },
     }),
   };
-  const fig = buildFigure('gnome', recipe.bones, data, M);
+  const fig = buildFigure('gnome', recipe.bones, data, M, far);
   const { group, rig, B, meshes, hang } = fig;
 
   // ---- eyes: small, bright, and a long way back under the hat ----
@@ -127,7 +127,7 @@ export function buildGnome({ bare = false, baked = null } = {}) {
   fig.bound([0, 0.22, 0], 0.4);
   let turn = 0, hello = 0, blinkIn = 1.7, blink = 0;
   return {
-    group, meshes, height: 0.3, rig, data, materials: M, detail: fig.detail,
+    group, meshes, height: 0.3, rig, data, materials: M, see: fig.see,
     /**
      * @param look     which way the visitor is, as an angle about y from the gnome's own forward (radians)
      * @param near     0 when nobody is about, 1 when someone is at the counter

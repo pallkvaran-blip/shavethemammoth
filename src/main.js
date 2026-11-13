@@ -511,7 +511,7 @@ async function start() {
     if (wait > 0) { waiting = open; later(() => { if (waiting) { waiting = null; open(); } }, wait); } else open();
   };
 
-  if (q.has('debug')) window.__game = { shaving, mammoth, rig, sound, camera, renderer, PUT_AWAY, game, hero, lifter, antics, U, state: game.state };   // dev: poke at the game from the console
+  if (q.has('debug')) window.__game = { shaving, mammoth, rig, sound, camera, renderer, PUT_AWAY, game, hero, lifter, antics, U, state: game.state, folkTimes };   // dev: poke at the game from the console
   if (q.has('nopush')) shaving.noPush = true;                                      // dev: hair ignores the blades
   if (q.has('away')) shaving.pinned = num('away', 0);                              // dev: hold the tool part way put away (0 to 1)
   if (q.has('noclippings')) shaving.clippings.mesh.visible = false;
@@ -627,7 +627,15 @@ async function start() {
     mammoth.setFurDetail(THREE.MathUtils.clamp(coat * far, 0.05, 1), Q.furShadow * Math.min(1, coat * 1.4));
     // (and the people's hair goes the same way as his when the frames are slow)
     const folkHair = THREE.MathUtils.clamp((Q.folk ?? 1) * ADAPT[adaptLevel].fur, 0.3, 1);
-    for (const who of [hero.elf, game.gnome, game.vulture, game.table]) who.detail(folkHair);
+    // each of them is told how far off the eye is: at a distance fewer faces and fewer strands will do. (Looked out of,
+    // the elf is only his own shadow, which never needs more than that.)
+    const eye = camera.position;
+    hero.elf.see(rig.mode === 'elf' && !hero.playing ? 99 : eye.distanceTo(hero.elf.group.position), folkHair);
+    for (const who of ['gnome', 'vulture']) {
+      const at = game.people[who], d = Math.hypot(eye.x - at.x, eye.y - at.y - 0.25, eye.z - at.z);
+      game[who].see(d, folkHair);
+      if (who === 'vulture') game.table.see(d, folkHair);
+    }
     U.uPxScale.value = size.y * 0.5 * camera.projectionMatrix.elements[5];
     mammoth.updateCoat(camera, U.uPxScale.value, Math.max(2, num('children', Q.children) * ADAPT[adaptLevel].kids));
 

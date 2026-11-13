@@ -22,7 +22,7 @@ mammoth (any key or a click skips it). It keeps itself in the browser between vi
 
 | Waiting to start | A new tool |
 | --- | --- |
-| ![A small elf in a striped hat looking up at the mammoth's legs](docs/the-elf.jpg) | ![The elf holding a pair of shears over his head, light bursting behind them, under the words "You got the Shears!"](docs/you-got-shears.jpg) |
+| ![A small elf in a striped hat and a jumper too short for him, the low sun glowing through his ears, with Gnorman's stall behind him](docs/the-elf.jpg) | ![The elf holding a pair of shears over his head, light bursting behind them, under the words "You got the Shears!"](docs/you-got-shears.jpg) |
 
 Most of the time you look out of his eyes and see only his shadow. Whenever he gets
 a new cutting tool the game stops to admire it: the camera steps outside him, he
@@ -36,7 +36,7 @@ are bigger than he is:
 
 | Gnorman | Mortimer |
 | --- | --- |
-| ![A fat gnome with a fan on his hat and a foam finger, behind a striped stall](docs/gnorman.jpg) | ![A vulture in a ruff, a monocle and a ginger toupee, behind a table of wigs and a pair of scales](docs/mortimer.jpg) |
+| ![A fat gnome with a white beard to his belt, a fan on his hat and a foam hand, lit by the lamp of his striped stall](docs/gnorman.jpg) | ![A vulture in a ruff of white down, a monocle and a ginger toupee, behind a table of wigs and a pair of scales](docs/mortimer.jpg) |
 
 ![Gnorman's list of wares, with prices in gold](docs/shop.jpg)
 
@@ -58,8 +58,8 @@ strand; Mortimer's coat is some thousands of feathers laid like tiles, each with
 shaft, barbs and the odd split in its vane.
 
 All of that is some seconds of arithmetic for each of them. It is done on threads of
-its own while the land and the mammoth are being made, so the wait is no longer for
-it; where a page does not allow threads it is done between frames instead.
+its own while the land and the mammoth are being made, so the wait is hardly longer
+for it; where a page does not allow threads it is done between frames instead.
 
 ## Under the coat
 
@@ -238,7 +238,7 @@ Settings > System > Display > Graphics.
 | Picking up | `src/game/tools/sweepers.js`, `clippings.js` | Hands, two brooms and two vacuums are tools like the others, held the same way; the brooms keep to the ground whichever way the eyes are turned. Each fallen piece carries the grams it stands for. A vacuum pulls pieces up its nozzle one by one |
 | The elf | `src/game/people/elf.recipe.js`, `elf.js`, `src/game/hero.js` | The player's character: sculpted, skinned and dressed (see the next row but one). He can hold a thing up in one hand or two, strain under it, be shaken by it and be let down by it. Looked out of, only his shadow is drawn. `hero.js` plays the scene for a new tool: where he stands (clear of the stall or the mammoth), what he does with each tool, the light behind it, and the camera's path once round him and back into his head |
 | The traders | `src/game/people/gnome.recipe.js`, `gnome.js`, `vulture.recipe.js`, `vulture.js`, `model.js` | Gnorman and his stall, Mortimer and his table (whose wigs are hair, like his toupee); they turn to watch whoever comes by. A beard goes with the chin it grows from, but what lies on the belly stays lying there when the head turns |
-| How people are made | `src/game/people/sculpt.js`, `bake.js`, `bakery.js`, `bake.worker.js`, `rig.js`, `figure.js`, `materials.js`, `strands.js`, `locks.js`, `feathers.js`, `plumes.js` | A figure is designed in a `*.recipe.js`: bones, layers of solids (the mammoth's own kit of ellipsoids and round cones, with rings, boxes and flat blades added), what is painted on the skin, where hair and feathers grow and how. `bake.js` turns that into meshes (with skin weights, occlusion, thinness and round-and-along coordinates for each point), strands and feathers; it is plain arithmetic, and `bakery.js` runs it on a worker for each figure, falling back to the page itself a piece at a time. `rig.js` and `figure.js` hang the result on bones. `materials.js` is skin (pores, freckles, light that soaks in and comes through thin parts), knitting (stocking stitch and ribbing, stripes by the row, pictures by the stitch), felt, corduroy, leather, horn and eyes, each worked out per pixel from where the point is on the figure at rest. `locks.js` draws hair as the mammoth's is drawn; `plumes.js` draws a feather on a strip a few faces long |
+| How people are made | `src/game/people/sculpt.js`, `bake.js`, `bakery.js`, `bake.worker.js`, `rig.js`, `figure.js`, `materials.js`, `strands.js`, `locks.js`, `feathers.js`, `plumes.js` | A figure is designed in a `*.recipe.js`: bones, layers of solids (the mammoth's own kit of ellipsoids and round cones, with rings, boxes and flat blades added), what is painted on the skin, where hair and feathers grow and how. `bake.js` turns that into meshes (with skin weights, occlusion, thinness and round-and-along coordinates for each point), strands and feathers; it is plain arithmetic, and `bakery.js` runs it on a worker for each figure, falling back to the page itself a piece at a time. `rig.js` and `figure.js` hang the result on bones; each layer is kept twice, once with a fifth of the faces, and beyond a few metres that one is drawn, and hair with fewer and wider strands (nobody can tell at that size, and three people at full detail cost as much to draw as a fair part of a mammoth). `materials.js` is skin (pores, freckles, light that soaks in and comes through thin parts), knitting (stocking stitch and ribbing, stripes by the row, pictures by the stitch), felt, corduroy, leather, horn and eyes, each worked out per pixel from where the point is on the figure at rest. `locks.js` draws hair as the mammoth's is drawn; `plumes.js` draws a feather on a strip a few faces long |
 | Getting up | `src/controls.js`, `src/game/lift.js` | The elf has a height above the snow. A ladder is stood up under him and climbed (it is drawn only as high as his feet, so it is never between him and the hair); a pack burns what is in its tank. `lift.js` is what is seen and heard of it: the ladders, the packs on his back, what comes out of them, the gauge |
 | Under the coat | `src/mammoth/tattoos.js`, `bodyMaterial.js`, `src/game/finds.js` | Twenty-two tattoos drawn in code on one sheet of ink, each projected onto the hide where it belongs (found by walking in from outside until the skin is met); and a thong, which is a formula. The skin's shader shows both only where the hair is off. Bare hide is a pavement of cracked plates, as an elephant's is |
 | Antics | `src/game/antics.js` | What he does while he is being shaved, what he can be made to wear, the remarks at each milestone, and the end |
@@ -292,3 +292,8 @@ Settings > System > Display > Graphics.
 1. The mammoth moving: shifting his weight, lifting a foot, turning his head to look.
 2. The elf's hands on the handles in first person (they are below the frame for now).
 3. More to do with the hair: Mortimer's wigs changing with what he has been sold.
+4. The people: they are sculpted and dressed in code, which makes them sharp at any distance and costs nothing to
+   download, but nobody has drawn them. Faces that change shape (theirs move by their bones, lids and brows only),
+   fingers, cloth and hair that swing, and the stall and table brought up to the standard of who stands at them
+   would each be worth having. Models made by an artist could be loaded in their place: what the game asks of a
+   figure is small (a group, its meshes, and a function to call each frame).

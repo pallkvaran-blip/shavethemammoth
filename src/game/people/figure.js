@@ -11,17 +11,26 @@ import { LAYER_SHADOW_NEAR } from '../../gfx/globals.js';
  * @param data       { name: a layer's mesh, from baking }
  * @param materials  { name: material }
  */
-export function buildFigure(name, bones, data, materials) {
+export function buildFigure(name, bones, data, materials, far = null) {
   const rig = makeRig(bones);
   const group = new THREE.Group();
   group.name = name;
   group.add(rig.root);
-  const meshes = [];
+  const meshes = [], pairs = [];
   for (const [n, d] of Object.entries(data)) {
     const mesh = layerMesh(d, materials[n], rig, n);
     mesh.layers.enable(LAYER_SHADOW_NEAR);
     group.add(mesh);
     meshes.push(mesh);
+    if (far && far[n]) {
+      // the same layer with fewer faces, drawn instead when the figure is a long way off
+      const coarse = layerMesh(far[n], materials[n], rig, n + ' (far)');
+      coarse.layers.enable(LAYER_SHADOW_NEAR);
+      coarse.visible = false;
+      group.add(coarse);
+      meshes.push(coarse);
+      pairs.push([mesh, coarse]);
+    }
   }
 
   const depth = makeDepthMaterial();
@@ -90,5 +99,16 @@ export function buildFigure(name, bones, data, materials) {
       }
     }
   };
-  return { group, rig, B, meshes, data, materials, hang, grow, pivot, eye, bound, detail };
+  /**
+   * Told each frame how far off the eye is: beyond a few metres the meshes with fewer faces are drawn, and the hair
+   * with fewer strands (each wider), since neither can be told from the real thing at that size. `quality` scales the
+   * hair further, for a machine that is struggling.
+   */
+  let distant = false;
+  const see = (dist, quality = 1) => {
+    const now = pairs.length > 0 && dist > (distant ? 3.0 : 3.6);
+    if (now !== distant) { distant = now; for (const [fine, coarse] of pairs) { fine.visible = !now; coarse.visible = now; } }
+    detail(Math.min(1, 2.2 / Math.max(dist, 0.01)) * (dist > 6 ? 0.6 : 1) * quality);
+  };
+  return { group, rig, B, meshes, data, materials, hang, grow, pivot, eye, bound, detail, see };
 }

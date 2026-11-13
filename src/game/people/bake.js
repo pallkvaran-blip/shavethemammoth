@@ -7,8 +7,9 @@
 // A recipe is { bones, layers: { name: Sculpt }, cells: { name: metres },
 // skin: [names of the layers that are skin], paint: { name: function },
 // hair: { name: (data) => strands } }. What comes out is
-// { data: { name: a layer's mesh }, hair: { name: strands } }: plain arrays.
-import { meshLayer } from './sculpt.js';
+// { data: { name: a layer's mesh }, far: { name: the same with fewer faces },
+// hair: { name: strands } }: plain arrays.
+import { meshLayer, coarsen } from './sculpt.js';
 
 /** The work, a piece at a time: yields how far along it is (0..1) after each piece, and returns the baked figure. */
 export function* bakeSteps(recipe, { bare = false } = {}) {
@@ -21,19 +22,22 @@ export function* bakeSteps(recipe, { bare = false } = {}) {
   const growing = bare || !recipe.hair ? [] : Object.keys(recipe.hair);
   const total = names.length + growing.length;
   let done = 0;
-  const data = {}, hair = {};
+  const data = {}, far = {}, hair = {};
   for (const n of names) {
+    const cell = (recipe.cells && recipe.cells[n]) || 0.0015;
     data[n] = meshLayer(recipe.layers[n], {
-      cell: (recipe.cells && recipe.cells[n]) || 0.0015, rig, occluder: everything, buried: skin.includes(n) ? covered : null,
+      cell, rig, occluder: everything, buried: skin.includes(n) ? covered : null,
       paint: (recipe.paint && recipe.paint[n]) || null, thin: recipe.thin ?? 0.007, weightRadius: recipe.weightRadius ?? 0.012,
     });
+    // (and a mesh with a fifth of the faces, for when he is a long way off)
+    far[n] = coarsen(data[n], cell * 2.4);
     yield ++done / total;
   }
   for (const n of growing) {
     hair[n] = recipe.hair[n](data);
     yield ++done / total;
   }
-  return { data, hair };
+  return { data, far, hair };
 }
 
 /** All of it at once. */
@@ -47,6 +51,6 @@ export function bakeFigure(recipe, opts) {
 /** The memory a baked figure is in (so that it can be handed from one thread to another without being copied). */
 export function buffersOf(baked) {
   const out = new Set();
-  for (const group of [baked.data, baked.hair]) for (const piece of Object.values(group)) for (const v of Object.values(piece)) if (ArrayBuffer.isView(v)) out.add(v.buffer);
+  for (const group of [baked.data, baked.far || {}, baked.hair]) for (const piece of Object.values(group)) for (const v of Object.values(piece)) if (ArrayBuffer.isView(v)) out.add(v.buffer);
   return [...out];
 }

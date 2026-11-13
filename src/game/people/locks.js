@@ -168,7 +168,7 @@ export function locksMesh(strands, { width = strands.width, colour = {}, flex = 
   const per = strands.index.length / Math.max(1, strands.count);
   let shown = 1;
   const detail = (f) => {
-    f = Math.min(1, Math.max(0.2, f));
+    f = Math.min(1, Math.max(0.05, f));
     if (Math.abs(f - shown) < 0.02) return;
     shown = f;
     geo.setDrawRange(0, Math.max(1, Math.round(strands.count * f)) * per);
