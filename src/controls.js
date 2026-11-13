@@ -39,6 +39,9 @@ export class CameraRig {
     this.reachGoal = 0.25;
     this.onWheel = () => {};        // the wheel is turned while shaving: +1 or -1
     this._tmp = new THREE.Vector3();
+    this.busy = false;              // talking to someone: the elf stands still and the pointer is free
+    this.obstacles = [];            // things to walk round: { x, z, r }
+    this.pace = 1;                  // how fast the elf walks, as a multiple of its usual pace
 
     const wake = () => { this.idle = 0; };
     canvas.addEventListener('pointerdown', wake);
@@ -55,10 +58,11 @@ export class CameraRig {
     document.addEventListener('pointerlockchange', () => {
       const locked = document.pointerLockElement === canvas;
       // leaving the lock (Esc) ends the walk, but only if we ever had it
-      if (!locked && this.locked && this.mode === 'elf') this.leaveElf();
+      if (!locked && this.locked && this.mode === 'elf' && !this.busy) this.leaveElf();
       this.locked = locked;
     });
     const look = (dx, dy, k) => {
+      if (this.busy) return;
       this.yaw -= dx * k;
       this.pitch = THREE.MathUtils.clamp(this.pitch - dy * k, -1.2, 1.45);
     };
@@ -78,9 +82,9 @@ export class CameraRig {
     // the tool in hand: the left button, or the space bar, squeezes the handles
     let held = false;
     const squeeze = (on) => { if (on !== held) { held = on; this.onSqueeze(on); } };
-    canvas.addEventListener('pointerdown', (e) => { if (this.mode === 'elf' && this.locked && e.button === 0) squeeze(true); });
+    canvas.addEventListener('pointerdown', (e) => { if (this.mode === 'elf' && this.locked && !this.busy && e.button === 0) squeeze(true); });
     window.addEventListener('pointerup', (e) => { if (e.button === 0) squeeze(false); });
-    window.addEventListener('keydown', (e) => { if (e.code === 'Space' && this.mode === 'elf' && !e.repeat) { e.preventDefault(); squeeze(true); } });
+    window.addEventListener('keydown', (e) => { if (e.code === 'Space' && this.mode === 'elf' && !this.busy && !e.repeat) { e.preventDefault(); squeeze(true); } });
     window.addEventListener('keyup', (e) => { if (e.code === 'Space') squeeze(false); });
     window.addEventListener('blur', () => squeeze(false));
     this._squeeze = squeeze;
@@ -104,6 +108,26 @@ export class CameraRig {
     this.camera.fov = view.fov;
     this.camera.updateProjectionMatrix();
     this.orbit.update();
+  }
+
+  /**
+   * Stand still and let go of the pointer (to talk to someone), or carry on.
+   * Carrying on asks for the pointer back; that only works from a click or a
+   * key press, which is how a conversation ends.
+   */
+  hold(on) {
+    this.busy = on;
+    this.keys.clear();
+    this._squeeze(false);
+    if (this.mode !== 'elf') return;
+    if (on) {
+      if (document.pointerLockElement === this.canvas) document.exitPointerLock();
+    } else {
+      try {
+        const req = this.canvas.requestPointerLock?.();
+        if (req && req.catch) req.catch(() => {});
+      } catch { /* drag-to-look still works */ }
+    }
   }
 
   enterElf() {
@@ -147,12 +171,14 @@ export class CameraRig {
     const cam = this.camera;
     if (this.mode === 'elf') {
       const run = this.keys.has('ShiftLeft') || this.keys.has('ShiftRight');
-      const speed = run ? 3.2 : 1.15;
+      const speed = (run ? 3.2 : 1.15) * this.pace;
       let f = 0, s = 0;
-      if (this.keys.has('KeyW') || this.keys.has('ArrowUp')) f += 1;
-      if (this.keys.has('KeyS') || this.keys.has('ArrowDown')) f -= 1;
-      if (this.keys.has('KeyD') || this.keys.has('ArrowRight')) s += 1;
-      if (this.keys.has('KeyA') || this.keys.has('ArrowLeft')) s -= 1;
+      if (!this.busy) {
+        if (this.keys.has('KeyW') || this.keys.has('ArrowUp')) f += 1;
+        if (this.keys.has('KeyS') || this.keys.has('ArrowDown')) f -= 1;
+        if (this.keys.has('KeyD') || this.keys.has('ArrowRight')) s += 1;
+        if (this.keys.has('KeyA') || this.keys.has('ArrowLeft')) s -= 1;
+      }
       const l = Math.hypot(f, s) || 1;
       const sy = Math.sin(this.yaw), cy = Math.cos(this.yaw);
       this.pos.x += (-sy * f + cy * s) / l * speed * dt;
@@ -179,6 +205,11 @@ export class CameraRig {
           const d = Math.hypot(dx, dz), r = foot.r + this.reach;
           if (d < r && d > 1e-4) { this.pos.x = foot.c[0] + (dx / d) * r; this.pos.z = foot.c[2] + (dz / d) * r; }
         }
+      }
+      // and round the stalls
+      for (const o of this.obstacles) {
+        const dx = this.pos.x - o.x, dz = this.pos.z - o.z, d = Math.hypot(dx, dz), r = o.r + 0.06;
+        if (d < r && d > 1e-4) { this.pos.x = o.x + (dx / d) * r; this.pos.z = o.z + (dz / d) * r; }
       }
       const moving = f !== 0 || s !== 0;
       const before = Math.floor((this.bob || 0) / Math.PI);

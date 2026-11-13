@@ -10,8 +10,9 @@ import { buildSnowDust, Breath } from './world/particles.js';
 import { Mammoth } from './mammoth/mammoth.js';
 import { buildAnatomy, SNOW_DEPTH } from './mammoth/anatomy.js';
 import { CameraRig, VIEWS } from './controls.js';
-import { Shaving, TOOL_ORDER, PUT_AWAY } from './game/shaving.js';
+import { Shaving, PUT_AWAY } from './game/shaving.js';
 import { Sound } from './game/audio.js';
+import { Game } from './game/game.js';
 
 const q = new URLSearchParams(location.search);
 const num = (k, d) => (q.has(k) ? parseFloat(q.get(k)) : d);
@@ -128,7 +129,7 @@ async function start() {
   scene.add(land);
 
   // keep the trail and the mammoth's own patch of ground clear
-  const avoid = [{ x0: -30, x1: 4.5, z0: -3.2, z1: 3.2 }];
+  const avoid = [{ x0: -30, x1: 4.5, z0: -3.2, z1: 3.2 }, { x0: -0.8, x1: 5.2, z0: 3.2, z1: 5.2 }];   // (and where the traders have set up)
   setProgress(0.36, 'Scattering stones and grass');
   const rocks = buildRocks(terrain, { avoid });
   scene.add(rocks.group);
@@ -149,8 +150,7 @@ async function start() {
   if (q.has('nofur')) mammoth.setCoatVisible(false);
   // the tools, and the hair they cut
   const sound = new Sound();
-  const lastTool = (() => { try { return localStorage.getItem('mammoth-tool'); } catch { return null; } })();
-  const shaving = new Shaving({ scene, mammoth, terrain, sound, a2c: Q.samples > 0, tool: q.get('tool') || lastTool || 'garden' });
+  const shaving = new Shaving({ scene, mammoth, terrain, sound, a2c: Q.samples > 0, tool: q.get('tool') || 'scissors' });
   if (q.has('cutdisc')) {
     // dev: ?cutdisc=x,y,z,nx,ny,nz,radius[;...] shears everything crossing a disc
     for (const spec of q.get('cutdisc').split(';')) {
@@ -190,7 +190,8 @@ async function start() {
   const elfCentre = new THREE.Vector3(), elfAhead = new THREE.Vector3();
   // (every tool that is showing, not only the one in hand: while the scene warms up all of them are drawn once)
   const toolCasters = () => Object.values(shaving.tools).filter((t) => t.group.visible).flatMap((t) => t.meshes);
-  const nearCasters = () => [...mammoth.casters, ...terrain.meshes.filter((m) => m.userData.castNear), ...rocks.meshes, grass, ...toolCasters()];
+  let game = null;
+  const nearCasters = () => [...mammoth.casters, ...terrain.meshes.filter((m) => m.userData.castNear), ...rocks.meshes, grass, ...toolCasters(), ...(game ? game.casters : [])];
   const farCasters = [...terrain.meshes.filter((m) => m.userData.castFar), ...rocks.meshes];
   const fitShadows = () => {
     shadowNear.fit(new THREE.Vector3(1.0, 1.45, 0), sky.sunDir, 4.8, 2.4, 160);
@@ -290,38 +291,40 @@ async function start() {
   rig.onSqueeze = (on) => shaving.squeeze(on);
   rig.onStep = (run) => sound.step(run);
 
+  // ---- the game: money, the traders, what is owned ---------------------------------
+  // (dev stills and ?unlock have everything; ?gold=n sets the purse; ?fresh ignores a kept game; ?nosave keeps nothing)
+  game = new Game({
+    scene, terrain, mammoth, shaving, rig, sound, hint: showHint, storage: !shot && !q.has('nosave'),
+    dev: { unlock: shot || q.has('unlock'), gold: q.has('gold') ? num('gold', 0) : null, fresh: shot || q.has('fresh') },
+  });
+  if (!q.has('tool')) shaving.setTool(game.state.tool);
+
   // ---- which tool ---------------------------------------------------------------
   const toolButtons = [...document.querySelectorAll('[data-tool]')];
-  const markTool = (id) => toolButtons.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.tool === id)));
-  const chooseTool = (id) => {
-    if (!shaving.tools[id]) return;
-    markTool(id);
-    shaving.setTool(id);
-    try { localStorage.setItem('mammoth-tool', id); } catch { /* the choice simply is not kept */ }
-  };
+  const chooseTool = (id) => (id === 'sweep' ? game.toggleSweep() : game.choose(id));
   shaving.onTool = (tool) => {
     rig.reachGoal = tool.def.reach;
     if (rig.mode !== 'elf') rig.reach = rig.reachGoal;   // (while shaving, the elf steps in or back over a moment)
-    markTool(tool.id);
+    game.refresh();
     if (rig.mode === 'elf') showHint(`<strong>${tool.name}.</strong> ${tool.def.blurb}`, 4);
   };
   rig.reachGoal = rig.reach = shaving.tool.def.reach;
-  markTool(shaving.tool.id);
+  game.refresh();
   toolButtons.forEach((b) => b.addEventListener('click', () => chooseTool(b.dataset.tool)));
-  rig.onWheel = (dir) => {
-    const now = TOOL_ORDER.indexOf(shaving.next || shaving.tool.id);
-    chooseTool(TOOL_ORDER[(now + dir + TOOL_ORDER.length) % TOOL_ORDER.length]);
-  };
+  rig.onWheel = (dir) => game.step(dir);
+  $('prompt')?.addEventListener('click', () => game.interact());
   rig.onChange = (mode) => {
     const elf = mode === 'elf';
     document.body.classList.toggle('elf', elf);
     shaving.setActive(elf);
+    if (!elf && game.dialog) game.close();
     if (progressEl) progressEl.hidden = !elf;
+    if ($('purse')) $('purse').hidden = !elf;
     if (elfButton) elfButton.textContent = elf ? 'Stop shaving' : 'Start shaving';
     if (elf) {
       if (!shot) sound.start();   // allowed now: this follows a click or a key press
       markView('elf');
-      showHint(`<strong>${shaving.tool.name}.</strong> ${shaving.tool.def.motor ? 'Walk up to the mammoth, lay it flat against the hide, hold it on and push.' : 'Walk up to the mammoth and cut; lay the blades flat against the hide for a close shave.'} <span class="desk"><kbd>Left mouse</kbd> or <kbd>Space</kbd> cuts (hold to keep cutting), <kbd>1</kbd> to <kbd>5</kbd> or the wheel changes tool, <kbd>W A S D</kbd> walks, <kbd>Esc</kbd> stops.</span>`, 12);
+      showHint(`<strong>${shaving.tool.name}.</strong> ${shaving.tool.def.motor ? 'Walk up to the mammoth, lay it flat against the hide, hold it on and push.' : 'Walk up to the mammoth and cut; lay the blades flat against the hide for a close shave.'} <span class="desk"><kbd>Left mouse</kbd> or <kbd>Space</kbd> cuts (hold to keep cutting), <kbd>Q</kbd> swaps to picking the hair up, <kbd>E</kbd> talks, <kbd>W A S D</kbd> walks, <kbd>Esc</kbd> stops.</span>`, 12);
     } else {
       markView(-1);
     }
@@ -344,13 +347,18 @@ async function start() {
   const statsEl = $('stats');
   window.addEventListener('keydown', (e) => {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
+    // talking to someone: E or Esc ends it, and nothing else is a command
+    if (game.dialog) { if (e.code === 'KeyE' || e.code === 'Escape') { e.preventDefault(); game.close(); } return; }
     if (e.code.startsWith('Digit')) {
       const i = +e.code.slice(5) - 1;
       // with a tool in hand the number keys change it; otherwise they change the view
-      if (rig.mode === 'elf') { if (i >= 0 && i < TOOL_ORDER.length) chooseTool(TOOL_ORDER[i]); }
+      if (rig.mode === 'elf') game.chooseNumber(i);
       else if (i >= 0 && i < VIEWS.length) goView(i);
     } else if (e.code === 'KeyE') {
-      rig.mode === 'elf' ? rig.leaveElf() : rig.enterElf();
+      // E starts the shaving; once down on the snow it talks to whoever is in front of the elf
+      if (rig.mode === 'elf') game.interact(); else rig.enterElf();
+    } else if (e.code === 'KeyQ' && rig.mode === 'elf') {
+      game.toggleSweep();
     } else if (e.code === 'Escape' && rig.mode === 'elf') {
       rig.leaveElf();
     } else if (e.code === 'KeyH') {
@@ -421,7 +429,7 @@ async function start() {
     if (wait > 0) { waiting = open; later(() => { if (waiting) { waiting = null; open(); } }, wait); } else open();
   };
 
-  if (q.has('debug')) window.__game = { shaving, mammoth, rig, sound, camera, renderer, PUT_AWAY };   // dev: poke at the game from the console
+  if (q.has('debug')) window.__game = { shaving, mammoth, rig, sound, camera, renderer, PUT_AWAY, game, state: game.state };   // dev: poke at the game from the console
   if (q.has('nopush')) shaving.noPush = true;                                      // dev: hair ignores the blades
   if (q.has('away')) shaving.pinned = num('away', 0);                              // dev: hold the tool part way put away (0 to 1)
   if (q.has('noclippings')) shaving.clippings.mesh.visible = false;
@@ -508,6 +516,7 @@ async function start() {
     camera.updateMatrixWorld(true);
     mammoth.sampler.begin(mammoth.furMats.uniforms.uBreath.value);
     shaving.update(dt, camera, rig.feel);
+    game.update(dt);
     if (frames < 3 && !shot) shaving.warm(camera, frames < 2);   // drawn once behind the loading card
     if (frames % 12 === 0) {
       sound.setWind(mammoth.sampler.windGust(camera.position.x, camera.position.z));

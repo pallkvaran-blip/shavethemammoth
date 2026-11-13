@@ -17,6 +17,8 @@
     --veil-strong: rgba(13, 15, 21, 0.78);
     --line: rgba(244, 237, 225, 0.2);
     --amber: #eab676;                      /* the low sun */
+    --warn: #ff9d7c;                       /* a full sack */
+    --sheet-foot: rgba(16, 18, 24, 0.94);  /* the foot of a shop's list, over what scrolls beneath it */
     --font-display: 'Fraunces', 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
     --font-ui: 'Figtree', 'Segoe UI', system-ui, -apple-system, sans-serif;
     color-scheme: dark;
@@ -156,7 +158,62 @@
     font-size: 0.8rem; font-weight: 600; letter-spacing: 0.04em; font-variant-numeric: tabular-nums; color: var(--amber);
     background: var(--veil); padding: 5px 10px; border-radius: 6px;
   }
+  /* what the player has on them: gold, and how full the sack is */
+  #purse { display: flex; gap: 6px; }
+  #purse span {
+    font-size: 0.8rem; font-weight: 600; letter-spacing: 0.04em; font-variant-numeric: tabular-nums; color: var(--amber);
+    background: var(--veil); padding: 5px 10px; border-radius: 6px; white-space: nowrap;
+  }
+  #purse #bag { color: var(--ink); }
+  #purse #bag.full { color: var(--warn); }
+  /* someone within talking distance */
+  #prompt {
+    pointer-events: auto; align-self: center; appearance: none; cursor: pointer; font: inherit; font-weight: 600; letter-spacing: 0.03em;
+    color: var(--ink); background: var(--veil-strong); border: 1px solid var(--amber); padding: 8px 18px; border-radius: 999px; margin-bottom: 10px;
+  }
+  #prompt kbd { margin-right: 8px; }
   .mid { display: flex; flex-direction: column; justify-content: flex-end; flex: 1; min-height: 0; }
+
+  /* ---- the two shops ---- */
+  #dialog {
+    position: fixed; inset: 0; z-index: 6; display: grid; place-items: center; background: rgba(11, 13, 18, 0.34);
+    padding-top: max(14px, env(safe-area-inset-top, 0px)); padding-bottom: max(14px, env(safe-area-inset-bottom, 0px));
+    padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  .sheet {
+    width: min(35rem, 100%); max-height: 100%; overflow-y: auto; overscroll-behavior: contain; box-sizing: border-box;
+    background: var(--veil-strong); backdrop-filter: blur(14px) saturate(1.2); -webkit-backdrop-filter: blur(14px) saturate(1.2);
+    border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px 0;
+  }
+  .sheet h2 { font-family: var(--font-display); font-weight: 400; font-size: 1.7rem; line-height: 1.1; margin: 0; }
+  .sheet .trade { color: var(--ink-dim); font-size: 0.78rem; letter-spacing: 0.05em; margin: 3px 0 10px; }
+  .sheet .says { font-family: var(--font-display); font-style: italic; font-size: 1.06rem; line-height: 1.35; color: var(--amber); margin: 0 0 6px; text-wrap: pretty; min-height: 2.7em; }
+  .sheet h3 { font-size: 0.74rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink); margin: 18px 0 0; }
+  .sheet .note { font-size: 0.8rem; font-style: italic; color: var(--ink-dim); margin: 2px 0 6px; }
+  .sheet ul { list-style: none; margin: 0; padding: 0; }
+  .sheet li { display: flex; gap: 14px; align-items: center; justify-content: space-between; padding: 9px 0; border-top: 1px solid var(--line); }
+  .sheet li > div { min-width: 0; }
+  .sheet li strong { display: block; font-weight: 600; }
+  .sheet li div span { display: block; font-size: 0.84rem; line-height: 1.35; color: var(--ink-dim); text-wrap: pretty; }
+  .sheet button {
+    appearance: none; cursor: pointer; font: inherit; font-weight: 600; white-space: nowrap; flex: none;
+    color: var(--amber); background: transparent; border: 1px solid var(--amber); border-radius: 999px; padding: 6px 14px; transition: color 0.2s, background 0.2s;
+  }
+  .sheet button:hover:not(:disabled) { background: var(--amber); color: var(--night); }
+  .sheet button.dear { color: var(--ink-dim); border-color: var(--line); }
+  .sheet button.use { color: var(--ink); border-color: var(--line); }
+  .sheet button:disabled { color: var(--ink-dim); border-color: var(--line); cursor: default; }
+  .sheet .have { flex: none; color: var(--amber); font-size: 0.8rem; font-weight: 600; letter-spacing: 0.04em; white-space: nowrap; }
+  .sheet .weigh { text-align: center; padding: 6px 0 8px; }
+  .sheet .weigh p { margin: 0 0 12px; color: var(--ink-dim); font-size: 0.86rem; }
+  .sheet .weigh .big { font-family: var(--font-display); font-size: 2.8rem; line-height: 1; color: var(--ink); margin: 4px 0 6px; font-variant-numeric: tabular-nums; }
+  .sheet .weigh .deal { font-size: 1rem; padding: 10px 22px; margin-bottom: 14px; }
+  .sheet .weigh .aside { font-style: italic; }
+  .sheet footer {
+    position: sticky; bottom: 0; display: flex; justify-content: space-between; align-items: center; gap: 12px;
+    margin: 12px -20px 0; padding: 12px 20px 14px; border-top: 1px solid var(--line); background: var(--sheet-foot); border-radius: 0 0 14px 14px;
+  }
+  .sheet .purse { color: var(--amber); font-weight: 600; font-variant-numeric: tabular-nums; }
   @media (max-width: 640px) {
     .bottom { flex-direction: column; align-items: stretch; }
     .shave { flex-direction: column; }
@@ -194,11 +251,13 @@
   <div class="top">
     <p class="wordmark">Shave the <em>Mammoth</em></p>
     <div class="readouts">
+      <div id="purse" hidden><span id="gold">0 gold</span><span id="bag">0 g of 100 g</span></div>
       <div id="progress" hidden>Shorn 0.000%</div>
       <div id="stats" hidden></div>
     </div>
   </div>
   <div class="mid">
+    <button type="button" id="prompt" hidden></button>
     <div id="hint"></div>
     <div class="touch">
       <button type="button" id="walk" aria-label="Hold to walk forward">Walk</button>
@@ -232,11 +291,14 @@
         <button type="button" id="tool-garden" data-tool="garden" aria-pressed="true"><kbd>3</kbd>Garden clippers</button>
         <button type="button" id="tool-electric" data-tool="electric" aria-pressed="false"><kbd>4</kbd>Electric shears</button>
         <button type="button" id="tool-shaver" data-tool="shaver" aria-pressed="false"><kbd>5</kbd>Beard shaver</button>
+        <button type="button" id="tool-sweep" data-tool="sweep" aria-pressed="false" title="Pick up the hair you have cut"><kbd>Q</kbd><span>Bare hands</span></button>
       </div>
       <button type="button" id="view-elf" class="start" aria-pressed="false">Start shaving</button>
     </div>
   </div>
 </div>
+
+<div id="dialog" role="dialog" aria-modal="true" aria-label="Shop" hidden><div class="sheet"></div></div>
 
 <script type="module" src="/src/main.js"></script>
 </body>

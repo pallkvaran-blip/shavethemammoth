@@ -330,6 +330,7 @@ export class Tool {
     // an electric tool: is its switch held, how fast its motor is turning (0..1), how hard it is working (0..1)
     this.on = false; this.power = 0; this.load = 0;
     this.budget = 0;          // how much it can still cut this instant (see Shaving._mow)
+    this.swing = 0; this.swinging = false;    // a broom's stroke: how far through it, and whether one is under way
     this.buzz = 0;            // seconds its motor has run: what its moving parts are timed by
     this.events = [];
     this.rnd = rngFrom(def.seed || 7);
@@ -391,8 +392,9 @@ export class Tool {
     this.phase = 'open'; this.timer = 0; this.squeezing = false; this.stall = 0; this.catchAt = -1; this.kick = 0;
     this.poseReady = false; this.flat = 0; this.lying = 0;
     this.on = false; this.power = 0; this.load = 0; this.budget = 0;
+    this.swing = 0; this.swinging = false;
     this.setAngle(this.def.open);
-    if (this.def.motor && this.def.animate) this.def.animate(this, 0);
+    if ((this.def.motor || this.def.sweep) && this.def.animate) this.def.animate(this, 0);
   }
 
   /**
@@ -414,6 +416,18 @@ export class Tool {
       this.power += ((want ? 1 : 0) - this.power) * (1 - Math.exp(-dt / (want ? m.spinUp : m.spinDown)));
       if (!want && this.power < 0.01) this.power = 0;
       this.buzz += dt * this.power * (1 - 0.3 * this.load);
+      if (this.def.animate) this.def.animate(this, dt);
+      return ev;
+    }
+    if (this.def.sweep) {
+      // a broom, or a pair of hands: one stroke after another for as long as it is held, and the hair is taken at the middle of each ('sweep')
+      if (this.squeezing && this.away < 0.1 && !this.swinging) { this.swinging = true; this.swing = 0; ev.push('stroke'); }
+      if (this.swinging) {
+        const was = this.swing;
+        this.swing += dt / this.def.sweep.every;
+        if (was < 0.5 && this.swing >= 0.5) ev.push('sweep');
+        if (this.swing >= 1) { this.swing = 0; this.swinging = false; }
+      }
       if (this.def.animate) this.def.animate(this, dt);
       return ev;
     }
@@ -554,7 +568,7 @@ export class Tool {
     // shearer holds it: blades in the plane of the hide, tips a few
     // millimetres off it, pointing up the limb.
     let flat = 0;
-    const hit = world && world.hide && this.away < 0.05 ? world.hide(camera, this._hit, this.flatFar + 0.03) : null;
+    const hit = world && world.hide && this.away < 0.05 && !def.noLie ? world.hide(camera, this._hit, this.flatFar + 0.03) : null;
     if (hit) {
       flat = 1 - THREE.MathUtils.smoothstep(hit.t, this.flatNear, this.flatFar);
       const e = camera.matrixWorld.elements, g = this._g;
@@ -643,6 +657,12 @@ export class Tool {
     out.blades[1].c.copy(out.forward).multiplyScalar(sn).addScaledVector(out.side, -c);
     out.shape = def.blade;
     return out;
+  }
+
+  /** Where the working end of the tool is, in the world (the bristles of a broom, the mouth of a nozzle). */
+  end(out) {
+    const e = this.group.matrixWorld.elements, t = this.def.tip;
+    return out.set(e[12] + e[0] * t, e[13] + e[1] * t, e[14] + e[2] * t);
   }
 
   /**

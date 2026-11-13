@@ -44,6 +44,9 @@ const VOICES = {
 const MOTORS = {
   electric: { hum: 92, wave: 'sawtooth', body: [1400, 0.05], clatter: [2100, 0.8, 0.05], sag: 0.16, whine: [1240, 0.006] },
   shaver: { hum: 168, wave: 'square', body: [2600, 0.011], clatter: [4300, 1.6, 0.012], sag: 0.34, whine: [3350, 0.0035] },
+  // the vacuums: mostly rushing air, over a motor
+  handvac: { hum: 236, wave: 'sawtooth', body: [2400, 0.009], clatter: [3100, 0.35, 0.05], sag: 0.1, whine: [2950, 0.006] },
+  shopvac: { hum: 118, wave: 'sawtooth', body: [900, 0.022], clatter: [1300, 0.3, 0.11], sag: 0.08, whine: [1420, 0.005] },
 };
 
 export class Sound {
@@ -175,6 +178,44 @@ export class Sound {
     this._noise({ type: 'lowpass', freq: 1300, q: 0.8, gain: 0.07, attack: 0.002, hold: 0.008, decay: 0.03 });
     this._tone({ freq: 620, freqTo: 480, gain: 0.03, decay: 0.04, type: 'triangle' });
     void voice;
+  }
+
+  /** A broom drawn across the snow, or a handful of hair grabbed. */
+  swish(voice = 'broom') {
+    if (!this.ctx) return;
+    if (voice === 'hands') this._noise({ buffer: this.crackle, freq: 2600, q: 0.8, gain: 0.05, attack: 0.01, hold: 0.04, decay: 0.08 });
+    else this._noise({ freq: 2200, freqTo: 900, q: 0.9, gain: 0.07, attack: 0.03, hold: 0.12, decay: 0.16 });
+  }
+
+  /** A piece of hair arrives up a nozzle. */
+  pop() {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    if (t - (this._popped || 0) < 0.04) return;      // (not every one: they come in handfuls)
+    this._popped = t;
+    this._noise({ type: 'lowpass', freq: 700 + Math.random() * 500, q: 1.2, gain: 0.05, attack: 0.002, hold: 0.004, decay: 0.03 });
+  }
+
+  /** Gold changing hands: n coins, one after another. */
+  coin(n = 1) {
+    if (!this.ctx) return;
+    for (let i = 0; i < n; i++) {
+      const when = i * 0.07 + Math.random() * 0.02, f = 2100 + Math.random() * 500;
+      this._tone({ freq: f, gain: 0.035, decay: 0.22, when });
+      this._tone({ freq: f * 1.51, gain: 0.02, decay: 0.16, when });
+      this._noise({ type: 'highpass', freq: 5000, q: 0.7, gain: 0.02, attack: 0.001, hold: 0.002, decay: 0.01, when });
+    }
+  }
+
+  /** A word from one of the traders (nobody here speaks anything you would know), or a flat "no". */
+  blip(who = 'gnome') {
+    if (!this.ctx) return;
+    if (who === 'no') { this._tone({ freq: 180, freqTo: 120, gain: 0.05, decay: 0.18, type: 'square' }); return; }
+    const base = who === 'vulture' ? 150 : 330, n = who === 'vulture' ? 3 : 5;
+    for (let i = 0; i < n; i++) {
+      const f = base * (0.8 + Math.random() * 0.7);
+      this._tone({ freq: f, freqTo: f * (0.8 + Math.random() * 0.5), gain: 0.035, decay: who === 'vulture' ? 0.16 : 0.07, type: who === 'vulture' ? 'sawtooth' : 'triangle', when: i * (who === 'vulture' ? 0.15 : 0.075), wobble: who === 'vulture' ? 28 : 0 });
+    }
   }
 
   /** The switch of an electric tool, thumbed on or off. */

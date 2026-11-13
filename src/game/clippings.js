@@ -78,6 +78,13 @@ export class Clippings {
     this.state = new Uint8Array(capacity);         // 0 falling, 1 settling, 2 at rest
     this.timer = new Float32Array(capacity);
     this.reach = new Float32Array(capacity);       // half the piece's length
+    this.value = new Float32Array(capacity);       // grams of hair the piece stands for (nothing once it has been picked up)
+    this.carry = 0;                                // grams cut that have not been given a piece of their own yet
+    this.lost = 0;                                 // grams that were left lying until their piece was needed again
+    this.inFlight = 0;                             // grams on their way up a nozzle
+    this.sink = new THREE.Vector3();               // where hair being sucked up is going: keep it at the nozzle
+    this.pull = 3;                                 // how hard it is being sucked, metres a second
+    this.onTake = null;                            // told the grams of each piece as it arrives
     this.sd = new Float32Array(4);
     this.P = [0, 0, 0]; this.Q = [0, 0, 0]; this.C = [0, 0, 0];
     this.rng = (() => { let s = 97531; return () => { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 4294967296; }; })();
@@ -90,12 +97,16 @@ export class Clippings {
    * moment: eye position, pixels per metre, and the coat's level of detail.
    * (vx, vy, vz) is the shove the blades gave it.
    */
-  spawn(cut, env, vx = 0, vy = 0, vz = 0) {
+  spawn(cut, env, vx = 0, vy = 0, vz = 0, grams = 0) {
     const a = cut.chunk.arrays, i = cut.i, i3 = i * 3, i4 = i * 4;
     const S = this.sampler, D = this.data, r = this.rng;
     const k = this.next, k3 = k * 3, k4 = k * 4;
     this.next = (this.next + 1) % this.capacity;
     this.count = Math.min(this.capacity, this.count + 1);
+    // (the oldest piece makes way: if nobody picked it up, the wind has had it)
+    if (this.state[k] === 3) this.inFlight -= this.value[k]; else this.lost += this.value[k];
+    this.value[k] = grams + this.carry;
+    this.carry = 0;
 
     // the strand, copied
     D.cRoot[k4] = a.iRoot[i3]; D.cRoot[k4 + 1] = a.iRoot[i3 + 1]; D.cRoot[k4 + 2] = a.iRoot[i3 + 2]; D.cRoot[k4 + 3] = cut.len;
@@ -150,6 +161,59 @@ export class Clippings {
     return k;
   }
 
+  /** Hair that was cut but gets no piece of its own (there are only so many): the next piece to fall stands for it too. */
+  credit(grams) { this.carry += grams; }
+
+  /** Grams of cut hair lying about, waiting to be picked up. */
+  get lying() {
+    let g = this.carry;
+    for (let k = 0; k < this.count; k++) if (this.state[k] !== 3) g += this.value[k];
+    return g;
+  }
+
+  _hide(k) {
+    const k4 = k * 4, Pos = this.data.cPos;
+    Pos[k4] = 0; Pos[k4 + 1] = -1000; Pos[k4 + 2] = 0; Pos[k4 + 3] = FALLING;
+    this.value[k] = 0;
+    this.state[k] = 2;
+    this.attr.cPos.needsUpdate = true;
+  }
+
+  /**
+   * Pick up the hair within `radius` of a point, up to `room` grams. By hand
+   * or broom it is taken at once. With `pull` it is sucked up instead: each
+   * piece flies to `this.sink` and counts (through onTake) when it arrives.
+   * Returns the grams taken at once, and leaves in `this.missed` whether
+   * anything had to be left for want of room.
+   */
+  gather(x, y, z, radius, { pull = 0, room = Infinity } = {}) {
+    const Pos = this.data.cPos, r2 = radius * radius;
+    let got = 0;
+    room -= this.inFlight;
+    this.missed = false;
+    for (let k = 0; k < this.count; k++) {
+      const v = this.value[k];
+      if (v <= 0 || this.state[k] === 3) continue;
+      const k4 = k * 4, dx = Pos[k4] - x, dy = Pos[k4 + 1] - y, dz = Pos[k4 + 2] - z;
+      if (dx * dx + dy * dy + dz * dz > r2) continue;
+      if (room - got < 0.01) { this.missed = true; break; }
+      if (pull > 0) {
+        if (v > room - got + 0.01) { this.missed = true; continue; }
+        // off the snow and into the air: it goes up the nozzle
+        this.state[k] = 3; this.timer[k] = 0;
+        Pos[k4 + 3] = FALLING;
+        this.inFlight += v; room -= v;
+        this.pull = pull;
+        if (!this.active.includes(k)) this.active.push(k);
+      } else {
+        const take = Math.min(v, room - got);
+        got += take;
+        if (take >= v - 1e-6) this._hide(k); else { this.value[k] = v - take; this.missed = true; }
+      }
+    }
+    return got;
+  }
+
   /** Work out how a piece should lie once it has landed: its length along the snow. */
   _land(k, ground) {
     const k3 = k * 3, k4 = k * 4, Q = this.data.cQuat;
@@ -177,6 +241,27 @@ export class Clippings {
       let w = 0;
       for (let idx = 0; idx < n; idx++) {
         const k = this.active[idx], k3 = k * 3, k4 = k * 4;
+        if (this.state[k] === 2) continue;       // picked up while it was still falling
+        if (this.state[k] === 3) {
+          // being sucked up: it gathers speed towards the nozzle, turning as it goes
+          this.timer[k] += dt;
+          const dx = this.sink.x - Pos[k4], dy = this.sink.y - Pos[k4 + 1], dz = this.sink.z - Pos[k4 + 2];
+          const d = Math.hypot(dx, dy, dz), step = this.pull * (0.35 + this.timer[k] * 4) * dt;
+          if (d <= Math.max(step, 0.03) || this.timer[k] > 1.5) {
+            const v = this.value[k];
+            this.inFlight = Math.max(0, this.inFlight - v);
+            this._hide(k);
+            if (this.onTake) this.onTake(v);
+            continue;
+          }
+          Pos[k4] += (dx / d) * step; Pos[k4 + 1] += (dy / d) * step + 0.25 * dt; Pos[k4 + 2] += (dz / d) * step;
+          _q.set(Q[k4], Q[k4 + 1], Q[k4 + 2], Q[k4 + 3]);
+          _d.setFromAxisAngle(_a.set(0.3, 1, 0.2).normalize(), 14 * dt);
+          _q.premultiply(_d);
+          Q[k4] = _q.x; Q[k4 + 1] = _q.y; Q[k4 + 2] = _q.z; Q[k4 + 3] = _q.w;
+          this.active[w++] = k;
+          continue;
+        }
         if (this.state[k] === 1) {
           // settling: turn to lie along the snow
           this.timer[k] += dt;

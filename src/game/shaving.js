@@ -10,6 +10,7 @@ import { buildSheepShears } from './tools/sheep.js';
 import { buildGardenClippers } from './tools/garden.js';
 import { buildElectricShears } from './tools/electric.js';
 import { buildBeardShaver } from './tools/shaver.js';
+import { buildSweepers } from './tools/sweepers.js';
 import { Clippings } from './clippings.js';
 
 /** The tools in the order of the number keys: by hand first, smallest to largest, then the electric ones. */
@@ -26,18 +27,25 @@ export class Shaving {
     this.terrain = terrain;
     this.sound = sound;
     this.tools = {};
-    for (const build of [buildSmallScissors, buildSheepShears, buildGardenClippers, buildElectricShears, buildBeardShaver]) {
-      const t = new Tool(build());
+    const defs = [buildSmallScissors, buildSheepShears, buildGardenClippers, buildElectricShears, buildBeardShaver].map((build) => build());
+    for (const def of [...defs, ...buildSweepers()]) {
+      const t = new Tool(def);
       t.def.backAt = (u) => bladeBack(t.def.blade, u);
       this.tools[t.id] = t;
       scene.add(t.group);
     }
+    this.onHair = () => 0;       // asked to put grams of hair in the sack; answers how many fitted
+    this.room = () => Infinity;  // how many grams the sack will still take
+    this.onFull = () => {};      // told when hair had to be left for want of room
+    this._end = new THREE.Vector3();
+    this.reachMore = 1;          // how much further the vacuums reach than they were made to (an upgrade)
     this.tool = this.tools[tool] || this.tools.garden;
     this.next = null;         // the tool being changed to, while the one in hand is being put away
     this.lowered = 0;         // 0 = tool up in front of the eyes, 1 = drawn back out of sight
     this.onTool = () => {};   // told when a different tool is in hand
     this.clippings = new Clippings({ terrain, mammoth, a2c });
     scene.add(this.clippings.mesh);
+    this.clippings.onTake = (grams) => { if (this.onHair(grams) > 0) this.sound.pop(); };
     this.active = false;
     this.pending = [];
     this.ptr = 0;
@@ -160,7 +168,7 @@ export class Shaving {
     u.uShD.value.set(def.part.above, def.part.below, Math.max(0.002, def.lie.tip - 0.002));
     u.uShT.value = b.point ?? 0.0012;
     // while a tool is on its way up or down, the hair lets go of it
-    u.uShOn.value = this.noPush ? 0 : 1 - ease(Math.min(1, this.lowered * 1.5));
+    u.uShOn.value = this.noPush || def.sweep ? 0 : 1 - ease(Math.min(1, this.lowered * 1.5));
     return r;
   }
 
@@ -191,9 +199,12 @@ export class Shaving {
         this.snips++;
       } else if (ev === 'opening') this.sound.release(voice);
       else if (ev === 'on' || ev === 'off') this.sound.switch(voice, ev === 'on');
+      else if (ev === 'stroke') this.sound.swish(voice);
+      else if (ev === 'sweep') this._sweep(sh);
     }
+    if (sh.def.sweep && sh.def.motor) this._suck(sh);
     if (sh.phase === 'closing') this._cut(sh.angle / 2, false);
-    if (sh.def.motor) this._mow(dt, sh);
+    if (sh.def.motor && !sh.def.sweep) this._mow(dt, sh);
     this._tellCoat();
     this.mammoth.flushCuts();
   }
@@ -228,12 +239,35 @@ export class Shaving {
         if (len > was - 0.004) { this.missed++; continue; }
         c.len = len; c.from = len / c.L; c.removed = was - len;
       }
-      if (this.mammoth.applyCut(c) <= 0) continue;
-      if (this.ptr % this.every !== 0) continue;
+      const off = this.mammoth.applyCut(c);
+      if (off <= 0) continue;
+      if (this.ptr % this.every !== 0) { this.clippings.credit(this.grams(off)); continue; }
       // the blade that reached it nudges it towards the middle
       const s = c.phi > 0 ? -0.12 : 0.12;
-      this.clippings.spawn(c, this.env, sx * s, sy * s, sz * s);
+      this.clippings.spawn(c, this.env, sx * s, sy * s, sz * s, this.grams(off));
     }
+  }
+
+  /** Grams of hair in a length of lock (fewer, thicker locks at lower detail weigh the same in all). */
+  grams(metres) { return metres * 240000 / this.mammoth.strands; }
+
+  /** One stroke of a broom, or one grab: everything within reach of its working end goes in the sack. */
+  _sweep(sh) {
+    const p = sh.end(this._end), s = sh.def.sweep;
+    const got = this.clippings.gather(p.x, p.y, p.z, s.radius, { room: this.room() });
+    if (got > 0) this.onHair(got);
+    if (this.clippings.missed) this.onFull();
+  }
+
+  /** A vacuum, running: hair within reach of the nozzle is drawn up it. */
+  _suck(sh) {
+    const p = sh.end(this._end), s = sh.def.sweep;
+    this.clippings.sink.copy(p);
+    if (sh.power > 0.5) {
+      this.clippings.gather(p.x, p.y, p.z, s.radius * this.reachMore, { pull: s.pull * this.reachMore, room: this.room() });
+      if (this.clippings.missed) this.onFull();
+    }
+    this.sound.motor(sh.def.voice, sh.power, Math.min(1, this.clippings.inFlight / 20), 0);
   }
 
   /**
@@ -266,13 +300,14 @@ export class Shaving {
           const cost = c.removed > m.long ? 1 : m.light;
           if (sh.budget < cost) { starved++; continue; }
           sh.budget -= cost; spent += cost;
-          if (this.mammoth.applyCut(c) <= 0) continue;
+          const off = this.mammoth.applyCut(c);
+          if (off <= 0) continue;
           cut++;
-          // what comes off falls as itself (a few locks a frame; the trimmings of stubble are dust)
+          // what comes off falls as itself (a few locks a frame; the trimmings of stubble are dust, though they weigh something)
           if (c.removed > 0.012 && shown < 6) {
             shown++;
-            this.clippings.spawn(c, this.env, -r.forward.x * 0.05 + r.normal.x * 0.05, -r.forward.y * 0.05 + r.normal.y * 0.05, -r.forward.z * 0.05 + r.normal.z * 0.05);
-          }
+            this.clippings.spawn(c, this.env, -r.forward.x * 0.05 + r.normal.x * 0.05, -r.forward.y * 0.05 + r.normal.y * 0.05, -r.forward.z * 0.05 + r.normal.z * 0.05, this.grams(off));
+          } else this.clippings.credit(this.grams(off));
         }
       }
       last.p.set(tx, ty, tz); last.valid = true;

@@ -632,6 +632,32 @@ export class Mammoth {
     if (this.bodyCutDirty) { this.body.geometry.attributes.aCut.needsUpdate = true; this.bodyCutDirty = false; }
   }
 
+  /**
+   * Give the mammoth a haircut all at once: metres of coat left at each point
+   * of the hide (as this.bodyCut holds them), or null to grow it all back.
+   * Each lock takes the shortest cut of its patch of hide.
+   */
+  setHaircut(cut) {
+    const bc = this.bodyCut, shown = this.bodyCutShown;
+    for (let v = 0; v < bc.length; v++) { bc[v] = cut ? cut[v] : UNCUT; shown[v] = Math.min(SHOWN_MAX, bc[v]); }
+    const I = this.data.body.indices;
+    this.cutLength = 0;
+    for (const c of this.chunks) {
+      const a = c.arrays, g = this.groom[c.long ? 'long' : 'short'];
+      for (let i = 0; i < c.count; i++) {
+        const L = a.iA[i * 4], t = a.tri[i] * 3;
+        const left = Math.min(bc[I[t]], bc[I[t + 1]], bc[I[t + 2]]);
+        const to = left < L ? left : UNCUT;
+        a.iCut[i] = to; g.iCut[a.orig[i]] = to;
+        if (left < L) this.cutLength += L - left;
+      }
+      this.dirtyChunks.add(c);
+    }
+    for (const name of ['long', 'short']) this.groom[name].cutDirty = true;
+    this.bodyCutDirty = true;
+    this.flushCuts();
+  }
+
   /** Share of the coat (by length of hair) that has been cut away, 0..1. */
   get shorn() {
     return this.totalLength > 0 ? this.cutLength / this.totalLength : 0;
