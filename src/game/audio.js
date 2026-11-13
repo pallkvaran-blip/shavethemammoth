@@ -3,7 +3,9 @@
 // no recordings; every sound is shaped from noise and a few tones.
 //
 // Each tool has its own voice: heavy clippers with wooden handles that knock,
-// sprung shears that ring, and small bad scissors that tick and squeak.
+// sprung shears that ring, and small bad scissors that tick and squeak. The
+// electric ones run for as long as they are held: a motor's hum, the clatter
+// of the cutter in step with it, and a note that sags when the work is heavy.
 
 const VOICES = {
   garden: {
@@ -35,11 +37,21 @@ const VOICES = {
   },
 };
 
+// The electric tools. hum: strokes of the cutter a second, and the shape of
+// the wave; body: where the hum is cut off above, and how loud it is; clatter:
+// the band the cutter rattles in, how sharply tuned, how loud; sag: how far
+// the note drops under a full load; whine: the motor's own note above it all.
+const MOTORS = {
+  electric: { hum: 92, wave: 'sawtooth', body: [1400, 0.05], clatter: [2100, 0.8, 0.05], sag: 0.16, whine: [1240, 0.006] },
+  shaver: { hum: 168, wave: 'square', body: [2600, 0.011], clatter: [4300, 1.6, 0.012], sag: 0.34, whine: [3350, 0.0035] },
+};
+
 export class Sound {
   constructor() {
     this.ctx = null;
     this.muted = false;
     this.gust = 0;
+    this.motors = {};
   }
 
   /** Browsers only allow sound after a click or key press: call this from one. */
@@ -163,6 +175,75 @@ export class Sound {
     this._noise({ type: 'lowpass', freq: 1300, q: 0.8, gain: 0.07, attack: 0.002, hold: 0.008, decay: 0.03 });
     this._tone({ freq: 620, freqTo: 480, gain: 0.03, decay: 0.04, type: 'triangle' });
     void voice;
+  }
+
+  /** The switch of an electric tool, thumbed on or off. */
+  switch(voice, on) {
+    if (!this.ctx) return;
+    this._noise({ type: 'highpass', freq: on ? 2600 : 2100, q: 0.7, gain: 0.05, attack: 0.001, hold: 0.002, decay: 0.012 });
+    this._tone({ freq: on ? 340 : 260, freqTo: on ? 250 : 190, gain: 0.02, decay: 0.03, type: 'triangle' });
+    void voice;
+  }
+
+  /** The parts of one running motor, made the first time it is switched on. They play on, silent, between uses. */
+  _makeMotor(def) {
+    const ctx = this.ctx;
+    const out = ctx.createGain(); out.gain.value = 0; out.connect(this.master);
+    // the hum: the cutter's strokes, and the same an octave up
+    const osc = ctx.createOscillator(); osc.type = def.wave; osc.frequency.value = def.hum * 0.3;
+    const osc2 = ctx.createOscillator(); osc2.type = 'triangle'; osc2.frequency.value = def.hum * 0.6;
+    const low = ctx.createBiquadFilter(); low.type = 'lowpass'; low.frequency.value = def.body[0]; low.Q.value = 0.6;
+    const humGain = ctx.createGain(); humGain.gain.value = def.body[1];
+    const hum2 = ctx.createGain(); hum2.gain.value = def.body[1] * 0.45;
+    osc.connect(low); low.connect(humGain); humGain.connect(out);
+    osc2.connect(hum2); hum2.connect(out);
+    // the clatter: noise in a band, let through in step with the strokes
+    const noise = ctx.createBufferSource(); noise.buffer = this.noise; noise.loop = true;
+    const band = ctx.createBiquadFilter(); band.type = 'bandpass'; band.frequency.value = def.clatter[0]; band.Q.value = def.clatter[1];
+    const gate = ctx.createGain(); gate.gain.value = 0.55;
+    const beat = ctx.createOscillator(); beat.type = 'square'; beat.frequency.value = def.hum * 0.3;
+    const depth = ctx.createGain(); depth.gain.value = 0.45;
+    beat.connect(depth); depth.connect(gate.gain);
+    const clatter = ctx.createGain(); clatter.gain.value = def.clatter[2];
+    noise.connect(band); band.connect(gate); gate.connect(clatter); clatter.connect(out);
+    // the motor's own whine
+    const whine = ctx.createOscillator(); whine.type = 'sine'; whine.frequency.value = def.whine[0] * 0.3;
+    const whineGain = ctx.createGain(); whineGain.gain.value = def.whine[1];
+    whine.connect(whineGain); whineGain.connect(out);
+    // hair going through the cutter
+    const hair = ctx.createBufferSource(); hair.buffer = this.crackle; hair.loop = true;
+    const hairBand = ctx.createBiquadFilter(); hairBand.type = 'bandpass'; hairBand.frequency.value = 3400; hairBand.Q.value = 0.6;
+    const hairGain = ctx.createGain(); hairGain.gain.value = 0;
+    hair.connect(hairBand); hairBand.connect(hairGain); hairGain.connect(this.master);
+    for (const n of [osc, osc2, beat, whine]) n.start();
+    noise.start(0, Math.random()); hair.start(0, Math.random());
+    return { out, osc, osc2, beat, whine, clatter, hairGain };
+  }
+
+  /**
+   * An electric tool's motor. Call every frame with how fast it is turning
+   * (0..1), how hard it is working (0..1) and how many locks a second are
+   * going through it.
+   */
+  motor(voice, power, load = 0, cutting = 0) {
+    if (!this.ctx) return;
+    const def = MOTORS[voice];
+    if (!def) return;
+    let m = this.motors[voice];
+    if (!m) {
+      if (power < 0.002) return;
+      m = this.motors[voice] = this._makeMotor(def);
+    }
+    const t = this.ctx.currentTime;
+    // the note climbs as the motor comes up to speed, and sags under load
+    const speed = (0.3 + 0.7 * power) * (1 - def.sag * load);
+    m.osc.frequency.setTargetAtTime(def.hum * speed, t, 0.02);
+    m.osc2.frequency.setTargetAtTime(def.hum * 2.01 * speed, t, 0.02);
+    m.beat.frequency.setTargetAtTime(def.hum * speed, t, 0.02);
+    m.whine.frequency.setTargetAtTime(def.whine[0] * speed, t, 0.02);
+    m.out.gain.setTargetAtTime(power < 0.002 ? 0 : Math.min(1, power * 1.15) * (1 + 0.35 * load), t, 0.025);
+    m.clatter.gain.setTargetAtTime(def.clatter[2] * (1 + 1.4 * load), t, 0.03);
+    m.hairGain.gain.setTargetAtTime(power * Math.min(0.16, 0.02 * Math.sqrt(cutting)), t, 0.04);
   }
 
   /** Hair parting under the blades; amount is the number of locks cut. */

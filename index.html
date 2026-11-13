@@ -160,7 +160,10 @@
   @media (max-width: 640px) {
     .bottom { flex-direction: column; align-items: stretch; }
     .shave { flex-direction: column; }
-    .tools button { padding: 7px 9px; }
+    /* five tools do not fit across a phone: one row that slides sideways, not three that stack */
+    .tools { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+    .tools::-webkit-scrollbar { display: none; }
+    .tools button { padding: 7px 9px; flex: none; }
     .views button { padding: 7px 9px; }
     .settings input[type="range"] { flex: 1; width: auto; min-width: 5rem; }
   }
@@ -202,7 +205,7 @@
     <div id="hint"></div>
     <div class="touch">
       <button type="button" id="walk" aria-label="Hold to walk forward">Walk</button>
-      <button type="button" id="snip" aria-label="Hold to cut">Snip</button>
+      <button type="button" id="snip" aria-label="Hold to cut">Cut</button>
     </div>
     <div class="bottom">
       <div class="panel views" role="group" aria-label="Views">
@@ -230,6 +233,8 @@
         <button type="button" id="tool-scissors" data-tool="scissors" aria-pressed="false"><kbd>1</kbd>Small bad scissors</button>
         <button type="button" id="tool-sheep" data-tool="sheep" aria-pressed="false"><kbd>2</kbd>Shears</button>
         <button type="button" id="tool-garden" data-tool="garden" aria-pressed="true"><kbd>3</kbd>Garden clippers</button>
+        <button type="button" id="tool-electric" data-tool="electric" aria-pressed="false"><kbd>4</kbd>Electric shears</button>
+        <button type="button" id="tool-shaver" data-tool="shaver" aria-pressed="false"><kbd>5</kbd>Beard shaver</button>
       </div>
       <button type="button" id="view-elf" class="start" aria-pressed="false">Start shaving</button>
     </div>
