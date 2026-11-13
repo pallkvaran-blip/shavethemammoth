@@ -184,7 +184,9 @@ async function start() {
   const elfShadowSize = () => (Q.shadow[0] >= 4096 ? [4096, 2048] : [2048, 1024]);
   const shadowElf = new SunShadow(...elfShadowSize(), LAYER_SHADOW_ELF, floatLinear);
   const elfCentre = new THREE.Vector3(), elfAhead = new THREE.Vector3();
-  const nearCasters = () => [...mammoth.casters, ...terrain.meshes.filter((m) => m.userData.castNear), ...rocks.meshes, grass, ...(shaving.tool.group.visible ? shaving.tool.meshes : [])];
+  // (every tool that is showing, not only the one in hand: while the scene warms up all of them are drawn once)
+  const toolCasters = () => Object.values(shaving.tools).filter((t) => t.group.visible).flatMap((t) => t.meshes);
+  const nearCasters = () => [...mammoth.casters, ...terrain.meshes.filter((m) => m.userData.castNear), ...rocks.meshes, grass, ...toolCasters()];
   const farCasters = [...terrain.meshes.filter((m) => m.userData.castFar), ...rocks.meshes];
   const fitShadows = () => {
     shadowNear.fit(new THREE.Vector3(1.0, 1.45, 0), sky.sunDir, 4.8, 2.4, 160);
