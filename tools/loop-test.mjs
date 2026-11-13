@@ -30,10 +30,10 @@ const load = async (extra) => {
 await load('&fresh');
 // helpers that live in the page: step the game, stand somewhere, cut, pick up
 await page.evaluate(() => {
-  const { shaving: s, mammoth, rig, camera, game } = window.__game;
+  const { shaving: s, mammoth, rig, camera, game, hero } = window.__game;
   const dt = 1 / 60, C = s.clippings, Pos = C.data.cPos, feet = mammoth.data.anat.feet;
   const T = (window.__t = {});
-  T.frame = (n = 1) => { for (let k = 0; k < n; k++) { rig.update(dt); camera.updateMatrixWorld(true); s.update(dt, camera, rig.feel); game.update(dt); } };
+  T.frame = (n = 1) => { for (let k = 0; k < n; k++) { rig.update(dt); camera.updateMatrixWorld(true); s.update(dt, camera, rig.feel); game.update(dt); hero.update(dt); } };
   T.cutGrams = () => s.grams(mammoth.cutLength);
   /** Work round part of a leg for some seconds with whatever is in hand, the eyes going up and down it. */
   T.cutRound = (footIndex, from, sweep, seconds) => {
@@ -104,11 +104,23 @@ await page.evaluate(() => {
   T.shown = () => [...document.querySelectorAll('[data-tool]')].filter((b) => !b.hidden).map((b) => b.dataset.tool + ':' + b.lastChild.textContent.trim()).join(', ');
   T.inHand = () => s.next || s.tool.id;
 });
-const T = (body, arg) => page.evaluate(new Function('arg', `const T = window.__t, { shaving: s, mammoth, rig, camera, game } = window.__game, st = game.state, C = s.clippings; ${body}`), arg);
+const T = (body, arg) => page.evaluate(new Function('arg', `const T = window.__t, { shaving: s, mammoth, rig, camera, game, hero } = window.__game, st = game.state, C = s.clippings; ${body}`), arg);
 const round = (v) => Math.round(v * 10) / 10;
 
+// ---- a new game opens on the elf being given his scissors ----
+let v = await T(`T.frame(60); return { id: hero.playing && hero.playing.id, t: hero.playing && hero.playing.t, cine: document.body.classList.contains('cine'), what: document.querySelector('#got .what').textContent, quip: document.querySelector('#got .quip').textContent, shown: document.getElementById('got').classList.contains('show'), showing: s.showing && s.showing.id, cam: !!rig.cine, far: rig.cine ? Math.hypot(camera.position.x - rig.pos.x, camera.position.z - rig.pos.z) : 0 }`);
+console.log(`the first scene: "You got the ${v.what}" / "${v.quip}"; a second in, the camera is ${round(v.far * 100)} cm from him`);
+check(v.id === 'scissors' && v.cine && v.cam && v.showing === 'scissors' && v.shown, 'climbing down for the first time plays the scene for the small bad scissors');
+check(v.far > 0.3, 'seen from outside the elf');
+await page.keyboard.press('KeyW');      // any key gets on with it
+v = await T(`const skipped = hero.playing && hero.playing.skipped; T.frame(60); return { skipped, playing: !!hero.playing, cine: document.body.classList.contains('cine'), cam: !!rig.cine, showing: s.showing, hand: T.inHand(), visible: s.tool.group.visible, got: !!(st.flags.got && st.flags.got.scissors), banner: document.getElementById('got').hidden, fov: camera.fov }`);
+check(v.skipped === true, 'a key cuts it short');
+check(!v.playing && !v.cine && !v.cam && v.showing === null && v.banner, 'afterwards the bars, the banner and the outside camera are gone');
+check(v.hand === 'scissors' && v.visible && v.fov === 62, 'and he is looking out of his own eyes again, scissors in hand');
+check(v.got, 'the game remembers he has had his moment');
+
 // ---- a new game ----
-let v = await T(`return { owned: [...st.owned].sort().join(','), gold: st.gold, hair: st.hair, cap: st.capacity, hand: T.inHand(), shown: T.shown(), two: game.chooseNumber(1), mode: rig.mode }`);
+v = await T(`return { owned: [...st.owned].sort().join(','), gold: st.gold, hair: st.hair, cap: st.capacity, hand: T.inHand(), shown: T.shown(), two: game.chooseNumber(1), mode: rig.mode }`);
 console.log(`new game: owns ${v.owned}; ${v.gold} gold; in hand: ${v.hand}; buttons: ${v.shown}`);
 check(v.owned === 'hands,scissors' && v.gold === 0 && v.hand === 'scissors', 'a new game has the small bad scissors, bare hands and no gold');
 check(/^scissors:[^,]*, sweep:Bare hands$/.test(v.shown), 'only the scissors and the hands are offered');
@@ -158,7 +170,15 @@ v = await T(`return { gold: st.gold, owns: st.owns('electric'), said: game.said 
 check(v.gold === before && !v.owns, `the electric shears cannot be had for ${before} gold ("${v.said}")`);
 await T(`st.earn(Math.max(0, 15 - st.gold))`);       // (in case the scissors were unlucky)
 await page.click('#dialog [data-buy="sheep"]');
-v = await T(`T.frame(30); return { gold: st.gold, owns: st.owns('sheep'), hand: T.inHand(), shown: T.shown(), two: game.chooseNumber(1) }`);
+// ...which he holds up for everyone to see, all the way through this time
+v = await T(`T.frame(90); return { id: hero.playing && hero.playing.id, what: document.querySelector('#got .what').textContent, dialogSeen: getComputedStyle(document.getElementById('dialog')).pointerEvents !== 'none', lift: hero.elf.pose.lift, handY: hero.elf.hand('R').y - hero.elf.group.position.y, toolY: s.tools.sheep.group.matrix.elements[13] - hero.elf.group.position.y, gap: Math.hypot(rig.pos.x - game.people.gnome.x, rig.pos.z - game.people.gnome.z) }`);
+console.log(`  the shears scene: "You got the ${v.what}"; his hand is ${round(v.handY * 100)} cm up, ${round(v.gap * 100)} cm from the stall`);
+check(v.id === 'sheep' && !v.dialogSeen, 'buying the shears plays their scene, and the shop steps back for it');
+check(v.lift > 0.9 && v.handY > 0.19 && v.toolY > 0.15, 'he holds them over his head');
+check(v.gap > 1.2, 'with room for the camera to go round him clear of the stall');
+v = await T(`let n = 0; while (hero.playing && n < 600) { T.frame(); n++; } T.frame(30); return { n, playing: !!hero.playing, dialog: game.dialog, dialogSeen: getComputedStyle(document.getElementById('dialog')).pointerEvents !== 'none', busy: rig.busy, gold: st.gold, owns: st.owns('sheep'), hand: T.inHand(), shown: T.shown(), two: game.chooseNumber(1) }`);
+console.log(`  it ran ${round((v.n + 90) / 60)} s`);
+check(!v.playing && v.dialog === 'gnome' && v.dialogSeen && v.busy, 'when it is over the shop is open again');
 check(v.owns && v.hand === 'sheep', 'buying the shears puts them in hand');
 check(/sheep:/.test(v.shown) && v.two === true, 'and key 2 and their button now work');
 await page.keyboard.press('KeyE');
@@ -215,6 +235,7 @@ v = await page.evaluate(() => {
   const { shaving: s, mammoth, game } = window.__game, st = game.state;
   return { resumed: game.resumed, gold: st.gold, hair: st.hair, owned: [...st.owned].sort().join(','), sack: st.level('sack'), sweeper: st.sweeper, tool: st.tool, hand: s.tool.id, shorn: mammoth.shorn };
 });
+check(await page.evaluate(() => !window.__game.hero.playing), 'no scene is played for scissors he has already been given');
 console.log(`after loading the page again: ${v.gold} gold, ${round(v.hair)} g, [${v.owned}], shorn ${(v.shorn * 100).toFixed(3)}%, in hand: ${v.hand}`);
 check(v.resumed === true, 'the kept game is taken up again');
 check(v.gold === kept.gold && Math.abs(v.hair - kept.hair) < 1e-6 && v.owned === kept.owned && v.sack === kept.sack && v.sweeper === kept.sweeper, 'gold, hair and everything bought are as they were');

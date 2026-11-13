@@ -3,12 +3,12 @@
 import { COMMON, SHADOWS, ATMOSPHERE } from './glsl.js';
 import { U } from './globals.js';
 
-export function patchStandardMaterial(mat, { taps = 6, sigma = 160, bias = 0.02, radius = 0.03, extraFragment = '', extraVertex = '', extraUniforms = null, key = '' } = {}) {
+export function patchStandardMaterial(mat, { taps = 6, sigma = 160, bias = 0.02, radius = 0.03, extraFragment = '', extraVertex = '', vertexHead = '', extraUniforms = null, key = '' } = {}) {
   mat.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, U);
     if (extraUniforms) Object.assign(shader.uniforms, extraUniforms);
     shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nvarying vec3 vWPos;\nvarying vec3 vWNormal;')
+      .replace('#include <common>', `#include <common>\nvarying vec3 vWPos;\nvarying vec3 vWNormal;\n${vertexHead}`)
       .replace('#include <project_vertex>', `#include <project_vertex>
         vWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;
         vWNormal = normalize(mat3(modelMatrix) * objectNormal);

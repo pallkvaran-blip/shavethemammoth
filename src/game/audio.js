@@ -138,6 +138,53 @@ export class Sound {
     o.start(t); o.stop(t + decay + 0.02);
   }
 
+  /** A note on something like a horn: two saws a hair apart, through a filter that opens as it speaks. `fall` (semitones) lets it sag away after `fallAt`. */
+  _horn({ freq, when = 0, length = 0.3, gain = 0.05, bright = 2600, fall = 0, fallAt = 0 }) {
+    const ctx = this.ctx, t = ctx.currentTime + when;
+    const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.Q.value = 1.1;
+    f.frequency.setValueAtTime(420, t);
+    f.frequency.exponentialRampToValueAtTime(bright, t + 0.05);
+    f.frequency.exponentialRampToValueAtTime(fall ? 380 : bright * 0.5, t + length);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(gain, t + 0.022);
+    g.gain.setValueAtTime(gain * 0.85, t + Math.max(0.03, length - 0.09));
+    g.gain.exponentialRampToValueAtTime(0.0001, t + length + 0.14);
+    for (const detune of [-7, 6]) {
+      const o = ctx.createOscillator(); o.type = 'sawtooth'; o.detune.value = detune;
+      o.frequency.setValueAtTime(freq, t);
+      if (fall) { o.frequency.setValueAtTime(freq, t + fallAt); o.frequency.exponentialRampToValueAtTime(freq * Math.pow(2, -fall / 12), t + length); }
+      o.connect(f); o.start(t); o.stop(t + length + 0.18);
+    }
+    f.connect(g); g.connect(this.master);
+  }
+
+  /**
+   * Something has been won. 'grand': four notes climbing to a chord that is
+   * held, with a drum under it and bells over it. 'droop': the same, until
+   * the chord thinks about what it is celebrating.
+   */
+  fanfare(kind = 'grand') {
+    if (!this.ctx) return;
+    const G4 = 392, C5 = 523.25, E5 = 659.25, G5 = 783.99, C6 = 1046.5;
+    [G4, C5, E5, G5].forEach((f, i) => this._horn({ freq: f, when: i * 0.17, length: 0.13, gain: 0.045 }));
+    const at = 0.68, droop = kind === 'droop';
+    for (const [f, gain] of [[C5, 0.04], [E5, 0.034], [G5, 0.034], [C6, 0.03], [C5 / 2, 0.035]]) {
+      this._horn({ freq: f, when: at, length: droop ? 1.5 : 1.7, gain, bright: 3000, fall: droop ? 8 : 0, fallAt: 0.42 });
+    }
+    // the drum
+    this._tone({ freq: 110, freqTo: 55, gain: 0.16, decay: 0.5, when: at });
+    this._noise({ type: 'lowpass', freq: 500, q: 0.6, gain: 0.08, attack: 0.002, hold: 0.02, decay: 0.3, when: at });
+    if (droop) {
+      // ...and the last of the air going out of it
+      this._tone({ freq: 196, freqTo: 82, gain: 0.07, decay: 0.7, type: 'triangle', when: at + 1.45, wobble: 7 });
+      return;
+    }
+    // bells
+    [C6, 1318.5, 1568, 2093, 1568, 2093, 2637].forEach((f, i) => this._tone({ freq: f, gain: 0.022, decay: 0.5, when: at + 0.12 + i * 0.085 }));
+    this._noise({ type: 'highpass', freq: 6000, q: 0.5, gain: 0.012, attack: 0.02, hold: 0.25, decay: 0.9, when: at });
+  }
+
   /** The blades sliding across each other as they close. */
   slide(voice = 'garden', seconds = 0.09) {
     if (!this.ctx) return;

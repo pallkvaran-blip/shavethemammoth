@@ -47,6 +47,7 @@ export class Shaving {
     scene.add(this.clippings.mesh);
     this.clippings.onTake = (grams) => { if (this.onHair(grams) > 0) this.sound.pop(); };
     this.active = false;
+    this.showing = null;      // a tool taken out of the elf's hands to be shown off (see present)
     this.pending = [];
     this.ptr = 0;
     this.region = {};
@@ -132,7 +133,37 @@ export class Shaving {
   }
 
   squeeze(on) {
-    if (this.active) this.tool.squeeze(on && !this.next);
+    if (this.active) this.tool.squeeze(on && !this.next && !this.showing);
+  }
+
+  /** Have this tool in hand at once, with no putting away of the last. */
+  take(id) {
+    if (this.tools[id] && id !== this.tool.id) this._take(id); else this.next = null;
+  }
+
+  /**
+   * A scene wants a tool to show off: it leaves the elf's hands and stays
+   * wherever the scene puts it (its group's matrix) until unpresent().
+   */
+  present(id) {
+    for (const t of Object.values(this.tools)) t.group.visible = false;
+    this.tool.squeeze(false);
+    this._quiet(this.tool);
+    this.next = null; this.pending = []; this.ptr = 0;
+    this.showing = this.tools[id];
+    this.showing.reset();
+    this.showing.group.visible = true;
+    this.mammoth.furMats.uniforms.uShOn.value = 0;
+  }
+
+  unpresent() {
+    if (!this.showing) return;
+    this.showing.group.visible = false;
+    this.showing.reset();
+    this.showing = null;
+    this.tool.reset();
+    this.tool.group.visible = this.active;
+    this.lowered = this.active ? 1 : 0;      // it comes up into view
   }
 
   /** Draw every tool once while the loading card is still up, so picking one up later is instant. */
@@ -174,6 +205,7 @@ export class Shaving {
 
   update(dt, camera, feel) {
     this.clippings.update(dt);
+    if (this.showing) { this.mammoth.flushCuts(); return; }
     if (!this.active) return;
     // changing tools: the hands draw one back out of sight and come up with the other
     if (this.pinned != null) {

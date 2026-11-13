@@ -26,11 +26,11 @@ export const SECTIONS = [
 
 export const ITEMS = {
   // ---- sharp things (their workings are in src/game/tools/) ----
-  scissors: { kind: 'cutter', name: 'Small bad scissors', price: 0, blurb: 'Yours already. I would not take them back.' },
-  sheep: { kind: 'cutter', name: 'Shears', price: 15, blurb: 'Sprung steel. Three thousand years on sheep and not one thank-you note.' },
-  garden: { kind: 'cutter', name: 'Garden clippers', price: 120, blurb: 'For hedges. A mammoth is a hedge with opinions.' },
-  shaver: { kind: 'cutter', name: 'Beard shaver', price: 300, blurb: 'Takes him down to the skin, where the reading matter is. One careful owner. He is no longer with us.' },
-  electric: { kind: 'cutter', name: 'Electric shears', price: 600, blurb: 'A strip as wide as your head with every pass. Batteries included; his consent is not.' },
+  scissors: { kind: 'cutter', name: 'Small bad scissors', price: 0, blurb: 'Yours already. I would not take them back.', got: 'They are small. They are bad. They are all you have.' },
+  sheep: { kind: 'cutter', name: 'Shears', price: 15, blurb: 'Sprung steel. Three thousand years on sheep and not one thank-you note.', got: 'Sprung steel! Somewhere, a sheep shudders and does not know why.' },
+  garden: { kind: 'cutter', name: 'Garden clippers', price: 120, blurb: 'For hedges. A mammoth is a hedge with opinions.', got: 'They are bigger than you are. This will be fine.' },
+  shaver: { kind: 'cutter', name: 'Beard shaver', price: 300, blurb: 'Takes him down to the skin, where the reading matter is. One careful owner. He is no longer with us.', got: 'It hums. It tickles. It takes him down to the skin, and whatever is written there.' },
+  electric: { kind: 'cutter', name: 'Electric shears', price: 600, blurb: 'A strip as wide as your head with every pass. Batteries included; his consent is not.', got: 'The power of a small kitchen appliance is yours.' },
 
   // ---- picking it up ----
   hands: { kind: 'sweeper', name: 'Bare hands', price: 0, blurb: 'You came with these.', sweep: { radius: 0.17, ahead: 0.22, every: 0.45 } },

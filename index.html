@@ -222,6 +222,26 @@
     margin: 12px -20px 0; padding: 12px 20px 14px; border-top: 1px solid var(--line); background: var(--sheet-foot); border-radius: 0 0 14px 14px;
   }
   .sheet .purse { color: var(--amber); font-weight: 600; font-variant-numeric: tabular-nums; }
+  /* ---- a scene: the game stops to admire a new tool. Bars close in top and bottom, the controls step back, and the news is given across the foot ---- */
+  #bars::before, #bars::after {
+    content: ""; position: fixed; left: 0; right: 0; height: 11vh; background: #05060a; z-index: 7; pointer-events: none;
+    transition: transform 0.45s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+  #bars::before { top: 0; transform: translateY(-101%); }
+  #bars::after { bottom: 0; transform: translateY(101%); }
+  body.cine #bars::before, body.cine #bars::after { transform: none; }
+  body.cine #hud, body.cine #dialog { opacity: 0; pointer-events: none; }
+  #got {
+    position: fixed; left: 0; right: 0; bottom: calc(11vh + clamp(8px, 3vh, 30px)); z-index: 8; pointer-events: none; text-align: center;
+    padding: 0 max(16px, env(safe-area-inset-left, 0px)) 0 max(16px, env(safe-area-inset-right, 0px));
+    opacity: 0; transform: translateY(14px) scale(0.96); transition: opacity 0.35s ease, transform 0.5s cubic-bezier(0.2, 1.4, 0.4, 1);
+    text-shadow: 0 2px 3px rgba(0, 0, 0, 0.7), 0 0 30px rgba(0, 0, 0, 0.6);
+  }
+  #got.show { opacity: 1; transform: none; }
+  #got p { margin: 0; }
+  #got .you { font-size: clamp(0.8rem, 0.7rem + 0.5vw, 1rem); font-weight: 600; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink); }
+  #got .what { font-family: var(--font-display); font-style: italic; font-size: clamp(2rem, 1.1rem + 4.4vw, 4.2rem); line-height: 1.05; color: var(--amber); text-wrap: balance; }
+  #got .quip { font-family: var(--font-display); font-size: clamp(0.95rem, 0.8rem + 0.7vw, 1.25rem); color: var(--ink); margin-top: 0.35em; text-wrap: balance; }
   @media (max-width: 640px) {
     .bottom { flex-direction: column; align-items: stretch; }
     .shave { flex-direction: column; }
@@ -253,6 +273,13 @@
     </div>
     <p id="skip"><span class="desk">Click or press any key to skip</span><span class="nomouse">Tap to skip</span></p>
   </div>
+</div>
+
+<div id="bars" aria-hidden="true"></div>
+<div id="got" role="status" aria-live="polite" hidden>
+  <p class="you">You got the</p>
+  <p class="what"></p>
+  <p class="quip"></p>
 </div>
 
 <div id="hud">

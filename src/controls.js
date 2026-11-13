@@ -42,6 +42,7 @@ export class CameraRig {
     this.busy = false;              // talking to someone: the elf stands still and the pointer is free
     this.obstacles = [];            // things to walk round: { x, z, r }
     this.pace = 1;                  // how fast the elf walks, as a multiple of its usual pace
+    this.cine = null;               // a scene is being played: { pos, target, fov } is where the camera is, and the elf does as the scene says
 
     const wake = () => { this.idle = 0; };
     canvas.addEventListener('pointerdown', wake);
@@ -62,7 +63,7 @@ export class CameraRig {
       this.locked = locked;
     });
     const look = (dx, dy, k) => {
-      if (this.busy) return;
+      if (this.busy || this.cine) return;
       this.yaw -= dx * k;
       this.pitch = THREE.MathUtils.clamp(this.pitch - dy * k, -1.2, 1.45);
     };
@@ -82,9 +83,9 @@ export class CameraRig {
     // the tool in hand: the left button, or the space bar, squeezes the handles
     let held = false;
     const squeeze = (on) => { if (on !== held) { held = on; this.onSqueeze(on); } };
-    canvas.addEventListener('pointerdown', (e) => { if (this.mode === 'elf' && this.locked && !this.busy && e.button === 0) squeeze(true); });
+    canvas.addEventListener('pointerdown', (e) => { if (this.mode === 'elf' && this.locked && !this.busy && !this.cine && e.button === 0) squeeze(true); });
     window.addEventListener('pointerup', (e) => { if (e.button === 0) squeeze(false); });
-    window.addEventListener('keydown', (e) => { if (e.code === 'Space' && this.mode === 'elf' && !this.busy && !e.repeat) { e.preventDefault(); squeeze(true); } });
+    window.addEventListener('keydown', (e) => { if (e.code === 'Space' && this.mode === 'elf' && !this.busy && !this.cine && !e.repeat) { e.preventDefault(); squeeze(true); } });
     window.addEventListener('keyup', (e) => { if (e.code === 'Space') squeeze(false); });
     window.addEventListener('blur', () => squeeze(false));
     this._squeeze = squeeze;
@@ -156,6 +157,7 @@ export class CameraRig {
   leaveElf(restore = true) {
     if (this.mode !== 'elf') return;
     this.mode = 'orbit';
+    this.cine = null;
     if (document.pointerLockElement === this.canvas) document.exitPointerLock();
     this._squeeze(false);
     this.camera.near = 0.08;
@@ -170,6 +172,16 @@ export class CameraRig {
 
   update(dt) {
     const cam = this.camera;
+    if (this.mode === 'elf' && this.cine) {
+      const c = this.cine, fl = this.feel;
+      this.pos.y = this.terrain.height(this.pos.x, this.pos.z) + 0.17;
+      cam.position.copy(c.pos);
+      cam.lookAt(c.target);
+      if (cam.fov !== c.fov) { cam.fov = c.fov; cam.updateProjectionMatrix(); }
+      fl.yawRate = 0; fl.pitchRate = 0; fl.moving = false; fl.running = false;
+      this._lastYaw = this.yaw; this._lastPitch = this.pitch;
+      return;
+    }
     if (this.mode === 'elf') {
       const run = this.keys.has('ShiftLeft') || this.keys.has('ShiftRight');
       const speed = (run ? 3.2 : 1.15) * this.pace;

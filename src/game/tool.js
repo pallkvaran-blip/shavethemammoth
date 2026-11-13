@@ -268,10 +268,10 @@ export class Kit {
     // across it as it should.
     const inFront = `{
       float zv = mvPosition.z;                                  // depth from the eye (negative)
-      float zb = min(zv + ${nearer.toFixed(3)}, -0.02);          // nearer, but never through the near plane
+      float zb = min(zv + ${nearer.toFixed(3)} * uToolNear, -0.02);   // nearer, but never through the near plane (and not at all when it is being shown off, held by an elf seen from outside)
       gl_Position.z = (projectionMatrix[2][2] * zb + projectionMatrix[3][2]) * (zv / zb);
     }`;
-    this.patch = (m) => patchStandardMaterial(m, { key: `tool-${nearer.toFixed(3)}`, bias: 0.03, extraVertex: inFront });
+    this.patch = (m) => patchStandardMaterial(m, { key: `tool-${nearer.toFixed(3)}`, bias: 0.03, extraVertex: inFront, vertexHead: 'uniform float uToolNear;' });
   }
 
   add(parent, geo, mat, name) {
@@ -371,8 +371,11 @@ export class Tool {
     // it is nearer than the eyes can see, leaving by the bottom of the view.
     // (Simply lowering it would stand it on the snow in plain sight: the
     // elf's eyes are only a hand's breadth above the ground.)
-    this.awayBack = this.tipReach - 0.03;
-    this.awayDown = 0.34 * this.awayBack;
+    // (A broom, which lies along the ground, is slid straight back past the
+    // elf's feet instead: looking down, "back and down" is where the eyes are.)
+    this.awayBack = def.level ? def.tip + 0.16 : this.tipReach - 0.03;
+    this.awayDown = def.level ? 0 : 0.34 * this.awayBack;
+    this._off = new THREE.Vector3();
 
     this.setAngle(this.angle);
   }
@@ -622,15 +625,16 @@ export class Tool {
     this.poseP.lerp(P, follow); this.poseQ.slerp(Q, follow);
     this.poseReady = true;
     // being put away or brought up: drawn back and down by exactly that much (not left to the lag of the hands)
-    const backBy = this.away * this.awayBack, downBy = this.away * this.awayDown;
-    this._local.compose(this._tp.set(this.poseP.x, this.poseP.y - downBy, this.poseP.z + backBy), this.poseQ, this._one);
+    const off = this._off.set(0, -this.away * this.awayDown, this.away * this.awayBack);
+    if (def.level) off.applyQuaternion(_qa.setFromAxisAngle(AX, -camera.rotation.x));
+    this._local.compose(this._tp.copy(this.poseP).add(off), this.poseQ, this._one);
     this.group.matrix.multiplyMatrices(camera.matrixWorld, this._local);
     // Whatever the hands meant to do, steel does not pass through hide, horn
     // or packed snow: every part of the tool is moved clear, and the hands
     // remember where they ended up.
     if (world && this._clear(world, this._p.setFromMatrixPosition(camera.matrixWorld)) > 0) {
       this._m.copy(camera.matrixWorld).invert().multiply(this.group.matrix).decompose(this.poseP, this._tq, this._scale);
-      this.poseP.y += downBy; this.poseP.z -= backBy;
+      this.poseP.sub(off);
     }
     this.group.matrixWorld.copy(this.group.matrix);
     this.group.updateMatrixWorld(true);

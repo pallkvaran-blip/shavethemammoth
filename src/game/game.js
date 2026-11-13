@@ -63,9 +63,14 @@ const SAYS = {
 export class Game {
   constructor({ scene, terrain, mammoth, shaving, rig, sound, hint, storage = true, dev = {} }) {
     Object.assign(this, { scene, terrain, mammoth, shaving, rig, sound, hint });
+    this.hero = null;            // the elf, who plays a scene when he gets a new tool (set once he is made)
+    this.scenes = !dev.noscene;
     this.state = new GameState({ storage });
     this.resumed = !dev.fresh && this.state.load();
-    if (dev.unlock) for (const id of Object.keys(ITEMS)) if (!ITEMS[id].levels && !ITEMS[id].again) this.state.owned.add(id);
+    if (dev.unlock) {
+      for (const id of Object.keys(ITEMS)) if (!ITEMS[id].levels && !ITEMS[id].again) this.state.owned.add(id);
+      this.scenes = false;
+    }
     if (dev.gold != null) this.state.gold = dev.gold;
     this.time = 0;
     this.dialog = null;          // 'gnome' or 'vulture' while one of them is being talked to
@@ -159,9 +164,36 @@ export class Game {
         this.state.stats.tonics++;
         this.hint('<strong>It all grew back.</strong> He is furious, and fluffy.', 6);
       }
-      if (item.kind === 'cutter') { this.shaving.setTool(id); this.state.tool = id; }
+      if (item.kind === 'cutter') { this.state.tool = id; this.shaving.take(id); this.celebrate(id); }
       if (item.kind === 'sweeper' && this.shaving.tool.def.sweep) this.shaving.setTool(id);
     }
+  }
+
+  // ---- the scene for a new tool ----------------------------------------------------------
+
+  /** A new cutting tool: everything stops while it is admired. Returns true if the scene is being played. */
+  celebrate(id) {
+    const got = this.state.flags.got || (this.state.flags.got = {});
+    got[id] = true;
+    this.state.dirty = true;
+    if (!this.hero || !this.scenes || this.rig.mode !== 'elf') return false;
+    // bought at a stall: he steps out from under its awning with his back to it, and the shop waits
+    const who = this.dialog, d = $('dialog');
+    const stall = who ? { x: this.people[who].x, z: this.people[who].z, r: (who === 'gnome' ? this.stall : this.table).radius } : null;
+    this.shaving.squeeze(false);
+    return this.hero.celebrate(id, {
+      away: stall,
+      onDone: () => {
+        if (who && this.dialog === who && d) { this.fillDialog(); this.face(who); }
+        else if (id === 'scissors') this.hint('<strong>Small bad scissors.</strong> Walk up to the mammoth and cut. <span class="desk"><kbd>Left mouse</kbd> or <kbd>Space</kbd> cuts, <kbd>W A S D</kbd> walks, <kbd>Q</kbd> swaps to picking the hair up.</span>', 10);
+      },
+    });
+  }
+
+  /** The elf has climbed down to the snow. The first time, he takes a moment over what he has been given to do the job. */
+  arrive() {
+    if (!(this.state.flags.got || {}).scissors) return this.celebrate('scissors');
+    return false;
   }
 
   // ---- tools --------------------------------------------------------------------------
@@ -220,7 +252,7 @@ export class Game {
   /** Who the elf is standing in front of, if anyone ('gnome', 'vulture' or null). */
   nearby() {
     const p = this.rig.pos;
-    let best = null, bestD = 0.75;
+    let best = null, bestD = 0.95;
     for (const who of ['gnome', 'vulture']) {
       const at = this.people[who], d = Math.hypot(p.x - at.front[0], p.z - at.front[1]);
       if (d < bestD) { best = who; bestD = d; }
@@ -257,16 +289,20 @@ export class Game {
     this.said = pick(SAYS[who].hello);
     if (who === 'vulture' && this.state.hair < 1) this.said = pick(SAYS.vulture.empty);
     this.state.stats.visits++;
-    // turn to them (a little to one side on a wide screen, where the list of wares has the other)
-    const at = this.people[who], p = this.rig.pos, far = Math.hypot(at.x - p.x, at.z - p.z);
-    const wide = window.innerWidth >= 960;
-    this.rig.hold(true, { yaw: Math.atan2(-(at.x - p.x), -(at.z - p.z)) + (wide ? 0.42 : 0), pitch: Math.atan2(at.y + (who === 'gnome' ? 0.3 : 0.5) - p.y, far) });
+    this.face(who);
     this.shaving.squeeze(false);
     d.hidden = false;
     d.dataset.who = who;
     this.fillDialog();
     d.querySelector('.sheet').scrollTop = 0;
     this.sound.blip(who);
+  }
+
+  /** Stand still and turn to one of the traders (a little to one side on a wide screen, where the list of wares has the other). */
+  face(who) {
+    const at = this.people[who], p = this.rig.pos, far = Math.hypot(at.x - p.x, at.z - p.z);
+    const wide = window.innerWidth >= 960;
+    this.rig.hold(true, { yaw: Math.atan2(-(at.x - p.x), -(at.z - p.z)) + (wide ? 0.42 : 0), pitch: Math.atan2(at.y + (who === 'gnome' ? 0.3 : 0.5) - p.y, far) });
   }
 
   close() {
@@ -364,7 +400,8 @@ export class Game {
     this.table.update(dt, this.time, this.dialog === 'vulture' && this.state.hair > 1 ? 1 : this.pleased.vulture);
 
     // who can be talked to from here
-    const who = elf && !this.dialog ? this.nearby() : null;
+    const playing = !!(this.hero && this.hero.playing);
+    const who = elf && !this.dialog && !playing ? this.nearby() : null;
     const prompt = $('prompt');
     if (prompt && who !== this.prompting) {
       this.prompting = who;
@@ -382,7 +419,7 @@ export class Game {
   /** A word of advice, once each, when it is first needed: how the hair turns into gold and the gold into tools. */
   guide(dt, elf) {
     this.tipIn = (this.tipIn ?? 3) - dt;
-    if (!elf || this.dialog || this.tipIn > 0) return;
+    if (!elf || this.dialog || this.tipIn > 0 || (this.hero && this.hero.playing)) return;
     this.tipIn = 1;
     const s = this.state, told = s.flags.tips || (s.flags.tips = {}), sweeping = !!this.shaving.tool.def.sweep;
     const tell = (id, html, seconds = 10) => { told[id] = true; s.dirty = true; this.tipIn = seconds + 4; this.hint(html, seconds); };
