@@ -106,7 +106,8 @@ export class Hero {
   _show(on) {
     if (on === this.seen) return;
     this.seen = on;
-    for (const m of this.elf.meshes) { if (on) m.layers.enable(0); else m.layers.disable(0); }
+    // (looked out of, he is only a shadow on the snow, and a shadow does not need every hair of his head)
+    for (const m of this.elf.meshes) { if (on) m.layers.enable(0); else m.layers.disable(0); if (m.name === 'locks') m.visible = on; }
   }
 
   /** The box a tool fills in its own frame (x along the blades). */

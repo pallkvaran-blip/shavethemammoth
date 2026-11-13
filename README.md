@@ -40,6 +40,27 @@ are bigger than he is:
 
 ![Gnorman's list of wares, with prices in gold](docs/shop.jpg)
 
+### How they are made
+
+![The elf, Gnorman and Mortimer, close to](docs/faces.jpg)
+
+The three of them are made the way the mammoth is: in code, when the game starts,
+with no models or pictures loaded. Each is designed as layers of soft solids blended
+together (skin, and every garment a layer of its own), with pieces carved out for
+nostrils, eye sockets and the hollow of an ear. That design is turned into a fine
+mesh hung on bones, and every point of it is told how much of the sky it can see
+(so creases are dark), how thin the flesh is there (so the elf's ears glow when the
+sun is behind them) and where it lies round and along its limb (so knitting can
+follow it). Clothes are knitted, woven or tanned in their materials stitch by
+stitch: Gnorman's creed is worked into the back of his jersey one stitch at a time.
+Beards, eyebrows, the bobble on a hat, the ruff and the toupee are hair, strand by
+strand; Mortimer's coat is some thousands of feathers laid like tiles, each with a
+shaft, barbs and the odd split in its vane.
+
+All of that is some seconds of arithmetic for each of them. It is done on threads of
+its own while the land and the mammoth are being made, so the wait is no longer for
+it; where a page does not allow threads it is done between frames instead.
+
 ## Under the coat
 
 ![A patch shaved on his flank, showing a butcher's chart and a heart with MUM across it](docs/under-the-coat.jpg)
@@ -215,8 +236,9 @@ Settings > System > Display > Graphics.
 | Sound | `src/game/audio.js` | Synthesised with the Web Audio API: blades sliding and meeting, hair parting, boots in snow, wind that follows the gusts on screen, coins, a fanfare for a new tool (and a deflating one for the bad scissors), the packs, and the mammoth's own noises. Each tool has its own voice: the clippers' wooden handles knock, the shears ring and twang as the bow opens them, the scissors tick, rattle and squeak. The electric tools hum for as long as they run, with the clatter of the cutter in step, and their note sags under load |
 | The game | `src/game/game.js`, `state.js`, `catalog.js` | What is owned, the gold, the sack, the two shops, the advice given once each when it is first needed, and what is kept in the browser between visits. The haircut is kept twice: lock by lock, which is exact but only fits a coat of the same detail, and point by point of the hide, which fits any. `catalog.js` is everything Gnorman sells, with a note on how the prices were set from measured cutting rates |
 | Picking up | `src/game/tools/sweepers.js`, `clippings.js` | Hands, two brooms and two vacuums are tools like the others, held the same way; the brooms keep to the ground whichever way the eyes are turned. Each fallen piece carries the grams it stands for. A vacuum pulls pieces up its nozzle one by one |
-| The elf | `src/game/people/elf.js`, `src/game/hero.js` | The player's character, built of simple solids with joints: he can hold a thing up in one hand or two, strain under it, be shaken by it and be let down by it. Looked out of, only his shadow is drawn. `hero.js` plays the scene for a new tool: where he stands (clear of the stall or the mammoth), what he does with each tool, the light behind it, and the camera's path once round him and back into his head |
-| The traders | `src/game/people/gnome.js`, `vulture.js`, `model.js` | Gnorman and his stall, Mortimer and his table; they turn to watch whoever comes by |
+| The elf | `src/game/people/elf.recipe.js`, `elf.js`, `src/game/hero.js` | The player's character: sculpted, skinned and dressed (see the next row but one). He can hold a thing up in one hand or two, strain under it, be shaken by it and be let down by it. Looked out of, only his shadow is drawn. `hero.js` plays the scene for a new tool: where he stands (clear of the stall or the mammoth), what he does with each tool, the light behind it, and the camera's path once round him and back into his head |
+| The traders | `src/game/people/gnome.recipe.js`, `gnome.js`, `vulture.recipe.js`, `vulture.js`, `model.js` | Gnorman and his stall, Mortimer and his table (whose wigs are hair, like his toupee); they turn to watch whoever comes by. A beard goes with the chin it grows from, but what lies on the belly stays lying there when the head turns |
+| How people are made | `src/game/people/sculpt.js`, `bake.js`, `bakery.js`, `bake.worker.js`, `rig.js`, `figure.js`, `materials.js`, `strands.js`, `locks.js`, `feathers.js`, `plumes.js` | A figure is designed in a `*.recipe.js`: bones, layers of solids (the mammoth's own kit of ellipsoids and round cones, with rings, boxes and flat blades added), what is painted on the skin, where hair and feathers grow and how. `bake.js` turns that into meshes (with skin weights, occlusion, thinness and round-and-along coordinates for each point), strands and feathers; it is plain arithmetic, and `bakery.js` runs it on a worker for each figure, falling back to the page itself a piece at a time. `rig.js` and `figure.js` hang the result on bones. `materials.js` is skin (pores, freckles, light that soaks in and comes through thin parts), knitting (stocking stitch and ribbing, stripes by the row, pictures by the stitch), felt, corduroy, leather, horn and eyes, each worked out per pixel from where the point is on the figure at rest. `locks.js` draws hair as the mammoth's is drawn; `plumes.js` draws a feather on a strip a few faces long |
 | Getting up | `src/controls.js`, `src/game/lift.js` | The elf has a height above the snow. A ladder is stood up under him and climbed (it is drawn only as high as his feet, so it is never between him and the hair); a pack burns what is in its tank. `lift.js` is what is seen and heard of it: the ladders, the packs on his back, what comes out of them, the gauge |
 | Under the coat | `src/mammoth/tattoos.js`, `bodyMaterial.js`, `src/game/finds.js` | Twenty-two tattoos drawn in code on one sheet of ink, each projected onto the hide where it belongs (found by walking in from outside until the skin is met); and a thong, which is a formula. The skin's shader shows both only where the hair is off. Bare hide is a pavement of cracked plates, as an elephant's is |
 | Antics | `src/game/antics.js` | What he does while he is being shaved, what he can be made to wear, the remarks at each milestone, and the end |
@@ -257,6 +279,11 @@ Settings > System > Display > Graphics.
   any part of it ends up inside the mammoth or the snow, and whether a tool being put away
   is out of sight by the time the next one takes its place.
 - `dev/body.html` shows the bare body from four sides, for working on the anatomy.
+- `dev/folk.html` shows one of the people (or all three) on bare snow under the game's own sky,
+  for working on them: `who=elf|gnome|vulture|all`, `cam`, `fov`, `el`, `az`, `turn` (degrees),
+  `bare` (no hair or feathers), and for the elf his poses (`lift`, `two`, `strain`, `buzz`, `sad`,
+  `proud`, `walk`, `carry`, each 0 to 1). On the game itself, `nothreads` has the people made on
+  the page instead of on workers.
 - `npm run build:artifact` writes a single page (`dist-artifact/shave-the-mammoth.html`)
   that loads three.js from a CDN.
 

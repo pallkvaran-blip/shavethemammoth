@@ -190,10 +190,27 @@ export function buildStall() {
   list.rotation.z = 0.04;
   // four posts and the awning over them, lower at the front, with a valance
   for (const [x, z] of [[-0.33, 0.21], [0.33, 0.21], [-0.33, -0.25], [0.33, -0.25]]) M.rod(all, post, [x, -0.07, z], [x, z > 0 ? 0.5 : 0.6, z], 0.011);
-  const awning = M.box(all, cloth, [0.78, 0.005, 0.6], [0, 0.565, -0.03]);
-  awning.rotation.x = 0.2;
-  const valance = M.box(all, cloth, [0.78, 0.05, 0.004], [0, 0.48, 0.262]);
-  valance.rotation.x = -0.1;
+  // (canvas, not board: it hangs between its poles, and its front edge is cut in scallops, one to a stripe)
+  {
+    const W = 0.78, D = 0.6, sheet = new THREE.PlaneGeometry(W, D, 30, 16).rotateX(-Math.PI / 2);
+    const p = sheet.attributes.position;
+    for (let i = 0; i < p.count; i++) {
+      const x = p.getX(i) / (W / 2), z = p.getZ(i) / (D / 2);
+      const sag = (1 - z * z) * (0.022 + 0.01 * Math.cos(x * Math.PI)) + 0.004 * Math.sin(x * 9 + z * 5) * (1 - z * z);
+      p.setY(i, -sag);
+    }
+    sheet.computeVertexNormals();
+    const awning = M.add(all, sheet, cloth, 'awning');
+    awning.position.set(0, 0.565, -0.03); awning.rotation.x = 0.2;
+    const n = 10, w = W / n, drop = 0.022, edge = new THREE.Shape();
+    edge.moveTo(-W / 2, 0);
+    for (let i = 0; i < n; i++) edge.absarc(-W / 2 + (i + 0.5) * w, -drop, w / 2, Math.PI, Math.PI * 2, false);
+    edge.lineTo(W / 2, 0);
+    const scallops = new THREE.ShapeGeometry(edge, 10), uv = scallops.attributes.uv, q = scallops.attributes.position;
+    for (let i = 0; i < q.count; i++) uv.setXY(i, q.getX(i) / W + 0.5, 0.5);
+    const valance = M.add(all, scallops, cloth, 'valance');
+    valance.position.set(0, 0.5045, 0.264); valance.rotation.x = -0.1;
+  }
   // the sign, up on the roof
   M.box(all, board, [0.52, 0.16, 0.012], [0, 0.71, -0.06]);
   for (const x of [-0.2, 0.2]) M.rod(all, post, [x, 0.58, -0.06], [x, 0.64, -0.06], 0.008);
@@ -203,10 +220,16 @@ export function buildStall() {
   const lamp = M.ball(all, glow, 0.012, [0.3, 0.42, 0.24]);
   M.box(all, iron, [0.03, 0.004, 0.03], [0.3, 0.398, 0.24]);
   // stock: a bottle of the tonic, a crate, a ladder and a broom against the side
-  M.rod(all, glassy, [0.2, 0.162, 0.13], [0.2, 0.205, 0.13], 0.014, 0.012);
-  M.rod(all, glassy, [0.2, 0.205, 0.13], [0.2, 0.225, 0.13], 0.005);
-  M.box(all, wood, [0.09, 0.07, 0.09], [0.05, 0.197, 0.12]).rotation.y = 0.3;
-  M.box(all, brass, [0.05, 0.012, 0.03], [-0.08, 0.168, 0.14]);
+  {
+    const bottle = M.add(all, new THREE.LatheGeometry([[0, 0], [0.0138, 0], [0.0146, 0.003], [0.0146, 0.034], [0.0128, 0.042], [0.0062, 0.051], [0.005, 0.056], [0.005, 0.066], [0.0062, 0.0672], [0.0062, 0.07], [0, 0.07]].map(([r, y]) => new THREE.Vector2(r, y)), 28), glassy, 'tonic');
+    bottle.position.set(0.2, 0.162, 0.13);
+    const cork = M.add(all, new THREE.CylinderGeometry(0.0046, 0.0042, 0.009, 12), post, 'cork');
+    cork.position.set(0.2, 0.2355, 0.13);
+    const label = M.add(all, new THREE.CylinderGeometry(0.0149, 0.0149, 0.02, 24, 1, true, -1.0, 2.0), M.mat(0xffffff, { rough: 0.85, map: signTexture([{ text: 'HAIR', size: 44, style: 'bold' }, { text: 'TONIC', size: 44, style: 'bold' }, { text: 'results not typical', size: 17, style: 'italic' }], { w: 256, h: 160, ground: '#e9dfc4', ink: '#3a1a10' }) }), 'label');
+    label.position.set(0.2, 0.182, 0.13);
+  }
+  M.box(all, wood, [0.09, 0.07, 0.09], [-0.25, 0.197, 0.12]).rotation.y = 0.3;      // (to one side: nobody stands a crate in front of the shopkeeper)
+  M.box(all, brass, [0.05, 0.012, 0.03], [-0.1, 0.168, 0.15]);
   const ladder = new THREE.Group();
   ladder.position.set(0.42, 0, 0.05); ladder.rotation.z = 0.2;
   all.add(ladder);
