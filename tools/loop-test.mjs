@@ -30,10 +30,10 @@ const load = async (extra) => {
 await load('&fresh');
 // helpers that live in the page: step the game, stand somewhere, cut, pick up
 await page.evaluate(() => {
-  const { shaving: s, mammoth, rig, camera, game, hero } = window.__game;
+  const { shaving: s, mammoth, rig, camera, game, hero, lifter } = window.__game;
   const dt = 1 / 60, C = s.clippings, Pos = C.data.cPos, feet = mammoth.data.anat.feet;
   const T = (window.__t = {});
-  T.frame = (n = 1) => { for (let k = 0; k < n; k++) { rig.update(dt); camera.updateMatrixWorld(true); s.update(dt, camera, rig.feel); game.update(dt); hero.update(dt); } };
+  T.frame = (n = 1) => { for (let k = 0; k < n; k++) { rig.update(dt); camera.updateMatrixWorld(true); s.update(dt, camera, rig.feel); game.update(dt); hero.update(dt); lifter.update(dt); } };
   T.cutGrams = () => s.grams(mammoth.cutLength);
   /** Work round part of a leg for some seconds with whatever is in hand, the eyes going up and down it. */
   T.cutRound = (footIndex, from, sweep, seconds) => {
@@ -104,7 +104,7 @@ await page.evaluate(() => {
   T.shown = () => [...document.querySelectorAll('[data-tool]')].filter((b) => !b.hidden).map((b) => b.dataset.tool + ':' + b.lastChild.textContent.trim()).join(', ');
   T.inHand = () => s.next || s.tool.id;
 });
-const T = (body, arg) => page.evaluate(new Function('arg', `const T = window.__t, { shaving: s, mammoth, rig, camera, game, hero } = window.__game, st = game.state, C = s.clippings; ${body}`), arg);
+const T = (body, arg) => page.evaluate(new Function('arg', `const T = window.__t, { shaving: s, mammoth, rig, camera, game, hero, lifter } = window.__game, st = game.state, C = s.clippings; ${body}`), arg);
 const round = (v) => Math.round(v * 10) / 10;
 
 // ---- a new game opens on the elf being given his scissors ----
@@ -221,25 +221,113 @@ v = await T(`
 check(v.hair <= v.cap + 1e-6 && v.left > v.lying - 3, `with 2 g of room, ${round(v.lying - v.left)} g is taken and the rest left lying`);
 check(/full/i.test(v.hint), `and the player is told ("${v.hint.trim().slice(0, 60)}")`);
 
+// ---- a ladder: R stands it up and climbs, the hair up there can be cut, F comes down and it is put away ----
+v = await T(`
+  st.earn(20000); game.buy('painter'); T.frame(5);
+  const foot = mammoth.data.anat.feet[1];
+  rig.pos.x = foot.c[0] + 0.1; rig.pos.z = foot.c[2] - foot.r - 0.6; rig.yaw = Math.PI; rig.pitch = 0.1;
+  game.choose('garden'); T.frame(40);
+  rig.keys.add('KeyW'); T.frame(70); rig.keys.delete('KeyW');
+  const lift = rig.lift && rig.lift.id + ' (' + rig.lift.kind + ')';
+  rig.keys.add('KeyR'); T.frame(6);
+  const stood = !!rig.ladder; T.frame(60);
+  const part = rig.height, seen = lifter.ladders.painter.group.visible; T.frame(140); rig.keys.delete('KeyR');
+  const top = rig.height, eye = camera.position.y - game.terrain.height(rig.pos.x, rig.pos.z);
+  const hide = s.world.near(camera.position.x, camera.position.y, camera.position.z);
+  const before = T.cutGrams(); s.squeeze(true); for (let k = 0; k < 150; k++) { rig.yaw = Math.PI + Math.sin(k / 20) * 0.3; T.frame(); } s.squeeze(false); T.frame(30);
+  const cutUp = T.cutGrams() - before;
+  const x0 = rig.ladder.x; rig.keys.add('KeyD'); T.frame(60); rig.keys.delete('KeyD'); const hopped = Math.hypot(rig.ladder.x - x0, 0);
+  rig.keys.add('KeyF'); T.frame(260); rig.keys.delete('KeyF');
+  return { lift, stood, part, seen, top, eye, hide, cutUp, hopped, down: rig.height, away: !rig.ladder, hidden: !lifter.ladders.painter.group.visible };
+`);
+console.log(`painter's ladder: up to ${round(v.top * 100)} cm (eyes ${round(v.eye * 100)} cm off the snow, ${round(v.hide * 100)} cm from the hide); ${round(v.cutUp)} g cut up there; walked ${round(v.hopped * 100)} cm sideways`);
+check(v.lift === 'painter (ladder)' && v.stood && v.seen, 'R stands the ladder up under him');
+check(v.part > 0.5 && v.top > 1.7 && v.top <= 2.05 + 1e-6, 'holding R climbs it, out round the bulge of his shoulder and on up');
+check(v.cutUp > 1, 'the hair up there can be cut');
+check(v.hopped > 0.2, 'A and D walk the ladder sideways');
+check(v.down === 0 && v.away && v.hidden, 'F comes down, and at the bottom it is put away');
+
+// ---- a pack: R burns, the tank runs dry, he comes down, it fills again on the ground ----
+v = await T(`
+  game.buy('blower'); T.frame(5);
+  rig.pos.x = 3.0; rig.pos.z = -2.6; T.frame(5);
+  const kind = rig.lift.id + ' (' + rig.lift.kind + ')', tank = rig.lift.tank, worn = lifter.packs.blower.M.group.visible;
+  rig.keys.add('KeyR'); T.frame(120);
+  const two = { h: rig.height, fuel: rig.fuel, burning: rig.thrusting, power: lifter.power };
+  T.frame(330);
+  const dry = { h: rig.height, fuel: rig.fuel, burning: rig.thrusting };
+  rig.keys.delete('KeyR');
+  let n = 0, peak = rig.height; while (rig.height > 0 && n < 3000) { T.frame(); n++; peak = Math.max(peak, rig.height); }
+  const landed = rig.height === 0, fell = n / 60;
+  T.frame(60 * 11);
+  return { kind, tank, worn, two, dry, peak, landed, fell, full: rig.fuel, gauge: !document.getElementById('fuel').hidden };
+`);
+console.log(`leaf-blower pack: ${round(v.two.h * 100)} cm up after two seconds with ${round(v.two.fuel)} s of ${v.tank} left; dry at ${round(v.dry.h * 100)} cm; topped out at ${round(v.peak * 100)} cm; down ${round(v.fell)} s later`);
+check(v.kind === 'blower (pack)' && v.worn && v.gauge, 'buying a pack puts it on his back and a gauge on the screen');
+check(v.two.burning && v.two.h > 1.2 && v.two.h < 3.5 && v.two.fuel < v.tank - 1.8 && v.two.power > 0.9, 'holding R burns, and he goes up at a pace he can steer');
+check(v.dry.fuel === 0 && !v.dry.burning, 'until the tank is dry');
+check(v.landed && v.fell > 0.5, 'then he comes down');
+check(Math.abs(v.full - v.tank) < 1e-6, 'and it fills again on the ground');
+
+// ---- the jet pack holds him where he is; and he can come down on the mammoth's back and work there ----
+v = await T(`
+  game.buy('jet'); T.frame(5);
+  rig.keys.add('KeyR'); T.frame(150); rig.keys.delete('KeyR'); T.frame(60);
+  const h1 = rig.height; T.frame(180); const h2 = rig.height, hovering = Math.abs(rig.vy) < 0.05;
+  // over his back, and down
+  rig.pos.x = 0.3; rig.pos.z = 0; rig.height = 4.2; rig.vy = 0; rig.yaw = 0; rig.pitch = -1.0;
+  rig.keys.add('KeyF'); T.frame(240); rig.keys.delete('KeyF'); T.frame(30);
+  const perched = rig.perched, on = rig.height, eye = camera.position.y, hide = s.world.near(camera.position.x, camera.position.y, camera.position.z);
+  game.choose('electric'); T.frame(40);
+  const before = T.cutGrams(); s.squeeze(true); for (let k = 0; k < 240; k++) { rig.yaw = Math.sin(k / 30) * 0.8; T.frame(); } s.squeeze(false); T.frame(40);
+  const cutUp = T.cutGrams() - before;
+  // off the side: the pack holds him there in the air; F lets him down
+  rig.yaw = 0; rig.keys.add('KeyW'); T.frame(150); rig.keys.delete('KeyW');
+  const out = Math.abs(rig.pos.z), held = rig.height, floating = !rig.perched;
+  rig.keys.add('KeyF'); let n = 0; while (rig.height > 0 && n < 1500) { T.frame(); n++; } rig.keys.delete('KeyF');
+  return { h1, h2, hovering, perched, on, eye, hide, cutUp, out, held, floating, off: rig.height === 0, took: n / 60 };
+`);
+console.log(`jet pack: holds at ${round(v.h1 * 100)} cm (${round(v.h2 * 100)} cm three seconds later); on his back the eyes are ${round(v.eye * 100)} cm up, ${round(v.hide * 100)} cm off the hide; ${round(v.cutUp)} g cut there; stepped ${round(v.out * 100)} cm off to the side and hung there at ${round(v.held * 100)} cm; F had him down in ${round(v.took)} s`);
+check(v.h1 > 1 && Math.abs(v.h2 - v.h1) < 0.1 && v.hovering, 'let go, the jet pack holds him where he is');
+check(v.perched && v.on > 2.2 && v.on < 3.4, 'F brings him down onto the mammoth\'s back, which holds him up');
+check(v.cutUp > 5, 'and the hair up there can be cut');
+check(v.out > 1.2 && v.floating && v.held > 2, 'stepping off the side, the pack holds him up');
+check(v.off && v.took < 6, 'and F lets him down to the snow');
+
+// ---- what is under the coat is found when the hair over it is gone ----
+v = await T(`
+  const gold = st.gold, was = st.found.length, total = game.finds.total;
+  mammoth.setHaircut(new Float32Array(mammoth.bodyCut.length).fill(0.0005));
+  T.frame(150);
+  const one = st.found.length, hint = document.getElementById('hint').textContent;
+  T.frame(60 * 3.2 * total);
+  return { was, one, hint, found: st.found.length, total, paid: st.gold - gold, thong: st.found.includes('thong'), text: document.getElementById('progress').textContent };
+`);
+console.log(`under the coat: ${v.found} of ${v.total} found, ${v.paid} gold paid for them; the first: "${v.hint.trim().slice(0, 90)}"`);
+check(v.one === v.was + 1, 'with the hair gone, the next find is announced (one at a time)');
+check(v.found === v.total && v.thong, 'and in time all of them are, the thong among them');
+check(v.paid === 30 * (v.total - v.was - 1) + 120, 'each pays what Gnorman promised');
+
 // ---- it is all still there after the page is loaded again ----
 const kept = await T(`
   game.choose('sheep'); T.frame(40);
   game.save(true);
   const raw = localStorage.getItem('mammoth-save-3');
-  return { gold: st.gold, hair: st.hair, owned: [...st.owned].sort().join(','), sack: st.level('sack'), sweeper: st.sweeper, tool: st.tool, shorn: mammoth.shorn, bytes: raw ? raw.length : 0 };
+  return { gold: st.gold, hair: st.hair, owned: [...st.owned].sort().join(','), sack: st.level('sack'), sweeper: st.sweeper, tool: st.tool, shorn: mammoth.shorn, found: st.found.length, lift: st.lift, bytes: raw ? raw.length : 0 };
 `);
 console.log(`kept: ${kept.gold} gold, ${round(kept.hair)} g, [${kept.owned}], shorn ${(kept.shorn * 100).toFixed(3)}% (${kept.bytes} bytes in the browser's storage)`);
 check(kept.bytes > 100, 'the game is written to the browser\'s storage');
 await load('');
 v = await page.evaluate(() => {
   const { shaving: s, mammoth, game } = window.__game, st = game.state;
-  return { resumed: game.resumed, gold: st.gold, hair: st.hair, owned: [...st.owned].sort().join(','), sack: st.level('sack'), sweeper: st.sweeper, tool: st.tool, hand: s.tool.id, shorn: mammoth.shorn };
+  return { resumed: game.resumed, gold: st.gold, hair: st.hair, owned: [...st.owned].sort().join(','), sack: st.level('sack'), sweeper: st.sweeper, tool: st.tool, hand: s.tool.id, shorn: mammoth.shorn, found: st.found.length, lift: st.lift, rigLift: window.__game.rig.lift && window.__game.rig.lift.id };
 });
 check(await page.evaluate(() => !window.__game.hero.playing), 'no scene is played for scissors he has already been given');
 console.log(`after loading the page again: ${v.gold} gold, ${round(v.hair)} g, [${v.owned}], shorn ${(v.shorn * 100).toFixed(3)}%, in hand: ${v.hand}`);
 check(v.resumed === true, 'the kept game is taken up again');
 check(v.gold === kept.gold && Math.abs(v.hair - kept.hair) < 1e-6 && v.owned === kept.owned && v.sack === kept.sack && v.sweeper === kept.sweeper, 'gold, hair and everything bought are as they were');
 check(v.hand === kept.tool, 'the tool last used is in hand');
+check(v.found === kept.found && v.lift === 'pack' && v.rigLift === 'jet', 'what was found stays found, and the jet pack is still on his back');
 check(Math.abs(v.shorn - kept.shorn) < 0.02 * kept.shorn + 1e-5, 'and so is the haircut');
 
 // ---- and a new game can be started over it ----

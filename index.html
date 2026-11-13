@@ -171,6 +171,15 @@
     background: var(--veil); padding: 5px 10px; border-radius: 6px; white-space: nowrap;
   }
   #purse #bag { color: var(--ink); }
+  /* what is left in the pack's tank */
+  #fuel { width: 8rem; height: 9px; border-radius: 5px; background: var(--veil); border: 1px solid var(--line); overflow: hidden; }
+  #fuel i { display: block; height: 100%; background: var(--amber); transform-origin: left center; }
+  #fuel.low i { background: var(--warn); }
+  body:not(.elf) #fuel { display: none; }
+  /* by touch, a ladder or a pack brings two more buttons */
+  .touch #rise, .touch #sink { display: none; }
+  body.lift .touch #rise, body.lift .touch #sink { display: block; }
+  @media (max-width: 420px) { body.lift .touch { gap: 10px; } body.lift .touch button { width: 4.1rem; height: 4.1rem; } }
   #purse #bag.full { color: var(--warn); }
   /* someone within talking distance */
   #prompt {
@@ -287,6 +296,7 @@
     <p class="wordmark">Shave the <em>Mammoth</em></p>
     <div class="readouts">
       <div id="purse" hidden><span id="gold">0 gold</span><span id="bag">0 g of 100 g</span></div>
+      <div id="fuel" role="img" aria-label="What is left in the tank" hidden><i></i></div>
       <div id="progress" hidden>Shorn 0.000%</div>
       <div id="stats" hidden></div>
     </div>
@@ -297,6 +307,8 @@
     <div class="touch">
       <button type="button" id="walk" aria-label="Hold to walk forward">Walk</button>
       <button type="button" id="snip" aria-label="Hold to cut">Cut</button>
+      <button type="button" id="rise" aria-label="Hold to go up">Up</button>
+      <button type="button" id="sink" aria-label="Hold to come down">Down</button>
     </div>
     <div class="bottom">
       <div class="panel views" role="group" aria-label="Views">

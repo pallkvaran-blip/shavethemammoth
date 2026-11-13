@@ -54,6 +54,7 @@ export class GameState {
     this.sweeper = 'hands';                // what the hair is picked up with
     this.climber = null;                   // the ladder being carried, if any
     this.pack = null;                      // the jet pack worn, if any
+    this.lift = null;                      // which of those the up key works: 'ladder' or 'pack'
     this.found = [];                       // tattoos uncovered
     this.worn = [];                        // extras the mammoth has been given to wear
     this.stats = { cut: 0, picked: 0, sold: 0, earned: 0, spent: 0, visits: 0, tonics: 0 };
@@ -104,8 +105,8 @@ export class GameState {
     if (item.levels) this.levels[id] = this.level(id) + 1;
     else this.owned.add(id);
     if (item.kind === 'sweeper') this.sweeper = id;
-    if (item.kind === 'ladder') this.climber = id;
-    if (item.kind === 'pack') this.pack = id;
+    if (item.kind === 'ladder') { this.climber = id; this.lift = 'ladder'; }
+    if (item.kind === 'pack') { this.pack = id; this.lift = 'pack'; }
     if (item.flag) this.flags[item.flag] = true;
     this.changed('bought:' + id);
     return true;
@@ -139,7 +140,7 @@ export class GameState {
   toJSON() {
     return {
       v: 3, gold: this.gold, hair: this.hair, owned: [...this.owned], levels: this.levels, tool: this.tool, sweeper: this.sweeper,
-      climber: this.climber, pack: this.pack, found: this.found, worn: this.worn, stats: this.stats, flags: this.flags, haircut: this.haircut, locks: this.locks,
+      climber: this.climber, pack: this.pack, lift: this.lift, found: this.found, worn: this.worn, stats: this.stats, flags: this.flags, haircut: this.haircut, locks: this.locks,
     };
   }
 
@@ -162,6 +163,7 @@ export class GameState {
     this.sweeper = this.owned.has(d.sweeper) ? d.sweeper : 'hands';
     this.climber = this.owned.has(d.climber) ? d.climber : null;
     this.pack = this.owned.has(d.pack) ? d.pack : null;
+    this.lift = d.lift === 'pack' && this.pack ? 'pack' : this.climber ? 'ladder' : this.pack ? 'pack' : null;
     this.found = Array.isArray(d.found) ? d.found : [];
     this.worn = Array.isArray(d.worn) ? d.worn : [];
     this.stats = { ...this.stats, ...(d.stats || {}) };

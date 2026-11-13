@@ -47,6 +47,10 @@ const MOTORS = {
   // the vacuums: mostly rushing air, over a motor
   handvac: { hum: 236, wave: 'sawtooth', body: [2400, 0.009], clatter: [3100, 0.35, 0.05], sag: 0.1, whine: [2950, 0.006] },
   shopvac: { hum: 118, wave: 'sawtooth', body: [900, 0.022], clatter: [1300, 0.3, 0.11], sag: 0.08, whine: [1420, 0.005] },
+  // the packs: two bottles of pop letting go, two leaf blowers, and something that should not be sold to elves
+  soda: { hum: 46, wave: 'triangle', body: [320, 0.006], clatter: [6400, 0.22, 0.2], sag: 0, whine: [880, 0.0008] },
+  blower: { hum: 134, wave: 'sawtooth', body: [1150, 0.04], clatter: [1750, 0.4, 0.15], sag: 0, whine: [1980, 0.006] },
+  jet: { hum: 61, wave: 'sawtooth', body: [520, 0.06], clatter: [760, 0.28, 0.34], sag: 0, whine: [2700, 0.005] },
 };
 
 export class Sound {
@@ -332,6 +336,32 @@ export class Sound {
     m.out.gain.setTargetAtTime(power < 0.002 ? 0 : Math.min(1, power * 1.15) * (1 + 0.35 * load), t, 0.025);
     m.clatter.gain.setTargetAtTime(def.clatter[2] * (1 + 1.4 * load), t, 0.03);
     m.hairGain.gain.setTargetAtTime(power * Math.min(0.16, 0.02 * Math.sqrt(cutting)), t, 0.04);
+  }
+
+  /** A foot on a rung. */
+  rung() {
+    if (!this.ctx) return;
+    const f = 300 + Math.random() * 80;
+    this._tone({ freq: f, freqTo: f * 0.7, gain: 0.05, decay: 0.06, type: 'triangle' });
+    this._noise({ type: 'bandpass', freq: 1100, q: 1.2, gain: 0.04, attack: 0.002, hold: 0.008, decay: 0.04 });
+  }
+
+  /** A ladder being stood up, walked sideways a hop, or put away: wood (or tin) knocking on itself. */
+  clatter(n = 3) {
+    if (!this.ctx) return;
+    for (let i = 0; i < n; i++) {
+      const when = i * (0.05 + Math.random() * 0.03), f = 240 + Math.random() * 260;
+      this._tone({ freq: f, freqTo: f * 0.6, gain: 0.06, decay: 0.07, type: 'triangle', when });
+      this._noise({ type: 'bandpass', freq: 1500 + Math.random() * 900, q: 0.9, gain: 0.05, attack: 0.002, hold: 0.01, decay: 0.05, when });
+    }
+  }
+
+  /** Coming down: on his feet, or not. */
+  thud(hard = false) {
+    if (!this.ctx) return;
+    this._tone({ freq: hard ? 95 : 130, freqTo: 45, gain: hard ? 0.22 : 0.09, decay: hard ? 0.3 : 0.14 });
+    this._noise({ type: 'lowpass', freq: hard ? 900 : 1400, q: 0.5, gain: hard ? 0.14 : 0.07, attack: 0.004, hold: 0.03, decay: hard ? 0.22 : 0.12 });
+    if (hard) this._noise({ buffer: this.crackle, freq: 2400, q: 1.6, gain: 0.07, attack: 0.01, hold: 0.05, decay: 0.2 });
   }
 
   /** Hair parting under the blades; amount is the number of locks cut. */

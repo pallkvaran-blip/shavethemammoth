@@ -1,5 +1,6 @@
 // The hide under the coat: dense dark underwool where hair grows, wrinkled
 // grey skin where it does not (soles, eyelids, the tip of the trunk).
+import { TATTOO_GLSL } from './tattoos.js';
 import * as THREE from 'three';
 import { COMMON, SHADOWS, ATMOSPHERE, SKINNING } from '../gfx/glsl.js';
 import { U } from '../gfx/globals.js';
@@ -46,25 +47,33 @@ varying vec4 vFurB;
 varying float vCut;
 uniform vec3 uRootColor;
 uniform vec3 uMidColor;
+${TATTOO_GLSL}
 
 // creased, pebbled hide
-float hide(vec3 p) {
+float hide(vec3 p, float px) {
   vec2 a = p.xy * 22.0 + p.z * 7.0, b = p.zy * 22.0 - p.x * 5.0;
   float n = vnoise(a) * 0.5 + vnoise(b) * 0.5;
   float fine = vnoise(a * 4.3 + 3.1) * 0.5 + vnoise(b * 4.3 + 9.2) * 0.5;
-  float creases = abs(vnoise(vec2(p.y * 60.0, p.x * 9.0 + p.z * 9.0)) - 0.5) * 2.0;
-  return n * 0.5 + fine * 0.3 + smoothstep(0.0, 0.35, creases) * 0.4;
+  // creases run both along him and round him, crossing, as an elephant's do
+  float along = abs(vnoise(vec2(p.y * 60.0 + p.x * 5.0, p.x * 13.0 + p.z * 13.0)) - 0.5) * 2.0;
+  float round = abs(vnoise(vec2(p.x * 52.0 + p.z * 37.0, p.y * 17.0 - p.z * 9.0) + 31.7) - 0.5) * 2.0;
+  float creases = min(along, round * 1.15);
+  // (px: metres of hide to a pixel. Detail finer than the pixels would only sparkle, so it is let go with distance.)
+  float nearBy = 1.0 - smoothstep(0.003, 0.011, px);
+  return n * 0.5 + mix(0.5, fine, nearBy) * 0.3 + mix(0.8, smoothstep(0.0, 0.3, creases), nearBy) * 0.4;
 }
 
 void main() {
   vec3 N = normalize(vN);
+  vec3 dRx = dFdx(vRest), dRy = dFdy(vRest);
   // where the coat has been cut down to stubble, the skin shows
   float ragged = vnoise(vRest.xy * 140.0 + vRest.z * 57.0) * 0.6 + vnoise(vRest.zy * 310.0 + vRest.x * 91.0) * 0.4;
   float shorn = 1.0 - smoothstep(0.03, 0.085, vCut + (ragged - 0.5) * 0.05);
   float furAmt = smoothstep(0.0, 0.035, vFurA.x) * (1.0 - vFurB.z) * (1.0 - shorn);
 
   // bump the bare skin
-  float h0 = hide(vRest);
+  float px = max(length(dRx), length(dRy));
+  float h0 = hide(vRest, px);
   vec3 dpx = dFdx(vPosW), dpy = dFdy(vPosW);
   float hx = dFdx(h0), hy = dFdy(h0);
   vec3 r1 = cross(dpy, N), r2 = cross(N, dpx);
@@ -74,13 +83,32 @@ void main() {
 
   vec3 skinCol = vec3(0.022, 0.018, 0.016) * (0.55 + 0.75 * h0);
   // freshly sheared skin: paler, greyish pink, peppered with the dark dots of cut hairs
-  float follicles = smoothstep(0.62, 0.8, vnoise(vRest.xy * 620.0 + vRest.z * 233.0) * 0.6 + vnoise(vRest.zy * 620.0 + vRest.x * 171.0) * 0.4);
-  float mottle = vnoise(vRest.xy * 19.0 + vRest.z * 7.0) * 0.6 + vnoise(vRest.zy * 47.0) * 0.4;
+  float follicles = smoothstep(0.62, 0.8, vnoise(vRest.xy * 620.0 + vRest.z * 233.0) * 0.6 + vnoise(vRest.zy * 620.0 + vRest.x * 171.0) * 0.4) * (1.0 - smoothstep(0.0006, 0.0022, px));
+  float mottle = vnoise(vRest.xy * 19.0 + vRest.z * 7.0) * 0.6 + vnoise(vRest.zy * 47.0 + vRest.x * 29.0) * 0.4;
   // shaved right down, there are no cut ends left to see: smooth, a shade pinker
   float clean = shorn * (1.0 - smoothstep(0.0009, 0.0026, vCut));
-  vec3 shavedCol = mix(vec3(0.120, 0.086, 0.074), vec3(0.165, 0.112, 0.094), mottle) * (0.6 + 0.7 * h0) * (1.0 - 0.5 * follicles * (1.0 - 0.85 * clean));
+  vec3 shavedCol = mix(vec3(0.112, 0.088, 0.080), vec3(0.158, 0.118, 0.104), mottle) * (0.6 + 0.7 * h0) * (1.0 - 0.5 * follicles * (1.0 - 0.85 * clean));
   shavedCol = mix(shavedCol, shavedCol * vec3(1.12, 1.0, 0.97), clean);
   skinCol = mix(skinCol, shavedCol, shorn * (1.0 - vFurB.z));
+  // What he has had done, and what he has on. Neither can be seen until the hair is off.
+  float bare = shorn * (1.0 - vFurB.z);
+  float satin = 0.0;
+  if (bare > 0.01 && uTatOn > 0.5) {
+    vec3 th = thongAt(vRest);
+    if (th.x > 0.001) {
+      vec3 cloth = mix(vec3(0.80, 0.12, 0.36), vec3(0.48, 0.05, 0.21), th.y);
+      cloth = mix(cloth, vec3(0.95, 0.9, 0.93), th.z);
+      // (a weave, so that it is cloth and not paint)
+      cloth *= 0.88 + 0.24 * vnoise(vRest.zy * 1100.0 + vRest.x * 800.0);
+      satin = th.x * bare;
+      skinCol = mix(skinCol, cloth, satin);
+    } else {
+      vec4 ink = tattooInk(vRest, N, dRx, dRy);
+      // ink sits in the skin and colours it; the closer the shave, the clearer it reads
+      float a = ink.a * bare * mix(0.62, 0.96, clean);
+      skinCol = mix(skinCol, pow(ink.rgb, vec3(2.2)) * 0.55 * (0.75 + 0.5 * h0), a);
+    }
+  }
   float tone = clamp(0.5 + 0.5 * vFurA.z, 0.0, 1.0);
   // Under the coat the hide is a dense mat of hair. Shade it as one, combed
   // the way the hair lies, so the gaps between strands read as deeper fur
@@ -106,6 +134,8 @@ void main() {
   vec3 V = normalize(cameraPosition - vPosW);
   vec3 H = normalize(uSunDir + V);
   col += uSunColor * mix(0.012, 0.03, clean) * pow(max(dot(Ns, H), 0.0), mix(24.0, 42.0, clean)) * vis * (1.0 - furAmt) * step(0.0, NL);
+  // (satin catches the light)
+  col += uSunColor * 0.07 * pow(max(dot(Ns, H), 0.0), 14.0) * vis * satin * step(0.0, NL);
   float ao = mix(0.85, 0.62, furAmt);
   col += albedo * ambientLight(Ns) * ao;
 

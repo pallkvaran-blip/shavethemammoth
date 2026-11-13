@@ -496,7 +496,8 @@ export class Tool {
     // Put away, a long tool has nowhere to go but through the snow at the
     // elf's own feet (looking up, "back" is down). By the time it is that far
     // back it is out of sight, so the snow gives way to it.
-    const sink = 0.35 * smoothstep(0.6, 1, this.away);
+    // (A broom is put away by sliding it back along the ground, and needs no such leave.)
+    const sink = this.def.level ? 0 : 0.35 * smoothstep(0.6, 1, this.away);
     let wx = 0, wy = 0, wz = 0, snow = false;
     // the deepest any part of the tool is inside anything (0 if none is)
     const deepest = () => {

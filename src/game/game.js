@@ -10,6 +10,7 @@ import { TOOL_ORDER } from './shaving.js';
 import { buildGnome, buildStall } from './people/gnome.js';
 import { buildVulture, buildWigTable } from './people/vulture.js';
 import { UNCUT } from '../mammoth/groom.js';
+import { Finds } from './finds.js';
 
 const $ = (id) => document.getElementById(id);
 const pick = (list) => list[Math.floor(Math.random() * list.length)];
@@ -64,6 +65,7 @@ export class Game {
   constructor({ scene, terrain, mammoth, shaving, rig, sound, hint, storage = true, dev = {} }) {
     Object.assign(this, { scene, terrain, mammoth, shaving, rig, sound, hint });
     this.hero = null;            // the elf, who plays a scene when he gets a new tool (set once he is made)
+    this.lifter = null;          // the ladders and packs, as seen and heard (likewise)
     this.scenes = !dev.noscene;
     this.state = new GameState({ storage });
     this.resumed = !dev.fresh && this.state.load();
@@ -139,6 +141,9 @@ export class Game {
       if (cut) mammoth.setHaircut(cut, locks);
     }
 
+    // what is under the coat, waiting to be found
+    this.finds = new Finds({ mammoth, state: this.state, hint, sound });
+
     this.buildDialog();
     this.refresh();
     window.addEventListener('pagehide', () => this.save(true));
@@ -152,6 +157,31 @@ export class Game {
     const s = this.state;
     this.shaving.reachMore = [1, 1.33, 1.67][Math.min(2, s.level('suck'))];
     this.rig.pace = s.flags.cocoa ? 1.25 : 1;
+    // what the up key works: the pack if one is worn, else the ladder
+    let lift = null;
+    if (s.lift === 'pack' && s.pack) {
+      const f = ITEMS[s.pack].fly;
+      lift = { kind: 'pack', id: s.pack, thrust: f.thrust, tank: f.tank * [1, 1.5, 2][Math.min(2, s.level('tank'))], refill: f.refill, air: f.air, hover: f.air > 0 };
+    } else if (s.climber) {
+      const c = ITEMS[s.climber].climb;
+      lift = { kind: 'ladder', id: s.climber, top: c.top, lean: c.lean };
+    }
+    const was = this.rig.lift;
+    if (this.rig.ladder && (!lift || lift.kind !== 'ladder' || !was || was.id !== lift.id)) { this.rig.ladder = null; this.rig.onLift('away'); }
+    this.rig.lift = lift;
+    if (lift && lift.kind === 'pack' && (!was || was.id !== lift.id || was.tank !== lift.tank)) this.rig.fuel = lift.tank;
+    if (this.lifter) this.lifter.use(lift);
+  }
+
+  /** The T key: with a ladder and a pack both, change which of them the up key works. */
+  swapLift() {
+    const s = this.state;
+    if (!s.climber || !s.pack) return false;
+    s.lift = s.lift === 'pack' ? 'ladder' : 'pack';
+    s.changed('use');
+    this.applyUpgrades();
+    this.hint(s.lift === 'pack' ? `<strong>${ITEMS[s.pack].name}.</strong> Hold <kbd>R</kbd> or the right mouse button to burn.` : `<strong>${ITEMS[s.climber].name}.</strong> <kbd>R</kbd> stands it up and climbs; <kbd>F</kbd> comes down.`, 5);
+    return true;
   }
 
   onState(what) {
@@ -166,6 +196,8 @@ export class Game {
       }
       if (item.kind === 'cutter') { this.state.tool = id; this.shaving.take(id); this.celebrate(id); }
       if (item.kind === 'sweeper' && this.shaving.tool.def.sweep) this.shaving.setTool(id);
+      if (item.kind === 'ladder') this.tell = `<strong>${item.name}.</strong> <span class="desk">Press <kbd>R</kbd> to stand it up where you are and climb; <kbd>F</kbd> comes down, <kbd>A</kbd> and <kbd>D</kbd> walk it sideways.</span><span class="nomouse">Hold Up to stand it where you are and climb.</span> He is taller than it is.`;
+      if (item.kind === 'pack') this.tell = `<strong>${item.name}.</strong> <span class="desk">Hold <kbd>R</kbd> or the right mouse button to burn.</span><span class="nomouse">Hold Up to burn.</span> It fills up again on the ground. You can land on him.${this.state.climber ? ' <span class="desk"><kbd>T</kbd> swaps back to the ladder.</span>' : ''}`;
     }
   }
 
@@ -312,6 +344,8 @@ export class Game {
     d.hidden = true;
     this.rig.hold(false);
     this.save(true);
+    // (anything bought that wants explaining is explained on the way out)
+    if (this.tell) { this.hint(this.tell, 12); this.tipIn = 16; this.tell = null; }
   }
 
   price() { return HAIR_PRICE * (this.state.flags.foot ? 1.15 : 1); }
@@ -346,7 +380,7 @@ export class Game {
           }
           if (Number.isFinite(p)) action = `<button type="button" data-buy="${id}" ${p > s.gold ? 'class="dear"' : ''}>${p} gold</button>`;
           else if (['sweeper', 'ladder', 'pack'].includes(item.kind)) {
-            const inUse = s.sweeper === id || s.climber === id || s.pack === id;
+            const inUse = s.sweeper === id || (s.climber === id && s.lift !== 'pack') || (s.pack === id && s.lift === 'pack');
             action = inUse ? '<span class="have">In use</span>' : `<button type="button" class="use" data-use="${id}">Use this</button>`;
           } else action = '<span class="have">Yours</span>';
           html += `<li><div><strong>${esc(name)}</strong><span>${esc(blurb)}</span></div>${action}</li>`;
@@ -372,9 +406,10 @@ export class Game {
     const s = this.state, item = ITEMS[id];
     if (!s.owns(id)) return;
     if (item.kind === 'sweeper') { s.sweeper = id; if (this.shaving.tool.def.sweep) this.shaving.setTool(id); }
-    if (item.kind === 'ladder') s.climber = id;
-    if (item.kind === 'pack') s.pack = id;
+    if (item.kind === 'ladder') { s.climber = id; s.lift = 'ladder'; }
+    if (item.kind === 'pack') { s.pack = id; s.lift = 'pack'; }
     s.changed('use');
+    this.applyUpgrades();
   }
 
   sell() {
@@ -409,6 +444,7 @@ export class Game {
       if (who) prompt.innerHTML = `<kbd class="desk">E</kbd> Talk to ${who === 'gnome' ? 'Gnorman' : 'Mortimer'}`;
     }
 
+    this.finds.update(dt, !elf || !!this.dialog || playing);
     this.guide(dt, elf);
 
     // keep the haircut: it is the one thing that cannot be bought back (well, it can, for 150 gold)

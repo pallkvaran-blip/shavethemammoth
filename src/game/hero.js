@@ -96,6 +96,12 @@ export class Hero {
     this.banner = document.getElementById('got');
   }
 
+  /** Hang something on his back (a pack): it is seen, hidden and shadowed along with the rest of him. */
+  wear(model) {
+    this.elf.back.add(model.group);
+    for (const m of model.meshes) { if (!this.seen) m.layers.disable(0); this.elf.meshes.push(m); }
+  }
+
   /** Whether the elf's own body is drawn (his shadow always is). */
   _show(on) {
     if (on === this.seen) return;

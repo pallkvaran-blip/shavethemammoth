@@ -10,22 +10,25 @@ import { canvasTexture } from '../tool.js';
 const depth = makeDepthMaterial();
 
 export class Model {
-  constructor(name) {
+  /** @param opts.patch  how its materials differ from the usual (see patchStandardMaterial); opts.depth: what it casts its shadow with */
+  constructor(name, { patch = null, depth: own = null } = {}) {
     this.group = new THREE.Group();
     this.group.name = name;
     this.meshes = [];
+    this.patch = patch || { key: 'folk', bias: 0.03 };
+    this.depth = own || depth;
   }
 
   /** A material in a colour (or with a map), lit like everything else here. */
   mat(colour, { rough = 0.7, metal = 0, map = null, coat = 0, sheen = 0, emissive = 0, glow = 0, side = THREE.FrontSide, bump = null, bumpScale = 1 } = {}) {
     const m = new THREE.MeshPhysicalMaterial({ color: colour, roughness: rough, metalness: metal, map, clearcoat: coat, clearcoatRoughness: 0.4, sheen, side, bumpMap: bump, bumpScale, emissive, emissiveIntensity: glow });
-    return patchStandardMaterial(m, { key: 'folk', bias: 0.03 });
+    return patchStandardMaterial(m, this.patch);
   }
 
   add(parent, geo, material, name = '') {
     const mesh = new THREE.Mesh(geo, material);
     mesh.name = name;
-    mesh.userData.shadowMaterial = depth;
+    mesh.userData.shadowMaterial = this.depth;
     mesh.layers.enable(LAYER_SHADOW_NEAR);
     parent.add(mesh);
     this.meshes.push(mesh);

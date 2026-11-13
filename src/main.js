@@ -14,6 +14,7 @@ import { Shaving, PUT_AWAY } from './game/shaving.js';
 import { Sound } from './game/audio.js';
 import { Game } from './game/game.js';
 import { Hero } from './game/hero.js';
+import { Lift } from './game/lift.js';
 
 const q = new URLSearchParams(location.search);
 const num = (k, d) => (q.has(k) ? parseFloat(q.get(k)) : d);
@@ -191,8 +192,8 @@ async function start() {
   const elfCentre = new THREE.Vector3(), elfAhead = new THREE.Vector3();
   // (every tool that is showing, not only the one in hand: while the scene warms up all of them are drawn once)
   const toolCasters = () => Object.values(shaving.tools).filter((t) => t.group.visible).flatMap((t) => t.meshes);
-  let game = null, hero = null;
-  const nearCasters = () => [...mammoth.casters, ...terrain.meshes.filter((m) => m.userData.castNear), ...rocks.meshes, grass, ...toolCasters(), ...(game ? game.casters : []), ...(hero ? hero.casters : [])];
+  let game = null, hero = null, lifter = null;
+  const nearCasters = () => [...mammoth.casters, ...terrain.meshes.filter((m) => m.userData.castNear), ...rocks.meshes, grass, ...toolCasters(), ...(game ? game.casters : []), ...(hero ? hero.casters : []), ...(lifter ? lifter.casters : [])];
   const farCasters = [...terrain.meshes.filter((m) => m.userData.castFar), ...rocks.meshes];
   const fitShadows = () => {
     shadowNear.fit(new THREE.Vector3(1.0, 1.45, 0), sky.sunDir, 4.8, 2.4, 160);
@@ -288,6 +289,13 @@ async function start() {
     snip.addEventListener('pointerdown', hold(true));
     for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) snip.addEventListener(ev, hold(false));
   }
+  for (const [id, code] of [['rise', 'KeyR'], ['sink', 'KeyF']]) {
+    const b = $(id);
+    if (!b) continue;
+    const go = (on) => (e) => { e.preventDefault(); on ? rig.keys.add(code) : rig.keys.delete(code); };
+    b.addEventListener('pointerdown', go(true));
+    for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) b.addEventListener(ev, go(false));
+  }
   const progressEl = $('progress');
   rig.onSqueeze = (on) => shaving.squeeze(on);
   rig.onStep = (run) => sound.step(run);
@@ -301,6 +309,9 @@ async function start() {
   // the elf himself: seen from outside before the shaving starts, and whenever he has something new to show off
   hero = new Hero({ scene, camera, rig, shaving, terrain, mammoth, sound });
   game.hero = hero;
+  lifter = new Lift({ scene, rig, terrain, sound, hero });
+  game.lifter = lifter;
+  game.applyUpgrades();
   if (!q.has('tool')) shaving.setTool(game.state.tool);
 
   // ---- which tool ---------------------------------------------------------------
@@ -340,6 +351,15 @@ async function start() {
     const e = q.get('elf').split(',').map(Number);
     if (e.length >= 2 && !Number.isNaN(e[1])) rig.pos.set(e[0], 0, e[1]);
     if (e.length >= 4) { rig.yaw = e[2]; rig.pitch = e[3]; }
+  }
+  // dev: ?lift=<ladder or pack> has that to go up with, and ?up=<metres> starts that far off the snow on it
+  if (q.has('lift')) { game.state.owned.add(q.get('lift')); game.use(q.get('lift')); }
+  if (q.has('up') && rig.mode === 'elf') {
+    rig.update(1 / 60);
+    rig.keys.add('KeyR'); rig.update(1 / 60);
+    rig.height = num('up', 1); rig.vy = 0;
+    if (!q.has('burn')) rig.keys.delete('KeyR');
+    rig.update(1 / 600);
   }
   $('detail').value = qualityName;
   $('detail').addEventListener('change', (e) => applyQuality(e.target.value));
@@ -381,6 +401,8 @@ async function start() {
       if (rig.mode === 'elf') game.interact(); else rig.enterElf();
     } else if (e.code === 'KeyQ' && rig.mode === 'elf') {
       game.toggleSweep();
+    } else if (e.code === 'KeyT' && rig.mode === 'elf') {
+      game.swapLift();
     } else if (e.code === 'Escape' && rig.mode === 'elf') {
       rig.leaveElf();
     } else if (e.code === 'KeyH') {
@@ -458,7 +480,7 @@ async function start() {
     if (wait > 0) { waiting = open; later(() => { if (waiting) { waiting = null; open(); } }, wait); } else open();
   };
 
-  if (q.has('debug')) window.__game = { shaving, mammoth, rig, sound, camera, renderer, PUT_AWAY, game, hero, U, state: game.state };   // dev: poke at the game from the console
+  if (q.has('debug')) window.__game = { shaving, mammoth, rig, sound, camera, renderer, PUT_AWAY, game, hero, lifter, U, state: game.state };   // dev: poke at the game from the console
   if (q.has('nopush')) shaving.noPush = true;                                      // dev: hair ignores the blades
   if (q.has('away')) shaving.pinned = num('away', 0);                              // dev: hold the tool part way put away (0 to 1)
   if (q.has('noclippings')) shaving.clippings.mesh.visible = false;
@@ -501,6 +523,8 @@ async function start() {
     }
     rig.yaw -= num('snipyaw', 0) * num('snips', 1) * num('snipback', 0.5); rig.pitch -= num('snippitch', 0) * num('snips', 1) * num('snipback', 0.5);
   }
+  // dev: ?bald (or ?bald=<metres left>) takes the whole coat off at once, to see what is under it
+  if (q.has('bald')) mammoth.setHaircut(new Float32Array(mammoth.bodyCut.length).fill(num('bald', 0.0005) || 0.0005));
   if (q.has('open')) shaving.tool.setAngle(shaving.tool.def.open * num('open', 1));
   // dev: ?scene=<tool>&st=<seconds> shows the scene for getting that tool, stopped at that moment
   if (q.has('scene') && rig.mode === 'elf' && hero.celebrate(q.get('scene'))) { rig.update(0); hero.jump(num('st', 2.2)); rig.update(0); camera.updateMatrixWorld(true); }
@@ -549,10 +573,11 @@ async function start() {
     shaving.update(dt, camera, rig.feel);
     game.update(dt);
     hero.update(dt);
+    lifter.update(dt);
     if (frames < 3 && !shot) shaving.warm(camera, frames < 2);   // drawn once behind the loading card
     if (frames % 12 === 0) {
       sound.setWind(mammoth.sampler.windGust(camera.position.x, camera.position.z));
-      if (progressEl && !progressEl.hidden) { const pct = mammoth.shorn * 100; progressEl.textContent = `Shorn ${pct.toFixed(pct < 1 ? 3 : pct < 10 ? 2 : 1)}%`; }
+      if (progressEl && !progressEl.hidden) { const pct = mammoth.shorn * 100; progressEl.textContent = `Shorn ${pct.toFixed(pct < 1 ? 3 : pct < 10 ? 2 : 1)}%${game.finds.count ? ` · ${game.finds.count} of ${game.finds.total} found` : ''}`; }
     }
 
     // fewer strands are needed the further away the mammoth is
@@ -572,7 +597,7 @@ async function start() {
     if (rig.mode === 'elf' && !q.has('noelfshadow')) {
       // centred a little ahead of the elf, at about the height of its work
       camera.getWorldDirection(elfAhead); elfAhead.y = 0; elfAhead.normalize();
-      elfCentre.copy(camera.position).addScaledVector(elfAhead, 0.45); elfCentre.y = terrain.height(elfCentre.x, elfCentre.z) + 0.5;
+      elfCentre.copy(camera.position).addScaledVector(elfAhead, 0.45); elfCentre.y = terrain.height(elfCentre.x, elfCentre.z) + 0.5 + rig.height;
       shadowElf.fit(elfCentre, sky.sunDir, 1.3, 0.65, 70, true);
       shadowElf.bind(U.uShadowElf, U.uShadowElfMat, U.uShadowElfInfo);
       for (const o of casters) o.layers.enable(LAYER_SHADOW_ELF);

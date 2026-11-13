@@ -3,7 +3,7 @@
 import { COMMON, SHADOWS, ATMOSPHERE } from './glsl.js';
 import { U } from './globals.js';
 
-export function patchStandardMaterial(mat, { taps = 6, sigma = 160, bias = 0.02, radius = 0.03, extraFragment = '', extraVertex = '', vertexHead = '', extraUniforms = null, key = '' } = {}) {
+export function patchStandardMaterial(mat, { taps = 6, sigma = 160, bias = 0.02, radius = 0.03, extraFragment = '', extraVertex = '', vertexHead = '', fragmentHead = '', extraUniforms = null, key = '' } = {}) {
   mat.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, U);
     if (extraUniforms) Object.assign(shader.uniforms, extraUniforms);
@@ -20,6 +20,7 @@ export function patchStandardMaterial(mat, { taps = 6, sigma = 160, bias = 0.02,
         #define SHADOW_PLANE_BIAS
         varying vec3 vWPos;
         varying vec3 vWNormal;
+        ${fragmentHead}
         ${COMMON}
         ${SHADOWS}
         ${ATMOSPHERE}`)

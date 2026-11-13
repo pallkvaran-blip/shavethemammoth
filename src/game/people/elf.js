@@ -97,6 +97,11 @@ export function buildElf() {
   M.box(tail, scarfMat, [0.014, 0.05, 0.005], [0, -0.025, 0]);
   M.box(tail, cream, [0.014, 0.006, 0.0055], [0, -0.05, 0]);
 
+  // (a pack goes on his back)
+  const back = new THREE.Group();
+  back.position.set(0, 0.036, -0.037);
+  torso.add(back);
+
   // ---- the head ----
   const head = new THREE.Group();
   head.position.set(0, 0.068, 0);
@@ -270,7 +275,7 @@ export function buildElf() {
   };
 
   return {
-    group: M.group, meshes: M.meshes, height: 0.2, eye: 0.17,
+    group: M.group, meshes: M.meshes, height: 0.2, eye: 0.17, back,
     want, pose,
     /** Where a hand is (world): 'R', 'L', or 'both' for the point midway between them. */
     hand(which, out = _v) {

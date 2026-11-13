@@ -46,9 +46,9 @@ export const ITEMS = {
   fire: { kind: 'ladder', name: 'Fire brigade ladder', price: 800, blurb: 'All the way to the top of his head. Fell off the back of a fire. Engine. Off the back of a fire engine.', climb: { top: 3.75, lean: 0.22 } },
 
   // ---- with fire ----
-  soda: { kind: 'pack', name: 'Fizzy-pop rocket belt', price: 500, blurb: 'Two bottles and a belt. Shake well. Lands you on your arse about half the time, which is the fun half.', fly: { thrust: 15, tank: 2.4, refill: 0.5, air: 0 } },
-  blower: { kind: 'pack', name: 'Leaf-blower pack', price: 1200, blurb: 'Two leaf blowers and a rucksack. Loud enough to make him flinch. Six seconds up, then physics.', fly: { thrust: 17, tank: 6, refill: 0.45, air: 0 } },
-  jet: { kind: 'pack', name: 'Icarus Mk II jet pack', price: 2600, blurb: 'A proper one. Hovers. The Mk I is why I have this hat and not the other hat.', fly: { thrust: 21, tank: 16, refill: 1.2, air: 0.12 } },
+  soda: { kind: 'pack', name: 'Fizzy-pop rocket belt', price: 500, blurb: 'Two bottles and a belt. Shake well. Lands you on your arse about half the time, which is the fun half.', fly: { thrust: 12, tank: 1.4, refill: 0.35, air: 0 } },
+  blower: { kind: 'pack', name: 'Leaf-blower pack', price: 1200, blurb: 'Two leaf blowers and a rucksack. Loud enough to make him flinch. Six seconds up, then physics.', fly: { thrust: 8.6, tank: 6, refill: 0.6, air: 0 } },
+  jet: { kind: 'pack', name: 'Icarus Mk II jet pack', price: 2600, blurb: 'A proper one. Hovers. The Mk I is why I have this hat and not the other hat.', fly: { thrust: 9.6, tank: 16, refill: 2, air: 0.12 } },
 
   // ---- improvements ----
   sack: {

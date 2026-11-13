@@ -8,6 +8,7 @@ import { StrandSampler } from './strand.js';
 import { BodyCollider } from './collider.js';
 import { makeFurGeometry, makeFurMaterials, makeStrandAttributes, isWoolBatch, BATCH } from './furMaterial.js';
 import { makeBodyMaterials } from './bodyMaterial.js';
+import { makeTattooSheet, placeTattoos, tattooUniforms } from './tattoos.js';
 import { patchStandardMaterial } from '../gfx/patch.js';
 import { makeDepthMaterial } from '../gfx/shadows.js';
 import { LAYER_SHADOW_NEAR } from '../gfx/globals.js';
@@ -279,6 +280,10 @@ export class Mammoth {
     m.body.geometry.setAttribute('aCut', new THREE.BufferAttribute(m.bodyCutShown, 1));
     m.sampler = new StrandSampler({ volume: data.volume, skeleton: rig.skeleton });
     m.collider = new BodyCollider({ sdf: data.sdf, anat, rig });
+    // what is under the coat: found on the hide as he stands at rest, and given to the skin to show where it is shorn
+    m.collider.begin();
+    m.tattoos = placeTattoos(m.collider);
+    Object.assign(bodyMats.color.uniforms, tattooUniforms(makeTattooSheet(), m.tattoos));
 
     // ---- rigid parts ride on bones ----------------------------------------
     const rigidDepth = makeDepthMaterial();
