@@ -88,8 +88,10 @@ console.log('skipped with a click part way through:');
 page = await open();
 await page.goto(url, { waitUntil: 'load' });
 await page.waitForFunction(() => document.body.classList.contains('ready'));
-s = await look(page);
-check(!s.told && s.line >= 0, 'the scene is showing and the legend is still being told');
+// (what was showing at the moment the scene appeared, from the page's own record: without a graphics card a frame takes
+// seconds, and by the time a question asked now was answered the legend might have run its course)
+s = await page.evaluate(() => window.__seen.find((x) => x.ready));
+check(s && !s.told && s.line >= 0, 'the scene is showing and the legend is still being told');
 await page.mouse.click(260, 150);
 s = await look(page);
 check(s.told && s.line < 0, 'one click ends it');
