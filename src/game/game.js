@@ -62,7 +62,7 @@ const SAYS = {
 };
 
 export class Game {
-  constructor({ scene, terrain, mammoth, shaving, rig, sound, hint, storage = true, dev = {} }) {
+  constructor({ scene, terrain, mammoth, shaving, rig, sound, hint, storage = true, dev = {}, baked = {} }) {
     Object.assign(this, { scene, terrain, mammoth, shaving, rig, sound, hint });
     this.hero = null;            // the elf, who plays a scene when he gets a new tool (set once he is made)
     this.lifter = null;          // the ladders and packs, as seen and heard (likewise)
@@ -100,12 +100,12 @@ export class Game {
       this.people[who] = { ...p, y, turn, parts: set, front: [p.x + Math.sin(turn) * 0.5, p.z + Math.cos(turn) * 0.5] };
       return set;
     };
-    const [stall, gnome] = place('gnome', [buildStall, buildGnome]);
+    const [stall, gnome] = place('gnome', [buildStall, () => buildGnome({ baked: baked.gnome })]);
     gnome.group.position.y += 0.06;                              // on his box
     gnome.group.translateZ(-0.11);
     gnome.group.updateMatrixWorld(true);
     this.gnome = gnome; this.stall = stall;
-    const [table, vulture] = place('vulture', [buildWigTable, buildVulture]);
+    const [table, vulture] = place('vulture', [buildWigTable, () => buildVulture({ baked: baked.vulture })]);
     vulture.group.position.y += 0.1;                             // on his stump
     vulture.group.translateZ(-0.05);
     vulture.group.updateMatrixWorld(true);

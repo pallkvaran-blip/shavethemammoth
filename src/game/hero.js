@@ -62,9 +62,9 @@ function starTexture() {
 }
 
 export class Hero {
-  constructor({ scene, camera, rig, shaving, terrain, mammoth, sound }) {
+  constructor({ scene, camera, rig, shaving, terrain, mammoth, sound, baked = null }) {
     Object.assign(this, { scene, camera, rig, shaving, terrain, mammoth, sound });
-    this.elf = buildElf();
+    this.elf = buildElf({ baked });
     scene.add(this.elf.group);
     this.casters = this.elf.meshes;
     this.time = 0;

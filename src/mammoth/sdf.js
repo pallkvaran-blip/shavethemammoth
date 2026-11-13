@@ -29,6 +29,20 @@ function mat3FromQuat(q) {
   ];
 }
 
+// a turn that takes a solid's own y axis to the direction given
+function mat3FromAxis(axis) {
+  const l = Math.hypot(axis[0], axis[1], axis[2]) || 1;
+  const yx = axis[0] / l, yy = axis[1] / l, yz = axis[2] / l;
+  // across it: whichever of z and x it is least like
+  let xx, xy, xz;
+  if (Math.abs(yz) < 0.9) { xx = yy; xy = -yx; xz = 0; } else { xx = 0; xy = yz; xz = -yy; }
+  const xl = Math.hypot(xx, xy, xz) || 1;
+  xx /= xl; xy /= xl; xz /= xl;
+  const zx = xy * yz - xz * yy, zy = xz * yx - xx * yz, zz = xx * yy - xy * yx;
+  return [xx, yx, zx, xy, yy, zy, xz, yz, zz];
+}
+const turnOf = (p) => (p.axis ? mat3FromAxis(p.axis) : mat3FromQuat(quatFromEulerZYX(...(p.rot || [0, 0, 0]))));
+
 export function smin(a, b, k) {
   if (k <= 0) return a < b ? a : b;
   const h = Math.max(k - Math.abs(a - b), 0) / k;
@@ -50,6 +64,7 @@ export function smax(a, b, k) {
  *             (a flat blade: the outline of a round cone from a to b, lying across the direction n, half as thick as
  *              `t` (`t2` at the far end) with a rolled edge; `bend` bows its middle sideways, `curl` turns its end out
  *              of the flat, both in metres)
+ *             (an ellipsoid, a torus or a box may give `axis: [x, y, z]`, the way its own y axis is to point, instead of `rot`)
  * common:     { k: blend radius, bone: 'name', fur: {...}, name }
  */
 export function compilePrims(list) {
@@ -64,8 +79,7 @@ export function compilePrims(list) {
       o.t = 1;
       o.cx = p.c[0]; o.cy = p.c[1]; o.cz = p.c[2];
       o.rx = p.r[0]; o.ry = p.r[1]; o.rz = p.r[2];
-      const rot = p.rot || [0, 0, 0];
-      const m = mat3FromQuat(quatFromEulerZYX(rot[0], rot[1], rot[2]));
+      const m = turnOf(p);
       // world->local is the transpose
       o.m00 = m[0]; o.m01 = m[3]; o.m02 = m[6];
       o.m10 = m[1]; o.m11 = m[4]; o.m12 = m[7];
@@ -85,8 +99,7 @@ export function compilePrims(list) {
     } else if (p.type === 'tor' || p.type === 'box') {
       o.t = p.type === 'tor' ? 3 : 4;
       o.cx = p.c[0]; o.cy = p.c[1]; o.cz = p.c[2];
-      const rot = p.rot || [0, 0, 0];
-      const m = mat3FromQuat(quatFromEulerZYX(rot[0], rot[1], rot[2]));
+      const m = turnOf(p);
       o.m00 = m[0]; o.m01 = m[3]; o.m02 = m[6];
       o.m10 = m[1]; o.m11 = m[4]; o.m12 = m[7];
       o.m20 = m[2]; o.m21 = m[5]; o.m22 = m[8];
@@ -95,7 +108,7 @@ export function compilePrims(list) {
         const sc = p.s || [1, 1, 1];
         o.R = p.R; o.r = p.r; o.sx = sc[0]; o.sy = sc[1]; o.sz = sc[2];
         o.smin = Math.min(sc[0], sc[1], sc[2]);
-        o.br = (p.R + p.r) * Math.max(sc[0], sc[1], sc[2]);
+        o.br = Math.max((p.R + p.r) * Math.max(sc[0], sc[2]), Math.hypot(p.R * Math.max(sc[0], sc[2]), p.r * sc[1]));
       } else {
         o.hx = p.h[0]; o.hy = p.h[1]; o.hz = p.h[2]; o.round = p.round || 0;
         o.br = Math.hypot(p.h[0], p.h[1], p.h[2]);

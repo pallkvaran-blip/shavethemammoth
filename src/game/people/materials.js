@@ -14,12 +14,14 @@ const VERT_HEAD = /* glsl */ `
 attribute vec2 aShade;
 attribute vec4 aTint;
 varying vec3 vRest;
+varying vec3 vRestN;
 varying vec2 vShade;
 varying vec4 vTint;
 varying vec2 vUVm;
 `;
 const VERT_BODY = /* glsl */ `
   vRest = position;
+  vRestN = normal;
   #ifdef FOLK_SCULPTED
     vShade = aShade; vTint = aTint; vUVm = uv;
   #else
@@ -29,12 +31,29 @@ const VERT_BODY = /* glsl */ `
 
 const LIB = /* glsl */ `
 varying vec3 vRest;
+varying vec3 vRestN;
 varying vec2 vShade;
 varying vec4 vTint;
 varying vec2 vUVm;
 uniform vec4 uFolkA;      // what each kind of material wants to be told (see below)
 uniform vec4 uFolkB;
 uniform vec3 uFolkC;      // a second colour
+#ifdef FOLK_MAP
+  // a picture on it (lettering on a jersey, a number on a foam hand): where its corner is, and its two edges, each
+  // divided by its own length squared. On knitting these are in the knitting's own coordinates, and the picture is
+  // worked in stitch by stitch; on anything else they are in space, and it is printed on from in front (and behind).
+  uniform sampler2D uFolkMap;
+  uniform vec3 uFolkMapO;
+  uniform vec3 uFolkMapU;
+  uniform vec3 uFolkMapV;
+  vec4 folkPicture(vec3 p, float facing, float lod) {
+    vec3 q = p - uFolkMapO;
+    vec2 st = vec2(dot(q, uFolkMapU), dot(q, uFolkMapV));
+    if (st.x < 0.0 || st.x > 1.0 || st.y < 0.0 || st.y > 1.0) return vec4(0.0);
+    if (facing < 0.0) st.x = 1.0 - st.x;
+    return lod < 0.0 ? texture2D(uFolkMap, st) : textureLod(uFolkMap, st, lod);
+  }
+#endif
 
 // smooth noise in space (two looks at the noise picture, one for each of the layers a point lies between)
 float noise3(vec3 x) {
@@ -204,6 +223,15 @@ const KINDS = {
         float band = fract(st.y / uFolkA.z);
         wool = mix(wool, uFolkC, step(1.0 - uFolkA.w, band));
       }
+      #ifdef FOLK_MAP
+      {
+        // each stitch is one colour: the picture's, where that stitch's middle falls in it
+        vec3 mid = vec3((floor(kp.x) + 0.5) * uFolkA.x, (st.y + 0.5 - uFolkB.y) * uFolkA.y, 0.0);
+        vec4 near = folkPicture(mid, 1.0, 0.0), far = folkPicture(vec3(vUVm, 0.0), 1.0, -1.0);
+        vec4 pic = mix(far, near, seen);
+        wool = mix(wool, pic.rgb, pic.a);
+      }
+      #endif
       wool *= vTint.rgb;
       // every stitch a little its own shade; yarn plied, so it glints in stripes along its length; dark between the stitches
       float each = fract(sin(dot(floor(kp), vec2(12.9898, 78.233))) * 43758.5453);
@@ -255,7 +283,7 @@ const KINDS = {
   leather: {
     color: /* glsl */ `
       float px = footprint();
-      float fine = 1.0 - smoothstep(0.0003, 0.0018, px);
+      float fine = 1.0 - smoothstep(0.12, 0.5, px / uFolkA.x);          // (grain smaller than a pixel is only a sparkle)
       vec3 gr = cells3(vRest / uFolkA.x);
       float crack = smoothstep(0.02, 0.14, gr.y - gr.x);
       float leatherH = mix(0.8, crack * (0.75 + 0.25 * gr.z), fine);
@@ -272,7 +300,15 @@ const KINDS = {
   },
   // ---- anything smooth: painted wood, foam, horn. uFolkA = (mottle size m, mottle depth, unused, unused) ----
   plain: {
-    color: /* glsl */ `diffuseColor.rgb *= vTint.rgb * (1.0 - uFolkA.y * 0.5 + uFolkA.y * fbm3(vRest / max(uFolkA.x, 1e-5)));`,
+    color: /* glsl */ `
+      #ifdef FOLK_MAP
+      {
+        vec4 pic = folkPicture(vRest, dot(vRestN, cross(uFolkMapU, uFolkMapV)), -1.0);
+        diffuseColor.rgb = mix(diffuseColor.rgb, pic.rgb, pic.a);
+      }
+      #endif
+      diffuseColor.rgb *= vTint.rgb * (1.0 - uFolkA.y * 0.5 + uFolkA.y * fbm3(vRest / max(uFolkA.x, 1e-5)));
+    `,
   },
   // ---- an eye, looking along its own +z. uFolkA = (iris radius, pupil radius, both as angles from the middle; unused; unused), uFolkC = the iris ----
   eye: {
@@ -306,16 +342,27 @@ const KINDS = {
  * @param opts   colour, and what the kind wants: see KINDS; `a`, `b` are its two sets of four numbers, `second` its other colour;
  *               anything else goes to the physical material (roughness, sheen, clearcoat, ...)
  * @param opts.sculpted  false for an ordinary mesh that has not come from sculpt.js (no occlusion, no paint)
+ * @param opts.picture   { map, at: [x, y, z], u: [x, y, z], v: [x, y, z] }: a picture on it, its bottom left corner at `at`
+ *                       and its bottom and left edges u and v (metres). For 'knit' these are in the knitting's coordinates
+ *                       (round, along, 0); for 'plain', in space where the figure stands at rest
  */
-export function folkMaterial(kind, { color = 0xffffff, a = [0, 0, 0, 0], b = [0, 0, 0, 0], second = 0xffffff, sculpted = true, ...rest } = {}) {
+export function folkMaterial(kind, { color = 0xffffff, a = [0, 0, 0, 0], b = [0, 0, 0, 0], second = 0xffffff, sculpted = true, picture = null, ...rest } = {}) {
   const K = KINDS[kind];
   if (!K) throw new Error('no such material: ' + kind);
   const m = new THREE.MeshPhysicalMaterial({ color, roughness: 0.7, metalness: 0, ...rest });
   if (sculpted) m.defines = { ...(m.defines || {}), FOLK_SCULPTED: 1 };
   const uniforms = { uFolkA: { value: new THREE.Vector4(...a) }, uFolkB: { value: new THREE.Vector4(...b) }, uFolkC: { value: new THREE.Color(second) } };
+  if (picture) {
+    m.defines = { ...(m.defines || {}), FOLK_MAP: 1 };
+    const over = (e) => { const l2 = e[0] * e[0] + e[1] * e[1] + e[2] * e[2]; return new THREE.Vector3(e[0] / l2, e[1] / l2, e[2] / l2); };
+    uniforms.uFolkMap = { value: picture.map };
+    uniforms.uFolkMapO = { value: new THREE.Vector3(...picture.at) };
+    uniforms.uFolkMapU = { value: over(picture.u) };
+    uniforms.uFolkMapV = { value: over(picture.v) };
+  }
   m.userData.folk = uniforms;
   return patchStandardMaterial(m, {
-    key: `folk-${kind}-${sculpted ? 's' : 'p'}`, bias: 0.012, radius: 0.012, taps: 8, extraUniforms: uniforms,
+    key: `folk-${kind}-${sculpted ? 's' : 'p'}${picture ? '-pic' : ''}`, bias: 0.012, radius: 0.012, taps: 8, extraUniforms: uniforms,
     vertexHead: VERT_HEAD, extraVertex: VERT_BODY, fragmentHead: LIB,
     fragmentColor: K.color || '', fragmentSurface: K.surface || '', fragmentNormal: K.normal || '', fragmentLight: K.light || '',
     fragmentAmbient: OCCLUDE,

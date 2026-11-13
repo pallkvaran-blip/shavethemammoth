@@ -16,6 +16,7 @@ import { Game } from './game/game.js';
 import { Hero } from './game/hero.js';
 import { Lift } from './game/lift.js';
 import { Antics } from './game/antics.js';
+import { startBaking } from './game/people/bakery.js';
 
 const q = new URLSearchParams(location.search);
 const num = (k, d) => (q.has(k) ? parseFloat(q.get(k)) : d);
@@ -105,6 +106,10 @@ async function start() {
     camera.updateProjectionMatrix();
     post.setSize(size.x, size.y);
   };
+
+  // the people of the place are sculpted while everything else loads (on threads of their own, where the page allows it;
+  // ?nothreads keeps it here)
+  const baking = startBaking(['elf', 'gnome'], { threads: !q.has('nothreads') });
 
   // ---- sky & sun ------------------------------------------------------------
   setProgress(0.02, 'Lighting the sky');
@@ -303,12 +308,14 @@ async function start() {
 
   // ---- the game: money, the traders, what is owned ---------------------------------
   // (dev stills and ?unlock have everything; ?gold=n sets the purse; ?fresh ignores a kept game; ?nosave keeps nothing)
+  setProgress(0.97, 'Dressing the locals');
+  const baked = { elf: await baking.elf, gnome: await baking.gnome };
   game = new Game({
-    scene, terrain, mammoth, shaving, rig, sound, hint: showHint, storage: !shot && !q.has('nosave'),
+    scene, terrain, mammoth, shaving, rig, sound, hint: showHint, storage: !shot && !q.has('nosave'), baked,
     dev: { unlock: shot || q.has('unlock'), gold: q.has('gold') ? num('gold', 0) : null, fresh: shot || q.has('fresh'), noscene: q.has('noscene') },
   });
   // the elf himself: seen from outside before the shaving starts, and whenever he has something new to show off
-  hero = new Hero({ scene, camera, rig, shaving, terrain, mammoth, sound });
+  hero = new Hero({ scene, camera, rig, shaving, terrain, mammoth, sound, baked: baked.elf });
   game.hero = hero;
   lifter = new Lift({ scene, rig, terrain, sound, hero });
   game.lifter = lifter;
