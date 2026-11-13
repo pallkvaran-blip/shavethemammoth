@@ -64,11 +64,14 @@ uniform float uChildMax;    // most hairs one lock may show
 uniform float uMinPx;       // thinnest a hair is ever drawn, in pixels
 uniform vec3 uOrigin;       // where the mammoth stands
 
-uniform vec3 uShP;          // the shears: their pivot,
+uniform vec3 uShP;          // the tool in hand: its pivot,
 uniform vec3 uShN;          // the normal of the plane the blades lie in,
 uniform vec3 uShA[2];       // along each blade from the pivot,
 uniform vec3 uShC[2];       // and across each blade towards its cutting edge
-uniform float uShOn;        // 0 when the shears are put away
+uniform float uShOn;        // 0 when no tool is in hand
+uniform vec4 uShB;          // a blade in its own frame: where it starts and ends along its half, how wide its back is at each end
+uniform vec4 uShX;          // how the back narrows (an exponent), how far past the cutting edge hair is pushed, the radius kept clear round the pivot, the margin past the back
+uniform vec3 uShD;          // how far above and below the blades hair is parted, and how far beneath a blade hair rooted under it is pressed
 
 varying vec2 vUV;
 varying vec3 vTan;
@@ -79,9 +82,10 @@ varying vec4 vHair;     // hair seed, coverage, wool, depth in the coat (0 at th
 
 vec3 rotateQ(vec4 q, vec3 v) { return v + 2.0 * cross(q.xyz, cross(q.xyz, v) + q.w * v); }
 
+// how wide the back of a blade is at u along it
 float bladeBack(float u) {
-  float s = clamp(u / 0.135, 0.0, 1.0);
-  return mix(0.0195 * (1.0 - 0.5 * pow(s, 1.5)), 0.0012, smoothstep(0.86, 1.0, s));
+  float s = clamp((u - uShB.x) / (uShB.y - uShB.x), 0.0, 1.0);
+  return mix(mix(uShB.z, uShB.w, pow(s, uShX.x)), 0.0012, smoothstep(0.86, 1.0, s));
 }
 
 // Hair cannot pass through steel. Each blade parts the hair it lies in: hair
@@ -96,32 +100,35 @@ vec3 shearsPush(vec3 p, vec3 root, float along, float loose) {
   float ramp = smoothstep(0.004, 0.022, along) * uShOn;
   vec3 rr = root - uShP;
   float dr = dot(rr, uShN);
+  float lead = min(0.01, 0.25 * (uShB.y - uShB.x));
   for (int i = 0; i < 2; i++) {
     rel = p - uShP;
     float d = dot(rel, uShN);
     float u = dot(rel, uShA[i]), w = dot(rel, uShC[i]);
     float back = bladeBack(u);
-    float inside = smoothstep(0.0, 0.01, u) * (1.0 - smoothstep(0.133, 0.139, u)) * step(-back - 0.004, w) * step(w, 0.007);
+    float inside = smoothstep(uShB.x, uShB.x + lead, u) * (1.0 - smoothstep(uShB.y - 0.002, uShB.y + 0.004, u)) * step(-back - uShX.w, w) * step(w, uShX.y);
     if (inside > 0.0) {
       float ru = dot(rr, uShA[i]), rw = dot(rr, uShC[i]);
-      float under = step(0.0, ru) * step(ru, 0.139) * step(-bladeBack(ru) - 0.004, rw) * step(rw, 0.009) * step(-0.04, dr) * step(dr, 0.001) * (1.0 - loose);
+      float under = step(uShB.x, ru) * step(ru, uShB.y + 0.004) * step(-bladeBack(ru) - uShX.w, rw) * step(rw, uShX.y + 0.002) * step(-0.04, dr) * step(dr, 0.001) * (1.0 - loose);
       if (under > 0.5) {
-        p -= uShN * (max(0.0, d + 0.005) * inside * uShOn);
+        p -= uShN * (max(0.0, d + uShD.z) * inside * uShOn);
       } else {
-        float D = d > 0.0 ? 0.05 : 0.03;
-        float to = w > -0.45 * back ? 0.007 : -back - 0.004;
+        float D = d > 0.0 ? uShD.x : uShD.y;
+        float to = w > -0.45 * back ? uShX.y : -back - uShX.w;
         p += uShC[i] * ((to - w) * inside * (1.0 - smoothstep(D * 0.35, D, abs(d))) * ramp);
       }
     }
   }
   // nor does anything lie across the pivot
-  rel = p - uShP;
-  float dn = dot(rel, uShN);
-  vec3 inPlane = rel - uShN * dn;
-  float r = length(inPlane);
-  if (r < 0.016 && r > 1e-4) {
-    float D = dn > 0.0 ? 0.05 : 0.03;
-    p += inPlane * ((0.016 - r) / r * (1.0 - smoothstep(D * 0.35, D, abs(dn))) * ramp);
+  if (uShX.z > 0.0) {
+    rel = p - uShP;
+    float dn = dot(rel, uShN);
+    vec3 inPlane = rel - uShN * dn;
+    float r = length(inPlane);
+    if (r < uShX.z && r > 1e-4) {
+      float D = dn > 0.0 ? uShD.x : uShD.y;
+      p += inPlane * ((uShX.z - r) / r * (1.0 - smoothstep(D * 0.35, D, abs(dn))) * ramp);
+    }
   }
   return p;
 }
@@ -514,6 +521,9 @@ export function makeFurMaterials({ sdfTexture, sdfMin, sdfInvSize, boneTexture, 
     uShA: { value: [new THREE.Vector3(1, 0, 0), new THREE.Vector3(1, 0, 0)] },
     uShC: { value: [new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 0, -1)] },
     uShOn: { value: 0 },
+    uShB: { value: new THREE.Vector4(0, 0.135, 0.0195, 0.00975) },
+    uShX: { value: new THREE.Vector4(1.5, 0.007, 0.016, 0.004) },
+    uShD: { value: new THREE.Vector3(0.05, 0.03, 0.005) },
     uSigma: { value: 15 },
     uFrost: { value: 0.55 },
     uRootColor: { value: new THREE.Color(0.011, 0.008, 0.007) },

@@ -1,19 +1,38 @@
-// Shaving with the shears: holds the tool in front of the elf, and when the
-// handles close finds every lock of hair between the blades, cuts each one as
-// a blade reaches it, and lets the cut hair go.
+// Shaving: holds whichever tool the elf has in hand in front of its eyes, and
+// when the handles close finds every lock of hair between the blades, cuts
+// each one as a blade reaches it, and lets the cut hair go.
 import * as THREE from 'three';
 import { U } from '../gfx/globals.js';
-import { Shears } from './shears.js';
+import { Tool, bladeBack, rngFrom } from './tool.js';
+import { buildSmallScissors } from './tools/scissors.js';
+import { buildSheepShears } from './tools/sheep.js';
+import { buildGardenClippers } from './tools/garden.js';
 import { Clippings } from './clippings.js';
 
+/** The tools, smallest first: the order of the number keys. */
+export const TOOL_ORDER = ['scissors', 'sheep', 'garden'];
+
+const ease = (t) => t * t * (3 - 2 * t);
+/** Seconds to put a tool away, and to bring the next one up. */
+export const PUT_AWAY = 0.15, BRING_UP = 0.24;
+const STILL = { yawRate: 0, pitchRate: 0, moving: false, bob: 0 };
+
 export class Shaving {
-  constructor({ scene, mammoth, terrain, sound, a2c = true }) {
+  constructor({ scene, mammoth, terrain, sound, a2c = true, tool = 'garden' }) {
     this.mammoth = mammoth;
     this.terrain = terrain;
     this.sound = sound;
-    this.shears = new Shears();
-    this.shears.group.visible = false;
-    scene.add(this.shears.group);
+    this.tools = {};
+    for (const build of [buildSmallScissors, buildSheepShears, buildGardenClippers]) {
+      const t = new Tool(build());
+      t.def.backAt = (u) => bladeBack(t.def.blade, u);
+      this.tools[t.id] = t;
+      scene.add(t.group);
+    }
+    this.tool = this.tools[tool] || this.tools.garden;
+    this.next = null;         // the tool being changed to, while the one in hand is being put away
+    this.lowered = 0;         // 0 = tool up in front of the eyes, 1 = drawn back out of sight
+    this.onTool = () => {};   // told when a different tool is in hand
     this.clippings = new Clippings({ terrain, mammoth, a2c });
     scene.add(this.clippings.mesh);
     this.active = false;
@@ -21,6 +40,8 @@ export class Shaving {
     this.ptr = 0;
     this.region = {};
     this.snips = 0;
+    this.missed = 0;
+    this.rnd = rngFrom(8086);
     this.env = { eye: new THREE.Vector3(), origin: mammoth.group.position, pxScale: 1000, widthScale: 1, hairPx: 3.5, childMax: 12 };
 
     // What steel may not pass through: the mammoth (hide, toenails) and the snow.
@@ -32,14 +53,14 @@ export class Shaving {
       ground: (x, z) => terrain.height(x, z),
       // roughly how far the body is (cheap: only used to decide whether to look closer)
       near: (x, y, z) => { mammoth.sampler.sampleVolume(x, y, z, sd); return sd[3]; },
-      // where a line from the eyes meets the hide (strictly, a surface 11 mm above it), within arm's reach
-      hide: (camera, out) => {
+      // where a line from the eyes meets the hide (strictly, a surface 11 mm above it), within `reach`
+      hide: (camera, out, reach = 0.4) => {
         const e = camera.matrixWorld.elements;
         const ox = e[12], oy = e[13], oz = e[14], dx = -e[8], dy = -e[9], dz = -e[10];
-        mammoth.sampler.sampleVolume(ox + dx * 0.2, oy + dy * 0.2, oz + dz * 0.2, sd);
-        if (sd[3] > 0.32) return null;
-        let t = 0.04;
-        for (let i = 0; i < 40 && t < 0.4; i++) {
+        mammoth.sampler.sampleVolume(ox + dx * reach * 0.5, oy + dy * reach * 0.5, oz + dz * reach * 0.5, sd);
+        if (sd[3] > reach * 0.5 + 0.12) return null;
+        let t = 0.03;
+        for (let i = 0; i < 40 && t < reach; i++) {
           const x = ox + dx * t, y = oy + dy * t, z = oz + dz * t;
           const d = body.dist(x, y, z) - OFF;
           if (d < 0.001) {
@@ -55,26 +76,47 @@ export class Shaving {
     };
   }
 
-  /** Take the shears in hand, or put them away. */
+  /** Take a tool in hand, or put it away. */
   setActive(on) {
     this.active = on;
-    this.shears.group.visible = on;
-    this.shears.poseReady = false;
-    if (!on) {
-      this.shears.squeeze(false);
-      this.mammoth.furMats.uniforms.uShOn.value = 0;
-    }
+    for (const t of Object.values(this.tools)) t.group.visible = false;
+    this.tool.reset();
+    this.tool.group.visible = on;
+    this.next = null; this.lowered = on ? 1 : 0;      // it comes up into view
+    this.pending = []; this.ptr = 0;
+    if (!on) this.mammoth.furMats.uniforms.uShOn.value = 0;
+  }
+
+  /** Change to another tool. With one in hand, it is drawn back out of sight and the other brought up. */
+  setTool(id) {
+    if (!this.tools[id] || (id === this.tool.id && !this.next)) return;
+    if (!this.active) { this._take(id); return; }
+    this.next = id === this.tool.id ? null : id;
+  }
+
+  _take(id) {
+    const was = this.tool;
+    was.group.visible = false;
+    was.reset();
+    this.tool = this.tools[id];
+    this.tool.reset();
+    this.tool.group.visible = this.active;
+    this.next = null;
+    this.pending = []; this.ptr = 0;
+    this.onTool(this.tool);
   }
 
   squeeze(on) {
-    if (this.active) this.shears.squeeze(on);
+    if (this.active) this.tool.squeeze(on && !this.next);
   }
 
-  /** Draw the shears once while the loading card is still up, so picking them up later is instant. */
+  /** Draw every tool once while the loading card is still up, so picking one up later is instant. */
   warm(camera, on) {
     if (this.active) return;
-    this.shears.group.visible = on;
-    if (on) this.shears.place(1, camera, { yawRate: 0, pitchRate: 0, moving: false, bob: 0 }, null);
+    for (const t of Object.values(this.tools)) {
+      t.group.visible = on;
+      if (on) t.place(1, camera, STILL, null);
+    }
   }
 
   /** How the coat is being drawn right now, so that cut hair can be drawn the same way. */
@@ -88,32 +130,48 @@ export class Shaving {
     return e;
   }
 
-  /** Tell the coat where the blades are, so hair parts around them instead of passing through. */
+  /** Tell the coat where the blades are and how they are shaped, so hair parts around them instead of passing through. */
   _tellCoat() {
-    const r = this.shears.region(this.region), u = this.mammoth.furMats.uniforms;
+    const def = this.tool.def, b = def.blade;
+    const r = this.tool.region(this.region), u = this.mammoth.furMats.uniforms;
     u.uShP.value.copy(r.pivot);
     u.uShN.value.copy(r.normal);
     u.uShA.value[0].copy(r.blades[0].a); u.uShA.value[1].copy(r.blades[1].a);
     u.uShC.value[0].copy(r.blades[0].c); u.uShC.value[1].copy(r.blades[1].c);
-    u.uShOn.value = this.noPush ? 0 : 1;
+    u.uShB.value.set(b.from, b.to, b.back0, b.back1);
+    u.uShX.value.set(b.exp, b.edge, def.pivotClear, Math.min(0.004, 0.5 * b.back0));
+    u.uShD.value.set(def.part.above, def.part.below, Math.max(0.002, def.lie.tip - 0.002));
+    // while a tool is on its way up or down, the hair lets go of it
+    u.uShOn.value = this.noPush ? 0 : 1 - ease(Math.min(1, this.lowered * 1.5));
     return r;
   }
 
   update(dt, camera, feel) {
     this.clippings.update(dt);
     if (!this.active) return;
-    const sh = this.shears;
+    // changing tools: the hands draw one back out of sight and come up with the other
+    if (this.pinned != null) {
+      this.lowered = this.pinned;                 // dev: hold the tool part way put away
+    } else if (this.next) {
+      this.lowered = Math.min(1, this.lowered + dt / PUT_AWAY);
+      if (this.lowered >= 1) this._take(this.next);
+    } else if (this.lowered > 0) {
+      this.lowered = Math.max(0, this.lowered - dt / BRING_UP);
+    }
+    const sh = this.tool, voice = sh.def.voice;
+    sh.away = ease(this.lowered);
     this._env(camera);
     sh.place(dt, camera, feel, this.world);
     // a thick bunch of hair between the blades slows the stroke a little
     const drag = Math.min(0.8, (this.pending.length - this.ptr) / 450);
     for (const ev of sh.step(dt, drag)) {
       if (ev === 'start') this._begin();
+      else if (ev === 'catch') this.sound.stick(voice);
       else if (ev === 'shut') {
         this._cut(0, true);
-        this.sound.clack(1 - Math.min(0.6, this.pending.length / 500));
+        this.sound.clack(voice, 1 - Math.min(0.6, this.pending.length / 500));
         this.snips++;
-      } else if (ev === 'opening') this.sound.release();
+      } else if (ev === 'opening') this.sound.release(voice);
     }
     if (sh.phase === 'closing') this._cut(sh.angle / 2, false);
     this._tellCoat();
@@ -122,25 +180,34 @@ export class Shaving {
 
   /** A stroke begins: work out what lies between the blades. */
   _begin() {
-    const r = this.shears.region(this.region);
+    const r = this.tool.region(this.region);
+    r.backAt = this.tool.def.backAt;
     this.pending = this.mammoth.findCuts(r);
     // each lock is cut when a blade reaches it: those furthest from the centre line first
     this.pending.sort((a, b) => Math.abs(b.phi) - Math.abs(a.phi));
     this.ptr = 0;
     // every cut lock falls as itself, up to a point; in a very thick bunch some are simply gone
     this.every = Math.max(1, Math.ceil(this.pending.length / 420));
-    this.sound.slide(0.1);
-    if (this.pending.length) this.sound.cut(this.pending.length);
+    this.sound.slide(this.tool.def.voice, 0.1);
+    if (this.pending.length) this.sound.cut(this.pending.length, this.tool.def.voice);
   }
 
   /** Cut every pending lock a blade has reached (those at least `half` radians off the centre line). */
   _cut(half, all) {
-    const r = this.region, p = this.pending;
+    const r = this.region, p = this.pending, how = this.tool.def.cut;
     const n = r.normal, f = r.forward;
     // across the blades, with the same sign as phi
     const sx = n.y * f.z - n.z * f.y, sy = n.z * f.x - n.x * f.z, sz = n.x * f.y - n.y * f.x;
     while (this.ptr < p.length && (all || Math.abs(p[this.ptr].phi) >= half)) {
       const c = p[this.ptr++];
+      // poor blades: the hair folds over between them and slips out uncut...
+      if (how.chance < 1 && this.rnd() > how.chance) { this.missed++; continue; }
+      // ...and what they do cut, they chew off at uneven lengths
+      if (how.ragged > 0) {
+        const was = c.to * c.L, len = c.len + how.ragged * this.rnd();
+        if (len > was - 0.004) { this.missed++; continue; }
+        c.len = len; c.from = len / c.L; c.removed = was - len;
+      }
       if (this.mammoth.applyCut(c) <= 0) continue;
       if (this.ptr % this.every !== 0) continue;
       // the blade that reached it nudges it towards the middle

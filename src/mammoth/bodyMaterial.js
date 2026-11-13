@@ -58,7 +58,7 @@ float hide(vec3 p) {
 
 void main() {
   vec3 N = normalize(vN);
-  // where the shears have taken the coat down to stubble, the skin shows
+  // where the coat has been cut down to stubble, the skin shows
   float ragged = vnoise(vRest.xy * 140.0 + vRest.z * 57.0) * 0.6 + vnoise(vRest.zy * 310.0 + vRest.x * 91.0) * 0.4;
   float shorn = 1.0 - smoothstep(0.03, 0.085, vCut + (ragged - 0.5) * 0.05);
   float furAmt = smoothstep(0.0, 0.035, vFurA.x) * (1.0 - vFurB.z) * (1.0 - shorn);

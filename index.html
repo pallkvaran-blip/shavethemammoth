@@ -7,7 +7,8 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;1,9..144,400&family=Figtree:wght@400;500;600&display=swap">
 <style>
-  /* Layout: the scene fills the frame. A wordmark rests top-left; one quiet strip of controls sits on the bottom edge. */
+  /* Layout: the scene fills the frame. A wordmark rests top-left; one quiet strip of controls sits on the bottom edge.
+     The game opens on its legend: the first line on the dark while the scene is made, the rest over the opening shot, high in the sky. */
   :root {
     --night: #0b0d12;                      /* ground behind the scene while it loads */
     --ink: #f4ede1;                        /* snow-warm text */
@@ -21,7 +22,7 @@
     color-scheme: dark;
   }
   [hidden] { display: none !important; }
-  body.instant * { transition: none !important; }
+  body.instant *, body.instant *::before, body.instant *::after { transition: none !important; }
   html, body { height: 100%; }
   body {
     margin: 0; background: var(--night); color: var(--ink); overflow: hidden;
@@ -30,19 +31,39 @@
   }
   #view { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; outline: none; }
 
-  /* ---- loading card ---- */
+  /* ---- the opening: loading, and the legend ---- */
   #loading {
-    position: fixed; inset: 0; z-index: 5; display: grid; place-items: center; background: var(--night);
+    position: fixed; inset: 0; z-index: 5; display: flex; flex-direction: column;
+    padding-top: max(14px, env(safe-area-inset-top, 0px)); padding-bottom: max(18px, env(safe-area-inset-bottom, 0px));
     padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
-    transition: opacity 1.6s ease 0.2s;
+    transition: opacity 1.2s ease;
   }
-  body.ready #loading { opacity: 0; pointer-events: none; }
-  .card { width: min(22rem, 100%); text-align: center; }
-  .card h1 {
-    font-family: var(--font-display); font-weight: 400; font-size: clamp(1.9rem, 6vw, 2.6rem); line-height: 1.05;
-    letter-spacing: -0.01em; margin: 0 0 1.4rem; text-wrap: balance;
+  /* night until the scene is ready; after that only a shade across the top of the sky, for the words to sit on */
+  #loading::before, #loading::after { content: ""; position: absolute; inset: 0; z-index: -1; }
+  #loading::before { background: var(--night); transition: opacity 2.2s ease; }
+  #loading::after { background: linear-gradient(to bottom, rgba(11, 13, 18, 0.6), rgba(11, 13, 18, 0.34) 32%, rgba(11, 13, 18, 0) 60%); }
+  body.ready #loading::before { opacity: 0; }
+  body.told #loading { opacity: 0; pointer-events: none; }
+  /* one line at a time, each in the same place */
+  #legend { flex: 1; display: grid; align-content: start; justify-items: center; width: min(44rem, 100%); margin: clamp(1.4rem, 10vh, 6.5rem) auto 0; text-align: center; }
+  #legend p {
+    grid-area: 1 / 1; margin: 0; font-family: var(--font-display); font-weight: 400; font-size: clamp(1.3rem, 0.85rem + 2vw, 2.05rem);
+    line-height: 1.28; letter-spacing: -0.005em; text-wrap: balance; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 0 26px rgba(0, 0, 0, 0.55);
+    opacity: 0; transform: translateY(10px); transition: opacity 1.1s ease, transform 1.4s ease;
   }
-  .card h1 em { font-style: italic; color: var(--amber); }
+  #legend p.on { opacity: 1; transform: none; transition-delay: 0.55s; }   /* (it waits for the line before it to leave) */
+  #legend p.off { opacity: 0; transform: translateY(-8px); transition-duration: 0.7s, 0.9s; }
+  #legend p.you { font-style: italic; color: var(--amber); font-size: clamp(1.6rem, 1rem + 2.7vw, 2.6rem); }
+  .foot { display: grid; justify-items: center; align-items: end; }
+  .foot > * { grid-area: 1 / 1; }
+  .card { width: min(22rem, 100%); text-align: center; transition: opacity 0.8s ease; }
+  body.ready .card { opacity: 0; }
+  #skip {
+    margin: 0; font-size: 0.76rem; letter-spacing: 0.05em; color: var(--ink-dim); background: var(--veil-strong);
+    padding: 6px 13px; border-radius: 999px; opacity: 0; transition: opacity 0.8s ease 1.2s;
+  }
+  body.ready #skip { opacity: 1; }
+  .nomouse { display: none; }
   #track { height: 1px; background: var(--line); overflow: hidden; }
   #bar { height: 100%; background: var(--amber); transform-origin: left; transform: scaleX(0); transition: transform 0.3s ease; }
   #status { margin-top: 0.8rem; font-size: 0.8rem; color: var(--ink-dim); letter-spacing: 0.04em; min-height: 1.2em; }
@@ -52,9 +73,9 @@
     position: fixed; inset: 0; z-index: 3; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between;
     padding-top: max(14px, env(safe-area-inset-top, 0px)); padding-bottom: max(14px, env(safe-area-inset-bottom, 0px));
     padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
-    opacity: 0; transition: opacity 1.2s ease 1.4s;
+    opacity: 0; transition: opacity 1.2s ease 0.2s;
   }
-  body.ready #hud { opacity: 1; }
+  body.told #hud { opacity: 1; }
   body.bare #hud { opacity: 0; transition-delay: 0s; transition-duration: 0.4s; }
   body.bare #hud * { pointer-events: none !important; }
   .top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
@@ -68,7 +89,7 @@
     background: var(--veil); padding: 6px 10px; border-radius: 6px; max-width: 60vw; overflow-wrap: anywhere;
   }
   .bottom { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 10px 16px; transition: opacity 0.5s ease; }
-  /* with the shears in hand the view is left clear (where there is no mouse, the buttons stay: they are the way back) */
+  /* with a tool in hand the view is left clear (where there is no mouse, the buttons stay: they are the way back) */
   @media (hover: hover) { body.elf .bottom { opacity: 0; pointer-events: none; } }
   .panel {
     pointer-events: auto; background: var(--veil); backdrop-filter: blur(10px) saturate(1.2); -webkit-backdrop-filter: blur(10px) saturate(1.2);
@@ -81,8 +102,28 @@
   }
   .views button:hover { color: var(--ink); background: rgba(244, 237, 225, 0.08); }
   .views button[aria-pressed="true"] { color: var(--night); background: var(--amber); }
-  .views button.elf { color: var(--amber); font-weight: 600; }
-  .views button.elf[aria-pressed="true"] { color: var(--night); }
+  /* the tools, and the button that picks the chosen one up */
+  .shave { display: flex; flex-wrap: wrap; align-items: stretch; gap: 10px 12px; margin-top: 10px; transition: opacity 0.5s ease; }
+  .tools { display: flex; flex-wrap: wrap; gap: 2px; }
+  .tools button {
+    appearance: none; border: 0; background: transparent; color: var(--ink-dim); font: inherit; font-weight: 500;
+    padding: 7px 11px; border-radius: 6px; cursor: pointer; white-space: nowrap; transition: color 0.2s, background 0.2s;
+  }
+  .tools button:hover { color: var(--ink); background: rgba(244, 237, 225, 0.08); }
+  .tools button[aria-pressed="true"] { color: var(--night); background: var(--amber); }
+  .tools kbd { display: none; margin-right: 7px; opacity: 0.75; color: inherit; }
+  .start {
+    pointer-events: auto; appearance: none; cursor: pointer; font: inherit; font-weight: 600; letter-spacing: 0.02em;
+    padding: 8px 18px; border-radius: 10px; border: 1px solid var(--amber); color: var(--amber); background: var(--veil);
+    backdrop-filter: blur(10px) saturate(1.2); -webkit-backdrop-filter: blur(10px) saturate(1.2); transition: color 0.2s, background 0.2s;
+  }
+  .start:hover { background: var(--amber); color: var(--night); }
+  /* with a tool in hand (and a mouse that is busy looking around) the number keys choose, so show them, and step back */
+  @media (hover: hover) {
+    body.elf .shave { opacity: 0.72; }
+    body.elf .tools kbd { display: inline; }
+    body.elf .start { display: none; }
+  }
   button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
   .settings { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 6px 12px; }
   .settings label { display: flex; align-items: center; gap: 8px; color: var(--ink-dim); font-size: 0.8rem; letter-spacing: 0.03em; }
@@ -108,7 +149,8 @@
     color: var(--ink); font: inherit; font-weight: 600; letter-spacing: 0.04em; touch-action: none; user-select: none; -webkit-user-select: none;
   }
   #snip { border-color: var(--amber); color: var(--amber); }
-  @media (hover: none) { body.elf .touch { display: flex; } }
+  /* by touch: Walk and Snip appear, and the views and settings make room (the tools and Stop shaving stay) */
+  @media (hover: none) { body.elf .touch { display: flex; } body.elf .bottom { display: none; } }
   .readouts { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; min-width: 0; }
   #progress {
     font-size: 0.8rem; font-weight: 600; letter-spacing: 0.04em; font-variant-numeric: tabular-nums; color: var(--amber);
@@ -117,21 +159,34 @@
   .mid { display: flex; flex-direction: column; justify-content: flex-end; flex: 1; min-height: 0; }
   @media (max-width: 640px) {
     .bottom { flex-direction: column; align-items: stretch; }
+    .shave { flex-direction: column; }
+    .tools button { padding: 7px 9px; }
     .views button { padding: 7px 9px; }
     .settings input[type="range"] { flex: 1; width: auto; min-width: 5rem; }
   }
-  @media (hover: none) { .desk { display: none; } }
-  @media (prefers-reduced-motion: reduce) { #loading, #hud, #hint { transition-duration: 0.01s; } }
+  @media (hover: none) { .desk { display: none; } .nomouse { display: inline; } }
+  @media (prefers-reduced-motion: reduce) {
+    #loading, #hud, #hint { transition-duration: 0.01s; }
+    #legend p, #legend p.off { transform: none; transition: opacity 0.4s ease; }
+  }
 </style>
 </head>
 <body>
 <canvas id="view" tabindex="0" aria-label="A woolly mammoth standing on a snowy steppe at sunset"></canvas>
 
-<div id="loading" role="status" aria-live="polite">
-  <div class="card">
-    <h1>Shave the <em>Mammoth</em></h1>
-    <div id="track"><div id="bar"></div></div>
-    <div id="status">Waking up</div>
+<div id="loading">
+  <p class="wordmark" aria-hidden="true">Shave the <em>Mammoth</em></p>
+  <div id="legend">
+    <p>Legend has it, great woolly mammoths roamed the earth,</p>
+    <p>but then a legend came and shaved them all, and now they are elephants.</p>
+    <p class="you">That legend is you.</p>
+  </div>
+  <div class="foot">
+    <div class="card" role="status" aria-live="polite">
+      <div id="track"><div id="bar"></div></div>
+      <div id="status">Waking up</div>
+    </div>
+    <p id="skip"><span class="desk">Click or press any key to skip</span><span class="nomouse">Tap to skip</span></p>
   </div>
 </div>
 
@@ -147,7 +202,7 @@
     <div id="hint"></div>
     <div class="touch">
       <button type="button" id="walk" aria-label="Hold to walk forward">Walk</button>
-      <button type="button" id="snip" aria-label="Hold to cut with the shears">Snip</button>
+      <button type="button" id="snip" aria-label="Hold to cut">Snip</button>
     </div>
     <div class="bottom">
       <div class="panel views" role="group" aria-label="Views">
@@ -155,7 +210,6 @@
         <button type="button" id="view-1" data-view="1" aria-pressed="false">In profile</button>
         <button type="button" id="view-2" data-view="2" aria-pressed="false">Into the sun</button>
         <button type="button" id="view-3" data-view="3" aria-pressed="false">The coat</button>
-        <button type="button" id="view-elf" class="elf" aria-pressed="false">Start shaving</button>
       </div>
       <div class="panel settings">
         <label for="sun">Sun
@@ -170,6 +224,14 @@
           </select>
         </label>
       </div>
+    </div>
+    <div class="shave">
+      <div class="panel tools" role="group" aria-label="Tool">
+        <button type="button" id="tool-scissors" data-tool="scissors" aria-pressed="false"><kbd>1</kbd>Small bad scissors</button>
+        <button type="button" id="tool-sheep" data-tool="sheep" aria-pressed="false"><kbd>2</kbd>Shears</button>
+        <button type="button" id="tool-garden" data-tool="garden" aria-pressed="true"><kbd>3</kbd>Garden clippers</button>
+      </div>
+      <button type="button" id="view-elf" class="start" aria-pressed="false">Start shaving</button>
     </div>
   </div>
 </div>

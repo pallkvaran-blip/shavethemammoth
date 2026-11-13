@@ -422,9 +422,11 @@ export class Mammoth {
    * `halfAngle`. A lock is cut where it crosses that sector. With `below` > 0
    * the blades are lying on the hide, and everything between them and the
    * skin (to that depth) goes too: hair rooted under the blades is cut to
-   * stubble. Returns one entry per lock that would be cut.
+   * stubble. `blades`, `shape` and `backAt` describe the blades themselves:
+   * hair that would pass through one has been swept into the gap, and is cut
+   * too. Returns one entry per lock that would be cut.
    */
-  findCuts({ pivot, forward, normal, radius, inner = 0, halfAngle = Math.PI, minLength = 0.006, below = 0, blades = null }) {
+  findCuts({ pivot, forward, normal, radius, inner = 0, halfAngle = Math.PI, minLength = 0.006, below = 0, blades = null, shape = null, backAt = null }) {
     const S = this.sampler;
     S.begin(this.furMats.uniforms.uBreath.value);
     const fx = forward.x, fy = forward.y, fz = forward.z, nx = normal.x, ny = normal.y, nz = normal.z;
@@ -444,13 +446,11 @@ export class Mammoth {
       if (ru <= radius && ru >= inner && (full || Math.abs(rphi) <= halfAngle)) return true;
       // Hair that would pass through a blade has been parted by it instead. The
       // half nearer the cutting edge was swept into the gap, and is cut with the rest.
-      if (gathered && blades) {
+      if (gathered && blades && shape && backAt) {
         for (const b of blades) {
           const bu = x * b.a.x + y * b.a.y + z * b.a.z, bw = x * b.c.x + y * b.c.y + z * b.c.z;
-          if (bu < 0.008 || bu > 0.137) continue;
-          const s = bu / 0.135;
-          const back = s < 0.86 ? 0.0195 * (1 - 0.5 * Math.pow(s, 1.5)) : 0.0195 * (1 - 0.5 * Math.pow(0.86, 1.5)) * Math.max(0.06, (1 - s) / 0.14);
-          if (bw <= 0.007 && bw >= -0.45 * back) return true;
+          if (bu < shape.from + 0.004 || bu > shape.to + 0.002) continue;
+          if (bw <= shape.edge && bw >= -0.45 * backAt(bu)) return true;
         }
       }
       return false;
@@ -507,7 +507,7 @@ export class Mammoth {
         }
         if (len >= 0 && len < rem - 0.002) {
           const tl = Math.hypot(tx, ty, tz) || 1;
-          out.push({ chunk: c, i, len, prev: a.iCut[i], removed: rem - len, from: len / L, to: rem / L, r: ru, phi: rphi, x: hx, y: hy, z: hz, tx: tx / tl, ty: ty / tl, tz: tz / tl });
+          out.push({ chunk: c, i, L, len, prev: a.iCut[i], removed: rem - len, from: len / L, to: rem / L, r: ru, phi: rphi, x: hx, y: hy, z: hz, tx: tx / tl, ty: ty / tl, tz: tz / tl });
         }
       }
     }

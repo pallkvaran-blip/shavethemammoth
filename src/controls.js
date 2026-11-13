@@ -30,17 +30,25 @@ export class CameraRig {
     this.yaw = 0; this.pitch = 0;
     this.pos = new THREE.Vector3();
     this.onChange = () => {};
-    this.onSqueeze = () => {};      // the hands close (true) or open (false) on the shears
+    this.onSqueeze = () => {};      // the hands close (true) or open (false) on the tool
     this.onStep = () => {};         // a foot comes down
     // how the elf is moving, for whatever it carries
     this.feel = { yawRate: 0, pitchRate: 0, moving: false, running: false, bob: 0 };
     this.body = null;     // set to the mammoth's StrandSampler, for its distance field
-    this.reach = 0.25;    // how close the elf's eyes may come to the hide, metres
+    this.reach = 0.25;    // how close the elf's eyes may come to the hide, metres (it depends on the tool: see reachGoal)
+    this.reachGoal = 0.25;
+    this.onWheel = () => {};        // the wheel is turned while shaving: +1 or -1
     this._tmp = new THREE.Vector3();
 
     const wake = () => { this.idle = 0; };
     canvas.addEventListener('pointerdown', wake);
-    canvas.addEventListener('wheel', wake, { passive: true });
+    canvas.addEventListener('wheel', (e) => {
+      wake();
+      // with a tool in hand the wheel changes it (one step per notch, however fine the wheel)
+      if (this.mode !== 'elf') return;
+      this._wheel = (this._wheel || 0) + e.deltaY;
+      if (Math.abs(this._wheel) >= 60) { this.onWheel(Math.sign(this._wheel)); this._wheel = 0; }
+    }, { passive: true });
     window.addEventListener('keydown', (e) => { this.keys.add(e.code); wake(); });
     window.addEventListener('keyup', (e) => this.keys.delete(e.code));
     window.addEventListener('blur', () => this.keys.clear());
@@ -67,7 +75,7 @@ export class CameraRig {
     });
     window.addEventListener('pointerup', () => { drag = null; });
 
-    // shears: the left button, or the space bar, squeezes the handles
+    // the tool in hand: the left button, or the space bar, squeezes the handles
     let held = false;
     const squeeze = (on) => { if (on !== held) { held = on; this.onSqueeze(on); } };
     canvas.addEventListener('pointerdown', (e) => { if (this.mode === 'elf' && this.locked && e.button === 0) squeeze(true); });
@@ -151,8 +159,10 @@ export class CameraRig {
       this.pos.z += (-cy * f - sy * s) / l * speed * dt;
       // The mammoth's legs are as wide as tree trunks: walk around them. The
       // elf stops an arm's length from the hide, so that the tips of the
-      // shears just reach the skin.
+      // tool in hand just reach the skin.
       const eyeY = this.terrain.height(this.pos.x, this.pos.z) + 0.17;
+      // a shorter tool lets the elf lean in closer; it steps back smoothly when a longer one is taken up
+      this.reach += THREE.MathUtils.clamp(this.reachGoal - this.reach, -dt * 0.6, dt * 0.6);
       if (this.body) {
         const sd = this._sd || (this._sd = new Float32Array(4));
         for (let it = 0; it < 3; it++) {

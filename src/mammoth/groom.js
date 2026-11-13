@@ -14,7 +14,7 @@ const clamp = (x, a, b) => (x < a ? a : x > b ? b : x);
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 
 export const LONG_HAIR = 0.19; // strands longer than this get the many-segment ribbon
-export const UNCUT = 10;       // cut length (metres) of a lock that has never met the shears
+export const UNCUT = 10;       // cut length (metres) of a lock that has never been cut
 
 /**
  * @returns {{long: object, short: object}} instance attribute arrays per group

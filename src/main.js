@@ -10,7 +10,7 @@ import { buildSnowDust, Breath } from './world/particles.js';
 import { Mammoth } from './mammoth/mammoth.js';
 import { buildAnatomy, SNOW_DEPTH } from './mammoth/anatomy.js';
 import { CameraRig, VIEWS } from './controls.js';
-import { Shaving } from './game/shaving.js';
+import { Shaving, TOOL_ORDER, PUT_AWAY } from './game/shaving.js';
 import { Sound } from './game/audio.js';
 
 const q = new URLSearchParams(location.search);
@@ -18,6 +18,34 @@ const num = (k, d) => (q.has(k) ? parseFloat(q.get(k)) : d);
 const shot = q.has('shot');   // dev: render a still and stop (see tools/shot.mjs)
 const $ = (id) => document.getElementById(id);
 const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+
+// The game opens on its legend, one line at a time: the first on the dark while
+// the scene is being made, the others over the opening shot. Any key or click
+// skips it. (Dev stills and dev starts go without; ?legend=n holds line n.)
+const legendLines = [...document.querySelectorAll('#legend p')];
+const tellLegend = legendLines.length > 0 && (shot ? q.has('legend') : !q.has('cam') && !q.has('elf') && !q.has('nolegend'));
+const began = performance.now();
+/** Show line i of the legend (-1: none). Lines already told leave upwards. */
+const say = (i) => legendLines.forEach((p, k) => { p.classList.toggle('on', k === i); p.classList.toggle('off', i < 0 || k < i); });
+// (the listeners go on now, not when the scene is ready: the legend can be skipped while the scene is still being made)
+const legend = { skipped: false, over: !tellLegend || shot, onSkip: null };
+function skipLegend(e) {
+  if (legend.over) return;
+  if (e.type === 'keydown') {
+    if (e.ctrlKey || e.metaKey || e.altKey || /^(Shift|Control|Alt|Meta|Tab|CapsLock|F\d+)$/.test(e.key)) return;   // not meant for the game
+    e.stopImmediatePropagation();   // this press only skips: it is not also a command
+    e.preventDefault();
+  }
+  if (legend.skipped) return;
+  legend.skipped = true;
+  say(-1);
+  if (legend.onSkip) legend.onSkip();
+}
+if (!legend.over) {
+  say(0);
+  window.addEventListener('keydown', skipLegend, true);
+  $('loading').addEventListener('pointerdown', skipLegend);
+}
 
 // What each detail setting asks for. The scene then tunes itself further at
 // run time (resolution and how much of the coat is drawn) to hold a steady
@@ -115,9 +143,10 @@ async function start() {
   mammoth.addTo(scene);
   mammoth.setFurDetail(1, Q.furShadow);
   if (q.has('nofur')) mammoth.setCoatVisible(false);
-  // the shears, and the hair they cut
+  // the tools, and the hair they cut
   const sound = new Sound();
-  const shaving = new Shaving({ scene, mammoth, terrain, sound, a2c: Q.samples > 0 });
+  const lastTool = (() => { try { return localStorage.getItem('mammoth-tool'); } catch { return null; } })();
+  const shaving = new Shaving({ scene, mammoth, terrain, sound, a2c: Q.samples > 0, tool: q.get('tool') || lastTool || 'garden' });
   if (q.has('cutdisc')) {
     // dev: ?cutdisc=x,y,z,nx,ny,nz,radius[;...] shears everything crossing a disc
     for (const spec of q.get('cutdisc').split(';')) {
@@ -133,12 +162,12 @@ async function start() {
     mammoth.flushCuts();
   }
   if (q.has('shearsat')) {
-    // dev: ?shearsat=x,y,z[,open] lays the shears in the world to be looked at
+    // dev: ?shearsat=x,y,z[,open] lays the chosen tool in the world to be looked at
     const c = q.get('shearsat').split(',').map(Number);
-    shaving.shears.group.visible = true;
-    shaving.shears.setAngle(shaving.shears.angle * (c[3] ?? 1));
-    shaving.shears.group.matrix.makeRotationX(-0.25).setPosition(c[0], c[1], c[2]);
-    shaving.shears.group.updateMatrixWorld(true);
+    shaving.tool.group.visible = true;
+    shaving.tool.setAngle(shaving.tool.angle * (c[3] ?? 1));
+    shaving.tool.group.matrix.makeRotationX(-0.25).setPosition(c[0], c[1], c[2]);
+    shaving.tool.group.updateMatrixWorld(true);
   }
   // rough stand-ins for the body, used to darken the snow beneath it
   const occ = terrain.material.uniforms.uOccluders.value;
@@ -155,7 +184,7 @@ async function start() {
   const elfShadowSize = () => (Q.shadow[0] >= 4096 ? [4096, 2048] : [2048, 1024]);
   const shadowElf = new SunShadow(...elfShadowSize(), LAYER_SHADOW_ELF, floatLinear);
   const elfCentre = new THREE.Vector3(), elfAhead = new THREE.Vector3();
-  const nearCasters = () => [...mammoth.casters, ...terrain.meshes.filter((m) => m.userData.castNear), ...rocks.meshes, grass, ...(shaving.shears.group.visible ? shaving.shears.meshes : [])];
+  const nearCasters = () => [...mammoth.casters, ...terrain.meshes.filter((m) => m.userData.castNear), ...rocks.meshes, grass, ...(shaving.tool.group.visible ? shaving.tool.meshes : [])];
   const farCasters = [...terrain.meshes.filter((m) => m.userData.castFar), ...rocks.meshes];
   const fitShadows = () => {
     shadowNear.fit(new THREE.Vector3(1.0, 1.45, 0), sky.sunDir, 4.8, 2.4, 160);
@@ -254,6 +283,29 @@ async function start() {
   const progressEl = $('progress');
   rig.onSqueeze = (on) => shaving.squeeze(on);
   rig.onStep = (run) => sound.step(run);
+
+  // ---- which tool ---------------------------------------------------------------
+  const toolButtons = [...document.querySelectorAll('[data-tool]')];
+  const markTool = (id) => toolButtons.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.tool === id)));
+  const chooseTool = (id) => {
+    if (!shaving.tools[id]) return;
+    markTool(id);
+    shaving.setTool(id);
+    try { localStorage.setItem('mammoth-tool', id); } catch { /* the choice simply is not kept */ }
+  };
+  shaving.onTool = (tool) => {
+    rig.reachGoal = tool.def.reach;
+    if (rig.mode !== 'elf') rig.reach = rig.reachGoal;   // (while shaving, the elf steps in or back over a moment)
+    markTool(tool.id);
+    if (rig.mode === 'elf') showHint(`<strong>${tool.name}.</strong> ${tool.def.blurb}`, 4);
+  };
+  rig.reachGoal = rig.reach = shaving.tool.def.reach;
+  markTool(shaving.tool.id);
+  toolButtons.forEach((b) => b.addEventListener('click', () => chooseTool(b.dataset.tool)));
+  rig.onWheel = (dir) => {
+    const now = TOOL_ORDER.indexOf(shaving.next || shaving.tool.id);
+    chooseTool(TOOL_ORDER[(now + dir + TOOL_ORDER.length) % TOOL_ORDER.length]);
+  };
   rig.onChange = (mode) => {
     const elf = mode === 'elf';
     document.body.classList.toggle('elf', elf);
@@ -263,14 +315,14 @@ async function start() {
     if (elf) {
       if (!shot) sound.start();   // allowed now: this follows a click or a key press
       markView('elf');
-      showHint('Walk up to the mammoth and cut. Lay the blades flat against the hide for a close shave. <span class="desk"><kbd>Left mouse</kbd> or <kbd>Space</kbd> snips (hold to keep cutting), <kbd>W A S D</kbd> walks, <kbd>Shift</kbd> runs, <kbd>Esc</kbd> puts the shears down.</span>', 12);
+      showHint(`<strong>${shaving.tool.name}.</strong> Walk up to the mammoth and cut; lay the blades flat against the hide for a close shave. <span class="desk"><kbd>Left mouse</kbd> or <kbd>Space</kbd> snips (hold to keep cutting), <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> or the wheel changes tool, <kbd>W A S D</kbd> walks, <kbd>Esc</kbd> stops.</span>`, 12);
     } else {
       markView(-1);
     }
   };
   rig.orbit.addEventListener('start', () => markView(-1));
   if (q.has('elf')) {
-    // dev: start at snow level with the shears, e.g. ?elf=x,z,yaw,pitch
+    // dev: start at snow level with a tool in hand, e.g. ?elf=x,z,yaw,pitch (and ?tool=scissors|sheep|garden)
     rig.enterElf();
     const e = q.get('elf').split(',').map(Number);
     if (e.length >= 2 && !Number.isNaN(e[1])) rig.pos.set(e[0], 0, e[1]);
@@ -288,7 +340,9 @@ async function start() {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
     if (e.code.startsWith('Digit')) {
       const i = +e.code.slice(5) - 1;
-      if (i >= 0 && i < VIEWS.length) goView(i);
+      // with a tool in hand the number keys change it; otherwise they change the view
+      if (rig.mode === 'elf') { if (i >= 0 && i < TOOL_ORDER.length) chooseTool(TOOL_ORDER[i]); }
+      else if (i >= 0 && i < VIEWS.length) goView(i);
     } else if (e.code === 'KeyE') {
       rig.mode === 'elf' ? rig.leaveElf() : rig.enterElf();
     } else if (e.code === 'Escape' && rig.mode === 'elf') {
@@ -307,7 +361,7 @@ async function start() {
 
   setProgress(0.985, 'Warming up');
   // Compile every shader now, including those for things not yet on screen
-  // (the shears, the cut hair), so nothing stutters the first time it appears.
+  // (the tools, the cut hair), so nothing stutters the first time it appears.
   try {
     renderer.setRenderTarget(post.hdr);
     if (renderer.compileAsync) await renderer.compileAsync(scene, camera); else renderer.compile(scene, camera);
@@ -315,17 +369,55 @@ async function start() {
     console.warn('shader warm-up skipped', err);
   }
   renderer.setRenderTarget(null);
-  if (shot) { document.body.classList.add('instant'); $('loading').hidden = true; $('hud').hidden = !q.has('hud'); }
+  if (shot) { document.body.classList.add('instant'); $('loading').hidden = !tellLegend; $('hud').hidden = !q.has('hud'); }
+
+  // ---- the opening --------------------------------------------------------------------
+  let told = false, waiting = null;
+  const timers = [];
+  const later = (fn, ms) => timers.push(setTimeout(fn, ms));
+  /** The legend is over (or was never told): the controls come up. */
+  const endLegend = () => {
+    if (told) return;
+    told = true;
+    legend.over = true;
+    timers.forEach(clearTimeout);
+    say(-1);
+    document.body.classList.add('told');
+    window.removeEventListener('keydown', skipLegend, true);
+    if (!shot) setTimeout(() => showHint('Choose a tool, then press <strong>Start shaving</strong>. <span class="desk">Or drag to look around; <kbd>H</kbd> hides these controls, <kbd>M</kbd> mutes the sound.</span>', 9), tellLegend ? 1500 : 5200);
+  };
+  legend.onSkip = () => {
+    if (waiting) { const open = waiting; waiting = null; open(); }                  // the scene was ready and only waiting for the first line
+    else if (document.body.classList.contains('ready')) { endLegend(); if (intro) rig.setView(startView, 2.6); }
+    // (otherwise the scene is still being made: it opens without the legend when it is ready)
+  };
   const reveal = () => {
     setProgress(1, 'Ready');
-    document.body.classList.add('ready');
-    settle = 2.5;
-    if (intro) rig.setView(startView, 6.5);
-    if (!shot) setTimeout(() => showHint('Press <strong>Start shaving</strong> to pick up the shears. <span class="desk">Or drag to look around; <kbd>H</kbd> hides these controls, <kbd>M</kbd> mutes the sound.</span>', 9), 5200);
+    if (shot) {
+      // dev stills: ?legend=1 is the first line on the dark, 2 and 3 the later lines over the scene, 4 the first line just after the scene appears
+      const n = tellLegend ? num('legend', 1) : 0;
+      if (n !== 1) document.body.classList.add('ready');
+      if (n) say(n === 4 ? 0 : n - 1); else document.body.classList.add('told');
+      return;
+    }
+    const open = () => {
+      document.body.classList.add('ready');
+      settle = 2.5;
+      const tell = tellLegend && !legend.skipped;
+      if (intro) rig.setView(startView, tell ? 11 : 6.5);
+      if (!tell) { endLegend(); return; }
+      later(() => say(1), 1900);
+      later(() => say(2), 6400);
+      later(endLegend, 10400);
+    };
+    // however quickly the scene was made, the first line has the dark to itself for a moment
+    const wait = tellLegend && !legend.skipped ? 2800 - (performance.now() - began) : 0;
+    if (wait > 0) { waiting = open; later(() => { if (waiting) { waiting = null; open(); } }, wait); } else open();
   };
 
-  if (q.has('debug')) window.__game = { shaving, mammoth, rig, sound, camera };   // dev: poke at the game from the console
+  if (q.has('debug')) window.__game = { shaving, mammoth, rig, sound, camera, renderer, PUT_AWAY };   // dev: poke at the game from the console
   if (q.has('nopush')) shaving.noPush = true;                                      // dev: hair ignores the blades
+  if (q.has('away')) shaving.pinned = num('away', 0);                              // dev: hold the tool part way put away (0 to 1)
   if (q.has('noclippings')) shaving.clippings.mesh.visible = false;
 
   // ---- frame loop -----------------------------------------------------------------
@@ -336,6 +428,9 @@ async function start() {
   const centre = new THREE.Vector3(0.5, 1.8, 0);
   let last = performance.now();
   let frames = 0;
+  // dev: ?sync waits for the graphics side at the end of every frame. Without a graphics card
+  // (the tests in tools/) frames would otherwise be queued faster than they can be drawn.
+  const syncPixel = q.has('sync') ? new Uint8Array(4) : null;
   const breathe = (dt) => {
     // breath leaves the mouth, just behind the root of the trunk
     const head = mammoth.bone('head');
@@ -353,13 +448,15 @@ async function start() {
       // the coat's level of detail as the first frame will have it, so the cut hair matches
       U.uPxScale.value = size.y * 0.5 * camera.projectionMatrix.elements[5];
       mammoth.updateCoat(camera, U.uPxScale.value, Math.max(2, num('children', Q.children)));
-      shaving.shears.place(1, camera, rig.feel, shaving.world);
-      console.info(`snip ${i + 1}: ${shaving.snipNow(camera)} locks, shears ${shaving.shears.lying > 0.5 ? 'flat on the hide' : 'held free'}`);
+      shaving.lowered = 0; shaving.tool.away = 0;
+      shaving.tool.place(1, camera, rig.feel, shaving.world);
+      console.info(`snip ${i + 1}: ${shaving.snipNow(camera)} locks between the blades, ${shaving.clippings.count} cut so far, ${shaving.tool.name.toLowerCase()} ${shaving.tool.lying > 0.5 ? 'flat on the hide' : 'held free'}`);
       rig.yaw += num('snipyaw', 0); rig.pitch += num('snippitch', 0);
     }
     rig.yaw -= num('snipyaw', 0) * num('snips', 1) * num('snipback', 0.5); rig.pitch -= num('snippitch', 0) * num('snips', 1) * num('snipback', 0.5);
   }
-  if (q.has('open')) shaving.shears.setAngle(shaving.shears.angle * num('open', 1));
+  if (q.has('open')) shaving.tool.setAngle(shaving.tool.def.open * num('open', 1));
+  if (shot && rig.mode === 'elf') shaving.lowered = num('away', 0);   // dev stills: the tool is already up
   if (q.has('look')) { const l = q.get('look').split(',').map(Number); rig.yaw = l[0]; rig.pitch = l[1]; }   // dev: where to look after the snips
   for (let i = 0, n = num('warm', 0); i < n; i++) {
     U.uTime.value += 1 / 30; mammoth.update(1 / 30); breathe(1 / 30);
@@ -397,7 +494,7 @@ async function start() {
 
     rig.update(dt);
     mammoth.update(dt);
-    // the shears follow the eyes; cut hair falls
+    // the tool in hand follows the eyes; cut hair falls
     camera.updateMatrixWorld(true);
     mammoth.sampler.begin(mammoth.furMats.uniforms.uBreath.value);
     shaving.update(dt, camera, rig.feel);
@@ -477,6 +574,7 @@ async function start() {
       window.__shotReady = true;
       return;
     }
+    if (syncPixel) { gl.finish(); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, syncPixel); }
     requestAnimationFrame(frame);
   };
   frame();

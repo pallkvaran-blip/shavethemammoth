@@ -10,6 +10,7 @@ catch { ({ chromium } = require('/opt/node-tools/node_modules/playwright')); }
 const base = process.env.BASE || 'http://localhost:5173/';
 const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 const page = await browser.newPage({ viewport: { width: 520, height: 300 } });
+page.setDefaultTimeout(300000);   // (a click waits for two frames, and without a graphics card a frame takes seconds)
 const errors = [];
 page.on('console', (m) => { if (m.type() === 'error' || /THREE\.WebGLProgram|Shader Error|GL_INVALID|INVALID_/.test(m.text())) errors.push(m.text().slice(0, 600)); });
 page.on('pageerror', (e) => errors.push('pageerror: ' + e.message));
@@ -18,9 +19,14 @@ const step = async (name, fn, wait = 2500) => {
   await page.waitForTimeout(wait);
   console.log(`ok: ${name}`);
 };
-await page.goto(base + '?q=low&strands=20000&adapt=5&stats', { waitUntil: 'load' });
+await page.goto(base + '?q=low&strands=20000&adapt=5&stats&sync', { waitUntil: 'load' });
 await page.waitForFunction(() => document.body.classList.contains('ready'), null, { timeout: 240000 });
-await page.waitForTimeout(4000);
+// the legend is told over the opening shot; the controls come up when it ends
+const lines = await page.$$eval('#legend p', (ps) => ps.map((p) => p.textContent));
+console.log(`legend: ${lines.length} lines, ending "${lines[lines.length - 1]}"`);
+await page.waitForFunction(() => document.body.classList.contains('told'), null, { timeout: 60000 });
+console.log('ok: the legend was told and the controls came up');
+await page.waitForTimeout(2500);
 await step('view 2', () => page.click('#view-1'));
 await step('sun to 18 degrees', () => page.$eval('#sun', (el) => { el.value = '18'; el.dispatchEvent(new Event('input', { bubbles: true })); }), 4000);
 await page.screenshot({ path: 'shots/smoke_sun18.png', timeout: 300000 });
@@ -29,9 +35,13 @@ await page.screenshot({ path: 'shots/smoke_sun3.png', timeout: 300000 });
 await step('detail medium (regrows the coat)', () => page.selectOption('#detail', 'medium'), 6000);
 await step('detail low', () => page.selectOption('#detail', 'low'), 4000);
 await step('key 3', () => page.keyboard.press('Digit3'), 4000);
+await step('choose the shears', () => page.click('#tool-sheep'), 800);
 await step("elf's-eye view", () => page.click('#view-elf'), 3000);
 await step('walk', async () => { await page.keyboard.down('KeyW'); await page.waitForTimeout(1500); await page.keyboard.up('KeyW'); }, 1000);
 await page.screenshot({ path: 'shots/smoke_elf.png', timeout: 300000 });
+await step('key 1 (small bad scissors)', () => page.keyboard.press('Digit1'), 3000);
+await step('snip', async () => { await page.keyboard.down('Space'); await page.waitForTimeout(1500); await page.keyboard.up('Space'); }, 1000);
+await step('key 3 (garden clippers)', () => page.keyboard.press('Digit3'), 3000);
 await step('leave elf view', () => page.keyboard.press('KeyE'), 3000);
 await step('hide controls', () => page.keyboard.press('KeyH'), 800);
 await step('show controls', () => page.keyboard.press('KeyH'), 800);
