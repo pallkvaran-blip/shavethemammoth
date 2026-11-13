@@ -376,7 +376,7 @@ vec4 tattooInk(vec3 p, vec3 n, vec3 dpx, vec3 dpy) {
       // (the sheet holds ink times how much of it there is: divide that out, except where there is too little to trust the answer)
       t.rgb = mix(vec3(0.086, 0.14, 0.17), t.rgb / max(t.a, 0.004), smoothstep(0.04, 0.3, t.a));
       // fade out at the very edge of the box, so nothing is cut off square
-      float edge = smoothstep(1.0, 0.94, max(abs(x), abs(y)));
+      float edge = 1.0 - smoothstep(0.94, 1.0, max(abs(x), abs(y)));
       if (t.a * edge > ink.a) ink = vec4(t.rgb, t.a * edge);
     }
   }

@@ -153,6 +153,7 @@ const LOOKS = {
   gas: { colour: [0.95, 1.3, 0.45], add: false, size: [0.08, 0.2], life: [1.4, 2.8], speed: 1, spread: 0.5, gravity: -0.3, grow: 2.6, alpha: 0.26 },
 };
 const MAX = 160;
+const upY = { value: 1 };          // how upright the eye's own "up" is (1 looking level, 0 looking straight down)
 
 /** Puffs: foam, air, flame, and the snow they kick up. One set of points for each way of blending. */
 export class Puffs {
@@ -164,21 +165,23 @@ export class Puffs {
       geo.setAttribute('aData', new THREE.BufferAttribute(data, 4));        // size (m), life left (0..1), alpha, -
       geo.setAttribute('aColour', new THREE.BufferAttribute(col, 3));
       const mat = new THREE.ShaderMaterial({
-        uniforms: { uPxScale: U.uPxScale },
+        uniforms: { uPxScale: U.uPxScale, uUpY: upY },
         transparent: true, depthWrite: false, blending: add ? THREE.AdditiveBlending : THREE.NormalBlending,
         vertexShader: /* glsl */ `
-          uniform float uPxScale; attribute vec4 aData; attribute vec3 aColour; varying vec4 vColour;
+          uniform float uPxScale; uniform float uUpY; attribute vec4 aData; attribute vec3 aColour; varying vec4 vColour; varying float vCut;
           void main() {
             vec4 mv = modelViewMatrix * vec4(position, 1.0);
             gl_Position = projectionMatrix * mv;
             gl_PointSize = aData.y > 0.0 ? clamp(aData.x * 2.0 * uPxScale / max(0.02, -mv.z), 1.0, 400.0) : 0.0;
-            vColour = vec4(aColour, aData.z * smoothstep(0.0, 0.25, aData.y) * smoothstep(1.0, 0.8, aData.y));
+            vColour = vec4(aColour, aData.z * smoothstep(0.0, 0.25, aData.y) * (1.0 - smoothstep(0.8, 1.0, aData.y)));
+            // a puff is a flat disc facing the eye; where the snow would cut across it, it is faded out instead (how far down the disc that is)
+            vCut = (position.y - aData.w) / (aData.x * max(0.15, uUpY));
           }`,
         fragmentShader: /* glsl */ `
-          varying vec4 vColour;
+          varying vec4 vColour; varying float vCut;
           void main() {
             float r = length(gl_PointCoord - 0.5) * 2.0;
-            float a = vColour.a * smoothstep(1.0, 0.25, r);
+            float a = vColour.a * (1.0 - smoothstep(0.25, 1.0, r)) * (1.0 - smoothstep(vCut - 0.4, vCut, (gl_PointCoord.y - 0.5) * 2.0));
             if (a < 0.004) discard;
             gl_FragColor = vec4(vColour.rgb, a);
           }`,
@@ -199,7 +202,7 @@ export class Puffs {
     s.size0[k] = L.size[0] + r() * (L.size[1] - L.size[0]);
     s.span[k] = L.life[0] + r() * (L.life[1] - L.life[0]);
     s.grow[k] = L.grow; s.fall[k] = L.gravity;
-    s.data[k * 4] = s.size0[k]; s.data[k * 4 + 1] = 1; s.data[k * 4 + 2] = L.alpha;
+    s.data[k * 4] = s.size0[k]; s.data[k * 4 + 1] = 1; s.data[k * 4 + 2] = L.alpha; s.data[k * 4 + 3] = -1e3;
     const shade = 0.85 + r() * 0.3;
     s.col[k * 3] = L.colour[0] * shade; s.col[k * 3 + 1] = L.colour[1] * shade; s.col[k * 3 + 2] = L.colour[2] * shade;
     s.live = 2;
@@ -223,6 +226,7 @@ export class Puffs {
         const floor = ground(s.pos[k * 3], s.pos[k * 3 + 2]) + 0.01;
         if (s.pos[k * 3 + 1] < floor) { s.pos[k * 3 + 1] = floor; s.vel[k * 3 + 1] *= -0.2; }
         s.data[k * 4] = s.size0[k] * (1 + s.grow[k] * (1 - life));
+        s.data[k * 4 + 3] = floor - 0.01;
       }
       const g = s.points.geometry;
       g.attributes.position.needsUpdate = true; g.attributes.aData.needsUpdate = true; g.attributes.aColour.needsUpdate = true;
@@ -310,6 +314,7 @@ export class Lift {
         }
       }
     }
+    upY.value = Math.abs(rig.camera.matrixWorld.elements[5]);
     this.puffs.update(dt, (x, z) => this.terrain.height(x, z));
 
     // ---- the gauge ----
