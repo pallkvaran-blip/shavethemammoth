@@ -515,6 +515,86 @@ export class Mammoth {
     return out;
   }
 
+  /**
+   * Which locks the mouth of a running electric tool takes this instant. The
+   * mouth is a flat box: `from` to `to` along `forward` from `pivot`, `half`
+   * to either side, `above` and `below` the plane whose normal is `normal`.
+   * A lock rooted in it is cut to stubble. With `cross`, a lock that passes
+   * through it on the way from a root somewhere else is cut where it passes;
+   * following a lock along its length is slow and this is asked every frame,
+   * so each call only follows one lock in `stride` (those whose index leaves
+   * the remainder `phase`). Entries are as from findCuts, written into `out`.
+   */
+  findMouth({ pivot, forward, normal, from, to, half, above = 0.008, below = 0.008, minLength = 0.003, cross = false, stride = 6, phase = 0 }, out = []) {
+    const S = this.sampler;
+    S.begin(this.furMats.uniforms.uBreath.value);
+    const fx = forward.x, fy = forward.y, fz = forward.z, nx = normal.x, ny = normal.y, nz = normal.z;
+    const sx = ny * fz - nz * fy, sy = nz * fx - nx * fz, sz = nx * fy - ny * fx;
+    const px = pivot.x, py = pivot.y, pz = pivot.z;
+    const mid = (from + to) / 2;
+    const cx = px + fx * mid, cy = py + fy * mid, cz = pz + fz * mid;
+    const cr = Math.hypot((to - from) / 2, half) + Math.max(above, below);
+    const NS = 12;
+    const P = this._mouthP || (this._mouthP = [0, 0, 0]), Q = this._mouthQ || (this._mouthQ = [0, 0, 0]);
+    out.length = 0;
+    const inBox = (x, y, z) => {
+      const u = x * fx + y * fy + z * fz;
+      if (u < from || u > to) return false;
+      const v = x * sx + y * sy + z * sz;
+      return v >= -half && v <= half;
+    };
+    for (const c of this.chunks) {
+      // slack for how far a root may be from where it sits in the rest pose
+      const slack = c.mobile ? 0.3 : 0.035;
+      const reach = c.rootRadius + slack + cr + (cross ? c.maxLength : 0);
+      const ddx = c.centre.x - cx, ddy = c.centre.y - cy, ddz = c.centre.z - cz;
+      if (ddx * ddx + ddy * ddy + ddz * ddz > reach * reach) continue;
+      const a = c.arrays, near2 = (cr + slack) * (cr + slack);
+      for (let i = 0; i < c.count; i++) {
+        const L = a.iA[i * 4];
+        const rem = Math.min(L, a.iCut[i]);
+        if (rem <= minLength + 0.0005) continue;
+        const rx = a.iRoot[i * 3] - cx, ry = a.iRoot[i * 3 + 1] - cy, rz = a.iRoot[i * 3 + 2] - cz;
+        const d2 = rx * rx + ry * ry + rz * rz;
+        const follow = cross && i % stride === phase;
+        if (d2 > near2) {
+          // too far to be rooted in the mouth: only worth following along its length
+          if (!follow) continue;
+          const lim = rem + cr + slack;
+          if (d2 > lim * lim) continue;
+        }
+        S.setup(a, i);
+        S.point(0, P);
+        let dPrev = (P[0] - px) * nx + (P[1] - py) * ny + (P[2] - pz) * nz;
+        let len = -1, hx = P[0], hy = P[1], hz = P[2];
+        if (dPrev <= above && dPrev >= -below && inBox(P[0] - px, P[1] - py, P[2] - pz)) {
+          // rooted in the mouth: down to stubble, each lock a slightly different length
+          len = minLength * (1 + 0.8 * a.iA[i * 4 + 2]);
+        } else if (follow) {
+          const keep = rem / L;
+          for (let j = 1; j <= NS; j++) {
+            S.point((keep * j) / NS, Q);
+            const d = (Q[0] - px) * nx + (Q[1] - py) * ny + (Q[2] - pz) * nz;
+            let at = -1;
+            if ((dPrev <= 0) !== (d <= 0)) {
+              const f = dPrev / (dPrev - d);
+              hx = P[0] + (Q[0] - P[0]) * f; hy = P[1] + (Q[1] - P[1]) * f; hz = P[2] + (Q[2] - P[2]) * f;
+              if (inBox(hx - px, hy - py, hz - pz)) at = j - 1 + f;
+            }
+            if (at < 0 && d <= above && d >= -below && inBox(Q[0] - px, Q[1] - py, Q[2] - pz)) { at = j; hx = Q[0]; hy = Q[1]; hz = Q[2]; }
+            if (at >= 0) { len = Math.max(minLength, ((keep * at) / NS) * L); break; }
+            P[0] = Q[0]; P[1] = Q[1]; P[2] = Q[2];
+            dPrev = d;
+          }
+        }
+        if (len >= 0 && len < rem - 0.0005) {
+          out.push({ chunk: c, i, L, len, prev: a.iCut[i], removed: rem - len, from: len / L, to: rem / L, x: hx, y: hy, z: hz });
+        }
+      }
+    }
+    return out;
+  }
+
   /** Cut one lock (an entry from findCuts). Returns the metres of guide hair removed. */
   applyCut(cut) {
     const { chunk, i, len } = cut;

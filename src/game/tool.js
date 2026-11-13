@@ -1,10 +1,13 @@
-// A cutting tool held in first person: two halves that close on each other.
+// A cutting tool held in first person. There are two kinds: two halves that
+// close on each other (scissors, shears, clippers), and electric ones that run
+// for as long as the switch is held and take whatever enters their mouth.
 //
-// This file holds what every such tool has in common: how it is held in front
-// of the eyes or laid along the hide, how a stroke runs, how every part of it
-// is kept out of anything solid, and the wedge between its blades that a
-// stroke cuts. What a particular tool looks like, how big it is and how well
-// it cuts comes from a definition; see src/game/tools/.
+// This file holds what every tool has in common: how it is held in front of
+// the eyes or laid along the hide, how a stroke or a motor runs, how every
+// part of it is kept out of anything solid, and the region it cuts (the wedge
+// between two blades, or the mouth in front of a cutter). What a particular
+// tool looks like, how big it is and how well it cuts comes from a
+// definition; see src/game/tools/.
 import * as THREE from 'three';
 import { patchStandardMaterial } from '../gfx/patch.js';
 import { makeDepthMaterial } from '../gfx/shadows.js';
@@ -83,6 +86,66 @@ export function loft(stations, frameAt, sectionAt, want = () => true, caps = tru
   geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
   geo.computeVertexNormals();   // not indexed: every face keeps its own normal
+  return geo;
+}
+
+/**
+ * A smooth skin over a row of rounded cross-sections, for moulded and turned
+ * parts. Each ring is { x, y, ry, rz, n }: where the section's centre is, its
+ * half-height and half-width, and how square it is (2 is an ellipse, more is
+ * boxier). u runs 0..1 along the length, v once round the section (0.25 is
+ * the top). The last ring is closed with a flat cap unless `open`.
+ */
+export function skin(rings, around = 28, { open = false, capStart = false } = {}) {
+  const pos = [], uv = [], idx = [];
+  let total = 0;
+  const along = rings.map((r, i) => (i === 0 ? 0 : (total += Math.hypot(r.x - rings[i - 1].x, r.y - rings[i - 1].y))));
+  rings.forEach((r, i) => {
+    const e = 2 / (r.n || 2);
+    for (let k = 0; k <= around; k++) {
+      const th = (k / around) * Math.PI * 2, c = Math.cos(th), s = Math.sin(th);
+      pos.push(r.x, r.y + Math.sign(s) * Math.pow(Math.abs(s), e) * r.ry, (r.z || 0) + Math.sign(c) * Math.pow(Math.abs(c), e) * r.rz);
+      uv.push(along[i] / (total || 1), k / around);
+    }
+  });
+  const row = around + 1;
+  // (faces wound to look outwards whichever way the rings run along x)
+  const flip = rings[rings.length - 1].x < rings[0].x;
+  for (let i = 0; i < rings.length - 1; i++) {
+    for (let k = 0; k < around; k++) {
+      const a = i * row + k, b = a + 1, c = a + row, d = c + 1;
+      if (flip) idx.push(a, b, c, b, d, c); else idx.push(a, c, b, b, c, d);
+    }
+  }
+  const cap = (i, facingBack) => {   // facingBack: the cap looks towards -x
+    const r = rings[i], centre = pos.length / 3;
+    pos.push(r.x, r.y, r.z || 0); uv.push(along[i] / (total || 1), 0.5);
+    for (let k = 0; k < around; k++) {
+      const a = i * row + k, b = a + 1;
+      if (facingBack) idx.push(centre, a, b); else idx.push(centre, b, a);
+    }
+  };
+  if (!open) cap(rings.length - 1, flip);
+  if (capStart) cap(0, !flip);
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  geo.setIndex(idx);
+  geo.computeVertexNormals();
+  return geo;
+}
+
+/** Join flat-shaded pieces (as loft makes them) into one geometry, so that a comb is one draw and not twenty. */
+export function join(pieces) {
+  const pos = [], uv = [];
+  for (const g of pieces) {
+    const p = g.index ? g.toNonIndexed() : g;
+    pos.push(...p.attributes.position.array); uv.push(...p.attributes.uv.array);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  geo.computeVertexNormals();
   return geo;
 }
 
@@ -264,6 +327,10 @@ export class Tool {
     this.time = 0;
     this.sinceShut = 10;      // seconds since the blades last met
     this.away = 0;            // 0 = in hand, 1 = drawn back out of sight (changing tools)
+    // an electric tool: is its switch held, how fast its motor is turning (0..1), how hard it is working (0..1)
+    this.on = false; this.power = 0; this.load = 0;
+    this.budget = 0;          // how much it can still cut this instant (see Shaving._mow)
+    this.buzz = 0;            // seconds its motor has run: what its moving parts are timed by
     this.events = [];
     this.rnd = rngFrom(def.seed || 7);
     this._local = new THREE.Matrix4();
@@ -275,6 +342,7 @@ export class Tool {
     this._freeP = new THREE.Vector3(); this._freeQ = new THREE.Quaternion();
     this._flatP = new THREE.Vector3(); this._flatQ = new THREE.Quaternion();
     this._tp = new THREE.Vector3(); this._tq = new THREE.Quaternion();
+    this._wp = new THREE.Vector3(); this._wq = new THREE.Quaternion(); this._camWas = new THREE.Matrix4();
     this.poseP = new THREE.Vector3(); this.poseQ = new THREE.Quaternion();
     this._scale = new THREE.Vector3(); this._one = new THREE.Vector3(1, 1, 1);
     this.flat = 0; this.lying = 0; this.poseReady = false;
@@ -322,13 +390,16 @@ export class Tool {
   reset() {
     this.phase = 'open'; this.timer = 0; this.squeezing = false; this.stall = 0; this.catchAt = -1; this.kick = 0;
     this.poseReady = false; this.flat = 0; this.lying = 0;
+    this.on = false; this.power = 0; this.load = 0; this.budget = 0;
     this.setAngle(this.def.open);
+    if (this.def.motor && this.def.animate) this.def.animate(this, 0);
   }
 
   /**
    * Advance the snip. Returns the events of this step, in order: 'start' (a
    * stroke begins), 'catch' (poor blades stick part way), 'shut' (the blades
-   * have met), 'opening', 'open'.
+   * have met), 'opening', 'open'. An electric tool has no stroke: it runs
+   * while its switch is held, and the events are 'on' and 'off'.
    */
   step(dt, drag = 0) {
     const st = this.def.stroke, open = this.def.open;
@@ -336,6 +407,16 @@ export class Tool {
     this.time += dt;
     this.timer += dt;
     this.sinceShut += dt;
+    if (this.def.motor) {
+      const m = this.def.motor, want = this.squeezing && this.away < 0.1;
+      if (want !== this.on) { this.on = want; ev.push(want ? 'on' : 'off'); }
+      // the motor takes a moment to come up to speed, and a longer one to run down
+      this.power += ((want ? 1 : 0) - this.power) * (1 - Math.exp(-dt / (want ? m.spinUp : m.spinDown)));
+      if (!want && this.power < 0.01) this.power = 0;
+      this.buzz += dt * this.power * (1 - 0.3 * this.load);
+      if (this.def.animate) this.def.animate(this, dt);
+      return ev;
+    }
     if (this.phase === 'open') {
       // a sprung tool quivers for a moment after it flies open
       if (st.bounce && this.timer < 0.5) this.setAngle(open * (1 + st.bounce.amount * Math.exp(-st.bounce.decay * this.timer) * Math.sin(st.bounce.rate * this.timer)));
@@ -508,6 +589,16 @@ export class Tool {
     // ---- blend, and let the hands follow a little behind ----------------------------
     const P = this._tp.copy(this._freeP), Q = this._tq.copy(this._freeQ);
     if (hit && wgt > 0) { P.lerp(this._flatP, wgt); Q.slerp(this._flatQ, wgt); }
+    // A tool lying on the hide is on the hide, not in front of the eyes: when
+    // the head turns it stays where it was on the mammoth, and is slid from
+    // there to where it is wanted. (Followed in the frame of the eyes instead,
+    // it would swing up off the skin with every quick look, and an electric
+    // tool would miss half of what it was run over.)
+    if (this.poseReady && this.lying > 0.01) {
+      this._m.copy(camera.matrixWorld).invert().multiply(this._camWas).multiply(this._local.compose(this.poseP, this.poseQ, this._one));
+      this._m.decompose(this._wp, this._wq, this._scale);
+      this.poseP.lerp(this._wp, this.lying); this.poseQ.slerp(this._wq, this.lying);
+    }
     const follow = this.poseReady ? Math.min(1, dt * 16) : 1;
     this.poseP.lerp(P, follow); this.poseQ.slerp(Q, follow);
     this.poseReady = true;
@@ -526,6 +617,7 @@ export class Tool {
     this.group.updateMatrixWorld(true);
     /** 0 = held free, 1 = lying flat on the hide */
     this.lying = wgt;
+    this._camWas.copy(camera.matrixWorld);
   }
 
   /** The flat wedge between the blades, in the world: what a stroke from here would cut. */
@@ -552,11 +644,27 @@ export class Tool {
     out.shape = def.blade;
     return out;
   }
+
+  /**
+   * The mouth of an electric tool, in the world: the flat box in front of its
+   * cutter, lying in the plane of its sole, that hair is taken from.
+   */
+  mouth(out = {}) {
+    const def = this.def, m = def.mouth;
+    const e = this.group.matrixWorld.elements;
+    out.pivot = (out.pivot || new THREE.Vector3()).set(e[12], e[13], e[14]);
+    out.forward = (out.forward || new THREE.Vector3()).set(e[0], e[1], e[2]).normalize();
+    out.normal = (out.normal || new THREE.Vector3()).set(e[4], e[5], e[6]).normalize();
+    out.side = (out.side || new THREE.Vector3()).set(e[8], e[9], e[10]).normalize();
+    out.from = m.from; out.to = m.to; out.half = m.half; out.above = m.above; out.below = m.below;
+    out.minLength = def.cut.min;
+    return out;
+  }
 }
 
 /** How wide the back of a blade is at u along it (the same sum the fur shader does). */
 export function bladeBack(shape, u) {
   const s = Math.min(1, Math.max(0, (u - shape.from) / (shape.to - shape.from)));
   const w = lerp(shape.back0, shape.back1, Math.pow(s, shape.exp));
-  return lerp(w, 0.0012, smoothstep(0.86, 1, s));
+  return lerp(w, shape.point ?? 0.0012, smoothstep(0.86, 1, s));
 }

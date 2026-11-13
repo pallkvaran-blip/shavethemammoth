@@ -72,6 +72,7 @@ uniform float uShOn;        // 0 when no tool is in hand
 uniform vec4 uShB;          // a blade in its own frame: where it starts and ends along its half, how wide its back is at each end
 uniform vec4 uShX;          // how the back narrows (an exponent), how far past the cutting edge hair is pushed, the radius kept clear round the pivot, the margin past the back
 uniform vec3 uShD;          // how far above and below the blades hair is parted, and how far beneath a blade hair rooted under it is pressed
+uniform float uShT;         // how wide a blade's back is at its very tip: next to nothing for a pointed blade, no narrower for a blunt head
 
 varying vec2 vUV;
 varying vec3 vTan;
@@ -85,7 +86,7 @@ vec3 rotateQ(vec4 q, vec3 v) { return v + 2.0 * cross(q.xyz, cross(q.xyz, v) + q
 // how wide the back of a blade is at u along it
 float bladeBack(float u) {
   float s = clamp((u - uShB.x) / (uShB.y - uShB.x), 0.0, 1.0);
-  return mix(mix(uShB.z, uShB.w, pow(s, uShX.x)), 0.0012, smoothstep(0.86, 1.0, s));
+  return mix(mix(uShB.z, uShB.w, pow(s, uShX.x)), uShT, smoothstep(0.86, 1.0, s));
 }
 
 // Hair cannot pass through steel. Each blade parts the hair it lies in: hair
@@ -524,6 +525,7 @@ export function makeFurMaterials({ sdfTexture, sdfMin, sdfInvSize, boneTexture, 
     uShB: { value: new THREE.Vector4(0, 0.135, 0.0195, 0.00975) },
     uShX: { value: new THREE.Vector4(1.5, 0.007, 0.016, 0.004) },
     uShD: { value: new THREE.Vector3(0.05, 0.03, 0.005) },
+    uShT: { value: 0.0012 },
     uSigma: { value: 15 },
     uFrost: { value: 0.55 },
     uRootColor: { value: new THREE.Color(0.011, 0.008, 0.007) },

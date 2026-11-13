@@ -1,16 +1,19 @@
 // Shaving: holds whichever tool the elf has in hand in front of its eyes, and
 // when the handles close finds every lock of hair between the blades, cuts
-// each one as a blade reaches it, and lets the cut hair go.
+// each one as a blade reaches it, and lets the cut hair go. An electric tool
+// has no stroke: while it runs, whatever comes into its mouth is cut.
 import * as THREE from 'three';
 import { U } from '../gfx/globals.js';
 import { Tool, bladeBack, rngFrom } from './tool.js';
 import { buildSmallScissors } from './tools/scissors.js';
 import { buildSheepShears } from './tools/sheep.js';
 import { buildGardenClippers } from './tools/garden.js';
+import { buildElectricShears } from './tools/electric.js';
+import { buildBeardShaver } from './tools/shaver.js';
 import { Clippings } from './clippings.js';
 
-/** The tools, smallest first: the order of the number keys. */
-export const TOOL_ORDER = ['scissors', 'sheep', 'garden'];
+/** The tools in the order of the number keys: by hand first, smallest to largest, then the electric ones. */
+export const TOOL_ORDER = ['scissors', 'sheep', 'garden', 'electric', 'shaver'];
 
 const ease = (t) => t * t * (3 - 2 * t);
 /** Seconds to put a tool away, and to bring the next one up. */
@@ -23,7 +26,7 @@ export class Shaving {
     this.terrain = terrain;
     this.sound = sound;
     this.tools = {};
-    for (const build of [buildSmallScissors, buildSheepShears, buildGardenClippers]) {
+    for (const build of [buildSmallScissors, buildSheepShears, buildGardenClippers, buildElectricShears, buildBeardShaver]) {
       const t = new Tool(build());
       t.def.backAt = (u) => bladeBack(t.def.blade, u);
       this.tools[t.id] = t;
@@ -41,6 +44,11 @@ export class Shaving {
     this.region = {};
     this.snips = 0;
     this.missed = 0;
+    this.mown = 0;            // locks taken by the electric tools
+    this.cutRate = 0;         // locks a second going through the one that is running
+    this._found = [];
+    this._phase = 0;
+    this._mouthAt = { p: new THREE.Vector3(), valid: false };   // where the mouth was a frame ago
     this.rnd = rngFrom(8086);
     this.env = { eye: new THREE.Vector3(), origin: mammoth.group.position, pxScale: 1000, widthScale: 1, hairPx: 3.5, childMax: 12 };
 
@@ -84,7 +92,15 @@ export class Shaving {
     this.tool.group.visible = on;
     this.next = null; this.lowered = on ? 1 : 0;      // it comes up into view
     this.pending = []; this.ptr = 0;
+    this._quiet(this.tool);
     if (!on) this.mammoth.furMats.uniforms.uShOn.value = 0;
+  }
+
+  /** A tool that was running is put down: its motor stops. */
+  _quiet(tool) {
+    this._mouthAt.valid = false;
+    this.cutRate = 0;
+    if (tool.def.motor) this.sound.motor(tool.def.voice, 0, 0, 0);
   }
 
   /** Change to another tool. With one in hand, it is drawn back out of sight and the other brought up. */
@@ -98,6 +114,7 @@ export class Shaving {
     const was = this.tool;
     was.group.visible = false;
     was.reset();
+    this._quiet(was);
     this.tool = this.tools[id];
     this.tool.reset();
     this.tool.group.visible = this.active;
@@ -141,6 +158,7 @@ export class Shaving {
     u.uShB.value.set(b.from, b.to, b.back0, b.back1);
     u.uShX.value.set(b.exp, b.edge, def.pivotClear, Math.min(0.004, 0.5 * b.back0));
     u.uShD.value.set(def.part.above, def.part.below, Math.max(0.002, def.lie.tip - 0.002));
+    u.uShT.value = b.point ?? 0.0012;
     // while a tool is on its way up or down, the hair lets go of it
     u.uShOn.value = this.noPush ? 0 : 1 - ease(Math.min(1, this.lowered * 1.5));
     return r;
@@ -172,8 +190,10 @@ export class Shaving {
         this.sound.clack(voice, 1 - Math.min(0.6, this.pending.length / 500));
         this.snips++;
       } else if (ev === 'opening') this.sound.release(voice);
+      else if (ev === 'on' || ev === 'off') this.sound.switch(voice, ev === 'on');
     }
     if (sh.phase === 'closing') this._cut(sh.angle / 2, false);
+    if (sh.def.motor) this._mow(dt, sh);
     this._tellCoat();
     this.mammoth.flushCuts();
   }
@@ -216,9 +236,69 @@ export class Shaving {
     }
   }
 
-  /** Dev: one complete stroke, at once. */
+  /**
+   * An electric tool takes whatever is in its mouth, every frame it runs. It
+   * can only cut so much a second (def.motor.rate, in locks of full-length
+   * hair at High detail; a lock already cut short costs a fraction of that).
+   * Pushed faster than that through long hair it bogs down: its note sags,
+   * and what it could not get to is left standing behind it.
+   */
+  _mow(dt, sh, unhurried = false) {
+    const m = sh.def.motor;
+    const scale = this.mammoth.strands / 240000;       // fewer, thicker locks at lower detail: the same hide a second
+    const perSecond = m.rate * scale;
+    let cut = 0, starved = 0, spent = 0;
+    if (sh.power > 0.6 && dt > 0) {
+      sh.budget = unhurried ? Infinity : Math.min(sh.budget + perSecond * dt, perSecond * 0.12 + 1);
+      const r = sh.mouth(this.region), last = this._mouthAt;
+      const tx = r.pivot.x, ty = r.pivot.y, tz = r.pivot.z;
+      // moved a long way since the last frame: take what lay between here and there as well
+      const steps = last.valid ? Math.min(8, Math.max(1, Math.ceil(last.p.distanceTo(r.pivot) / (0.7 * (r.to - r.from))))) : 1;
+      let shown = 0;
+      for (let s = 1; s <= steps; s++) {
+        const k = s / steps;
+        if (steps > 1) r.pivot.set(last.p.x + (tx - last.p.x) * k, last.p.y + (ty - last.p.y) * k, last.p.z + (tz - last.p.z) * k);
+        // held in the air, it also trims hair that hangs into it from further off (looked for a few locks at a time)
+        r.cross = sh.lying < 0.5 && s === steps;
+        r.stride = 6;
+        if (r.cross) r.phase = this._phase = (this._phase + 1) % r.stride;
+        for (const c of this.mammoth.findMouth(r, this._found)) {
+          const cost = c.removed > m.long ? 1 : m.light;
+          if (sh.budget < cost) { starved++; continue; }
+          sh.budget -= cost; spent += cost;
+          if (this.mammoth.applyCut(c) <= 0) continue;
+          cut++;
+          // what comes off falls as itself (a few locks a frame; the trimmings of stubble are dust)
+          if (c.removed > 0.012 && shown < 6) {
+            shown++;
+            this.clippings.spawn(c, this.env, -r.forward.x * 0.05 + r.normal.x * 0.05, -r.forward.y * 0.05 + r.normal.y * 0.05, -r.forward.z * 0.05 + r.normal.z * 0.05);
+          }
+        }
+      }
+      last.p.set(tx, ty, tz); last.valid = true;
+    } else {
+      this._mouthAt.valid = false;
+    }
+    const full = starved > 0 ? 1 : Math.min(1, spent / Math.max(1e-6, perSecond * Math.max(dt, 1e-3)));
+    sh.load += (full - sh.load) * Math.min(1, dt * (full > sh.load ? 16 : 5));
+    this.cutRate += (cut / Math.max(dt, 1e-3) / Math.max(scale, 0.05) - this.cutRate) * Math.min(1, dt * 10);
+    this.mown += cut;
+    this.sound.motor(sh.def.voice, sh.power, sh.load, this.cutRate);
+    return cut;
+  }
+
+  /** Dev: one complete stroke, at once (for an electric tool: as much as it would take in a twentieth of a second, unhurried). */
   snipNow(camera) {
     if (camera) this._env(camera);
+    if (this.tool.def.motor) {
+      const sh = this.tool;
+      sh.power = 1;
+      const n = this._mow(0.05, sh, true);
+      sh.budget = 0;
+      this._tellCoat();
+      this.mammoth.flushCuts();
+      return n;
+    }
     this._begin();
     this._cut(0, true);
     this._tellCoat();

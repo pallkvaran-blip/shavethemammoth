@@ -124,7 +124,8 @@ async function start() {
   // ---- land -----------------------------------------------------------------
   const anat = buildAnatomy();
   const terrain = new Terrain({ sunAzimuth: azimuth, feet: anat.feet, snowDepth: SNOW_DEPTH });
-  scene.add(await terrain.build((p, l) => setProgress(0.05 + p * 0.3, l), { detail: 1 }));
+  const land = await terrain.build((p, l) => setProgress(0.05 + p * 0.3, l), { detail: 1 });
+  scene.add(land);
 
   // keep the trail and the mammoth's own patch of ground clear
   const avoid = [{ x0: -30, x1: 4.5, z0: -3.2, z1: 3.2 }];
@@ -137,6 +138,9 @@ async function start() {
   scene.add(dust);
   const breath = new Breath();
   scene.add(breath.points);
+  // dev: ?bare leaves the land undrawn (it is still there to walk on). The tests of the tools
+  // use it: without a graphics card most of a frame goes on snow, grass and stones.
+  if (q.has('bare')) for (const o of [land, rocks.group, grass, dust]) o.visible = false;
 
   // ---- mammoth --------------------------------------------------------------
   const mammoth = await Mammoth.create({ strands: Q.strands, cell: 0.025, a2c: Q.samples > 0 }, (p, l) => setProgress(0.38 + p * 0.58, l));
@@ -317,14 +321,14 @@ async function start() {
     if (elf) {
       if (!shot) sound.start();   // allowed now: this follows a click or a key press
       markView('elf');
-      showHint(`<strong>${shaving.tool.name}.</strong> Walk up to the mammoth and cut; lay the blades flat against the hide for a close shave. <span class="desk"><kbd>Left mouse</kbd> or <kbd>Space</kbd> snips (hold to keep cutting), <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> or the wheel changes tool, <kbd>W A S D</kbd> walks, <kbd>Esc</kbd> stops.</span>`, 12);
+      showHint(`<strong>${shaving.tool.name}.</strong> ${shaving.tool.def.motor ? 'Walk up to the mammoth, lay it flat against the hide, hold it on and push.' : 'Walk up to the mammoth and cut; lay the blades flat against the hide for a close shave.'} <span class="desk"><kbd>Left mouse</kbd> or <kbd>Space</kbd> cuts (hold to keep cutting), <kbd>1</kbd> to <kbd>5</kbd> or the wheel changes tool, <kbd>W A S D</kbd> walks, <kbd>Esc</kbd> stops.</span>`, 12);
     } else {
       markView(-1);
     }
   };
   rig.orbit.addEventListener('start', () => markView(-1));
   if (q.has('elf')) {
-    // dev: start at snow level with a tool in hand, e.g. ?elf=x,z,yaw,pitch (and ?tool=scissors|sheep|garden)
+    // dev: start at snow level with a tool in hand, e.g. ?elf=x,z,yaw,pitch (and ?tool=scissors|sheep|garden|electric|shaver)
     rig.enterElf();
     const e = q.get('elf').split(',').map(Number);
     if (e.length >= 2 && !Number.isNaN(e[1])) rig.pos.set(e[0], 0, e[1]);
@@ -452,7 +456,10 @@ async function start() {
       mammoth.updateCoat(camera, U.uPxScale.value, Math.max(2, num('children', Q.children)));
       shaving.lowered = 0; shaving.tool.away = 0;
       shaving.tool.place(1, camera, rig.feel, shaving.world);
-      console.info(`snip ${i + 1}: ${shaving.snipNow(camera)} locks between the blades, ${shaving.clippings.count} cut so far, ${shaving.tool.name.toLowerCase()} ${shaving.tool.lying > 0.5 ? 'flat on the hide' : 'held free'}`);
+      const took = shaving.snipNow(camera);
+      if (i < 4 || i === n - 1) console.info(shaving.tool.def.motor
+        ? `pass ${i + 1}: ${took} locks taken, ${shaving.mown} so far, ${shaving.tool.name.toLowerCase()} ${shaving.tool.lying > 0.5 ? 'flat on the hide' : 'held free'}`
+        : `snip ${i + 1}: ${took} locks between the blades, ${shaving.clippings.count} cut so far, ${shaving.tool.name.toLowerCase()} ${shaving.tool.lying > 0.5 ? 'flat on the hide' : 'held free'}`);
       rig.yaw += num('snipyaw', 0); rig.pitch += num('snippitch', 0);
     }
     rig.yaw -= num('snipyaw', 0) * num('snips', 1) * num('snipback', 0.5); rig.pitch -= num('snippitch', 0) * num('snips', 1) * num('snipback', 0.5);
@@ -475,7 +482,8 @@ async function start() {
 
     if (sunPending !== null) { setSun(sunPending); sunPending = null; }
 
-    if (!shot && document.visibilityState === 'visible') {
+    // (dev: ?fixed holds the detail where it starts, however slow the frames)
+    if (!shot && !q.has('fixed') && document.visibilityState === 'visible') {
       if (settle > 0) settle -= Math.min(rawDt, 1);   // (on a machine far too slow, a few frames are enough to know it)
       else { wAcc += Math.min(rawDt, 1.5); wFrames++; }
       if (wAcc > 1.3) {

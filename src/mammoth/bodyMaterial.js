@@ -76,7 +76,10 @@ void main() {
   // freshly sheared skin: paler, greyish pink, peppered with the dark dots of cut hairs
   float follicles = smoothstep(0.62, 0.8, vnoise(vRest.xy * 620.0 + vRest.z * 233.0) * 0.6 + vnoise(vRest.zy * 620.0 + vRest.x * 171.0) * 0.4);
   float mottle = vnoise(vRest.xy * 19.0 + vRest.z * 7.0) * 0.6 + vnoise(vRest.zy * 47.0) * 0.4;
-  vec3 shavedCol = mix(vec3(0.120, 0.086, 0.074), vec3(0.165, 0.112, 0.094), mottle) * (0.6 + 0.7 * h0) * (1.0 - 0.5 * follicles);
+  // shaved right down, there are no cut ends left to see: smooth, a shade pinker
+  float clean = shorn * (1.0 - smoothstep(0.0009, 0.0026, vCut));
+  vec3 shavedCol = mix(vec3(0.120, 0.086, 0.074), vec3(0.165, 0.112, 0.094), mottle) * (0.6 + 0.7 * h0) * (1.0 - 0.5 * follicles * (1.0 - 0.85 * clean));
+  shavedCol = mix(shavedCol, shavedCol * vec3(1.12, 1.0, 0.97), clean);
   skinCol = mix(skinCol, shavedCol, shorn * (1.0 - vFurB.z));
   float tone = clamp(0.5 + 0.5 * vFurA.z, 0.0, 1.0);
   // Under the coat the hide is a dense mat of hair. Shade it as one, combed
@@ -102,7 +105,7 @@ void main() {
   // skin has a faint sheen; the mat of hair has none
   vec3 V = normalize(cameraPosition - vPosW);
   vec3 H = normalize(uSunDir + V);
-  col += uSunColor * 0.012 * pow(max(dot(Ns, H), 0.0), 24.0) * vis * (1.0 - furAmt) * step(0.0, NL);
+  col += uSunColor * mix(0.012, 0.03, clean) * pow(max(dot(Ns, H), 0.0), mix(24.0, 42.0, clean)) * vis * (1.0 - furAmt) * step(0.0, NL);
   float ao = mix(0.85, 0.62, furAmt);
   col += albedo * ambientLight(Ns) * ao;
 
