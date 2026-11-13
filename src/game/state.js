@@ -108,6 +108,7 @@ export class GameState {
     if (item.kind === 'ladder') { this.climber = id; this.lift = 'ladder'; }
     if (item.kind === 'pack') { this.pack = id; this.lift = 'pack'; }
     if (item.flag) this.flags[item.flag] = true;
+    if (item.wear && !this.worn.includes(item.wear)) this.worn.push(item.wear);
     this.changed('bought:' + id);
     return true;
   }

@@ -251,6 +251,25 @@
   #got .you { font-size: clamp(0.8rem, 0.7rem + 0.5vw, 1rem); font-weight: 600; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink); }
   #got .what { font-family: var(--font-display); font-style: italic; font-size: clamp(2rem, 1.1rem + 4.4vw, 4.2rem); line-height: 1.05; color: var(--amber); text-wrap: balance; }
   #got .quip { font-family: var(--font-display); font-size: clamp(0.95rem, 0.8rem + 0.7vw, 1.25rem); color: var(--ink); margin-top: 0.35em; text-wrap: balance; }
+  /* ---- the end ---- */
+  #finale {
+    position: fixed; inset: 0; z-index: 9; display: grid; align-content: start; justify-items: center;
+    padding: clamp(1.4rem, 9vh, 6rem) max(16px, env(safe-area-inset-right, 0px)) 0 max(16px, env(safe-area-inset-left, 0px));
+    background: linear-gradient(to bottom, rgba(11, 13, 18, 0.72), rgba(11, 13, 18, 0.4) 40%, rgba(11, 13, 18, 0) 68%);
+    opacity: 0; transition: opacity 1.4s ease; text-align: center;
+  }
+  #finale.show { opacity: 1; }
+  #finale .words { width: min(46rem, 100%); text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 0 26px rgba(0, 0, 0, 0.55); }
+  #finale p { margin: 0 0 0.6em; font-family: var(--font-display); text-wrap: balance; }
+  #finale .l1 { font-size: clamp(1.5rem, 0.9rem + 2.6vw, 2.5rem); line-height: 1.2; }
+  #finale .l2 { font-style: italic; color: var(--amber); font-size: clamp(1.1rem, 0.8rem + 1.3vw, 1.6rem); }
+  #finale .stats { font-family: var(--font-ui); font-size: 0.86rem; letter-spacing: 0.04em; color: var(--ink-dim); margin-top: 1.2em; }
+  #finale .row { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 1.2em; }
+  #finale button {
+    appearance: none; cursor: pointer; font: inherit; font-weight: 600; color: var(--amber); background: var(--veil-strong);
+    border: 1px solid var(--amber); border-radius: 999px; padding: 9px 20px;
+  }
+  #finale button:hover { background: var(--amber); color: var(--night); }
   @media (max-width: 640px) {
     .bottom { flex-direction: column; align-items: stretch; }
     .shave { flex-direction: column; }
@@ -289,6 +308,15 @@
   <p class="you">You got the</p>
   <p class="what"></p>
   <p class="quip"></p>
+</div>
+
+<div id="finale" hidden>
+  <div class="words">
+    <p class="l1">And that is how the last mammoth became the first elephant.</p>
+    <p class="l2">Legend has it an elf did it, with small bad scissors and worse judgement.</p>
+    <p class="stats"></p>
+    <div class="row"><button type="button" data-act="admire">Admire him</button><button type="button" data-act="regrow">Grow it all back</button></div>
+  </div>
 </div>
 
 <div id="hud">

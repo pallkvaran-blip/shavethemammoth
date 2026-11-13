@@ -49,18 +49,34 @@ uniform vec3 uRootColor;
 uniform vec3 uMidColor;
 ${TATTOO_GLSL}
 
+vec2 hash2(vec2 p) { return fract(sin(vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)))) * 43758.5453); }
+// The hide is a pavement of small plates with cracks between them, as an
+// elephant's is. This is how far a point is from the nearest crack (in plates).
+float plates(vec2 p) {
+  vec2 i = floor(p), f = fract(p);
+  float d1 = 8.0, d2 = 8.0;
+  for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) {
+    vec2 g = vec2(float(x), float(y));
+    vec2 o = g + hash2(i + g) - f;
+    float d = dot(o, o);
+    if (d < d1) { d2 = d1; d1 = d; } else if (d < d2) d2 = d;
+  }
+  return sqrt(d2) - sqrt(d1);
+}
+
 // creased, pebbled hide
 float hide(vec3 p, float px) {
   vec2 a = p.xy * 22.0 + p.z * 7.0, b = p.zy * 22.0 - p.x * 5.0;
   float n = vnoise(a) * 0.5 + vnoise(b) * 0.5;
   float fine = vnoise(a * 4.3 + 3.1) * 0.5 + vnoise(b * 4.3 + 9.2) * 0.5;
-  // creases run both along him and round him, crossing, as an elephant's do
-  float along = abs(vnoise(vec2(p.y * 60.0 + p.x * 5.0, p.x * 13.0 + p.z * 13.0)) - 0.5) * 2.0;
-  float round = abs(vnoise(vec2(p.x * 52.0 + p.z * 37.0, p.y * 17.0 - p.z * 9.0) + 31.7) - 0.5) * 2.0;
-  float creases = min(along, round * 1.15);
+  // plates the size of an elf's hand, and here and there a longer fold across them
+  float crack = smoothstep(0.0, 0.16, plates(p.xy * 105.0 + p.z * vec2(41.0, 23.0)));
+  float fold = smoothstep(0.0, 0.2, abs(vnoise(vec2(p.y * 34.0 + p.x * 6.0, p.x * 9.0 + p.z * 9.0)) - 0.5) * 2.0);
+  float creases = crack * (0.6 + 0.4 * fold);
   // (px: metres of hide to a pixel. Detail finer than the pixels would only sparkle, so it is let go with distance.)
   float nearBy = 1.0 - smoothstep(0.003, 0.011, px);
-  return n * 0.5 + mix(0.5, fine, nearBy) * 0.3 + mix(0.8, smoothstep(0.0, 0.3, creases), nearBy) * 0.4;
+  float nearer = 1.0 - smoothstep(0.0011, 0.0055, px);        // (the cracks are finer still)
+  return n * 0.5 + mix(0.5, fine, nearBy) * 0.3 + mix(0.8, creases, nearer) * 0.4;
 }
 
 void main() {

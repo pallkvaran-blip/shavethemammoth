@@ -338,6 +338,70 @@ export class Sound {
     m.hairGain.gain.setTargetAtTime(power * Math.min(0.16, 0.02 * Math.sqrt(cutting)), t, 0.04);
   }
 
+  // ---- the mammoth himself ----
+
+  /** A long low sound from somewhere inside him. */
+  rumble() {
+    if (!this.ctx) return;
+    const f = 42 + Math.random() * 14;
+    this._tone({ freq: f, freqTo: f * 0.8, gain: 0.2, decay: 1.5, type: 'sine', wobble: 3 + Math.random() * 3 });
+    this._tone({ freq: f * 2.02, freqTo: f * 1.5, gain: 0.06, decay: 1.1, type: 'triangle', wobble: 5 });
+    this._noise({ type: 'lowpass', freq: 220, q: 0.7, gain: 0.07, attack: 0.15, hold: 0.5, decay: 0.7 });
+  }
+
+  /** What it sounds like. `big` for the ones he has been saving. */
+  fart(big = false) {
+    if (!this.ctx) return;
+    const ctx = this.ctx, t = ctx.currentTime, long = big ? 1.5 + Math.random() * 0.6 : 0.5 + Math.random() * 0.4;
+    const f0 = big ? 62 : 84 + Math.random() * 20;
+    const o = ctx.createOscillator(); o.type = 'sawtooth';
+    o.frequency.setValueAtTime(f0, t);
+    o.frequency.linearRampToValueAtTime(f0 * 1.25, t + long * 0.3);
+    o.frequency.exponentialRampToValueAtTime(f0 * 0.62, t + long);
+    // the flutter is the whole of the character
+    const lfo = ctx.createOscillator(); lfo.type = 'square'; lfo.frequency.setValueAtTime(big ? 21 : 31, t); lfo.frequency.linearRampToValueAtTime(big ? 12 : 22, t + long);
+    const depth = ctx.createGain(); depth.gain.value = 0.5;
+    const trem = ctx.createGain(); trem.gain.value = 0.5;
+    lfo.connect(depth); depth.connect(trem.gain);
+    const low = ctx.createBiquadFilter(); low.type = 'lowpass'; low.frequency.setValueAtTime(900, t); low.frequency.exponentialRampToValueAtTime(260, t + long); low.Q.value = 2;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(big ? 0.3 : 0.2, t + 0.03);
+    g.gain.setValueAtTime(big ? 0.3 : 0.2, t + long * 0.7); g.gain.exponentialRampToValueAtTime(0.0001, t + long);
+    o.connect(trem); trem.connect(low); low.connect(g); g.connect(this.master);
+    o.start(t); lfo.start(t); o.stop(t + long + 0.05); lfo.stop(t + long + 0.05);
+    this._noise({ type: 'bandpass', freq: 700, freqTo: 300, q: 0.8, gain: 0.05, attack: 0.02, hold: long * 0.5, decay: long * 0.4 });
+  }
+
+  /** He trumpets: one rising note with a rasp in it. */
+  trumpet() {
+    if (!this.ctx) return;
+    const ctx = this.ctx, t = ctx.currentTime, long = 1.1;
+    const band = ctx.createBiquadFilter(); band.type = 'bandpass'; band.frequency.setValueAtTime(700, t); band.frequency.linearRampToValueAtTime(1500, t + 0.35); band.frequency.linearRampToValueAtTime(900, t + long); band.Q.value = 1.4;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.22, t + 0.08);
+    g.gain.setValueAtTime(0.22, t + long * 0.6); g.gain.exponentialRampToValueAtTime(0.0001, t + long);
+    for (const [mult, type] of [[1, 'sawtooth'], [1.505, 'square'], [2.01, 'sawtooth']]) {
+      const o = ctx.createOscillator(); o.type = type;
+      o.frequency.setValueAtTime(230 * mult, t);
+      o.frequency.exponentialRampToValueAtTime(470 * mult, t + 0.3);
+      o.frequency.exponentialRampToValueAtTime(390 * mult, t + long);
+      const lfo = ctx.createOscillator(), d = ctx.createGain();
+      lfo.frequency.value = 27; d.gain.value = 22 * mult;
+      lfo.connect(d); d.connect(o.frequency);
+      o.connect(band); o.start(t); lfo.start(t); o.stop(t + long + 0.05); lfo.stop(t + long + 0.05);
+    }
+    band.connect(g); g.connect(this.master);
+    this._noise({ type: 'bandpass', freq: 1300, q: 0.9, gain: 0.05, attack: 0.05, hold: 0.5, decay: 0.4 });
+  }
+
+  /** A sneeze the size of a weather system. */
+  sneeze() {
+    if (!this.ctx) return;
+    this._noise({ type: 'bandpass', freq: 500, freqTo: 1600, q: 1.2, gain: 0.06, attack: 0.5, hold: 0.05, decay: 0.05 });           // the breath going in
+    this._noise({ type: 'bandpass', freq: 2200, freqTo: 500, q: 0.5, gain: 0.34, attack: 0.012, hold: 0.09, decay: 0.55, when: 0.72 });
+    this._tone({ freq: 190, freqTo: 70, gain: 0.2, decay: 0.45, type: 'sawtooth', when: 0.72 });
+  }
+
   /** A foot on a rung. */
   rung() {
     if (!this.ctx) return;

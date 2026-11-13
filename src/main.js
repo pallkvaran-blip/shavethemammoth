@@ -15,6 +15,7 @@ import { Sound } from './game/audio.js';
 import { Game } from './game/game.js';
 import { Hero } from './game/hero.js';
 import { Lift } from './game/lift.js';
+import { Antics } from './game/antics.js';
 
 const q = new URLSearchParams(location.search);
 const num = (k, d) => (q.has(k) ? parseFloat(q.get(k)) : d);
@@ -192,8 +193,8 @@ async function start() {
   const elfCentre = new THREE.Vector3(), elfAhead = new THREE.Vector3();
   // (every tool that is showing, not only the one in hand: while the scene warms up all of them are drawn once)
   const toolCasters = () => Object.values(shaving.tools).filter((t) => t.group.visible).flatMap((t) => t.meshes);
-  let game = null, hero = null, lifter = null;
-  const nearCasters = () => [...mammoth.casters, ...terrain.meshes.filter((m) => m.userData.castNear), ...rocks.meshes, grass, ...toolCasters(), ...(game ? game.casters : []), ...(hero ? hero.casters : []), ...(lifter ? lifter.casters : [])];
+  let game = null, hero = null, lifter = null, antics = null;
+  const nearCasters = () => [...mammoth.casters, ...terrain.meshes.filter((m) => m.userData.castNear), ...rocks.meshes, grass, ...toolCasters(), ...(game ? game.casters : []), ...(hero ? hero.casters : []), ...(lifter ? lifter.casters : []), ...(antics ? antics.casters : [])];
   const farCasters = [...terrain.meshes.filter((m) => m.userData.castFar), ...rocks.meshes];
   const fitShadows = () => {
     shadowNear.fit(new THREE.Vector3(1.0, 1.45, 0), sky.sunDir, 4.8, 2.4, 160);
@@ -312,6 +313,15 @@ async function start() {
   lifter = new Lift({ scene, rig, terrain, sound, hero });
   game.lifter = lifter;
   game.applyUpgrades();
+  antics = new Antics({ mammoth, rig, sound, hint: showHint, state: game.state, puffs: lifter.puffs, terrain, shaving });
+  game.antics = antics;
+  // bald: the shaving stops, the camera goes round to his best side, and the legend is told to the end
+  antics.ready = () => game.finds.pending() === 0;
+  antics.onBald = () => { if (rig.mode === 'elf') rig.leaveElf(false); goView(1); game.finale(); };
+  { const heard = rig.onLift; rig.onLift = (what) => { heard(what); if (what === 'thud') antics.feat('thud'); }; }
+  // dev: ?wear=partyhat,shades dresses him; ?pink dyes him
+  if (q.has('wear')) { game.state.worn.push(...q.get('wear').split(',')); antics.dress(); }
+  if (q.has('pink')) { game.state.flags.pink = true; antics.dye(); }
   if (!q.has('tool')) shaving.setTool(game.state.tool);
 
   // ---- which tool ---------------------------------------------------------------
@@ -480,7 +490,7 @@ async function start() {
     if (wait > 0) { waiting = open; later(() => { if (waiting) { waiting = null; open(); } }, wait); } else open();
   };
 
-  if (q.has('debug')) window.__game = { shaving, mammoth, rig, sound, camera, renderer, PUT_AWAY, game, hero, lifter, U, state: game.state };   // dev: poke at the game from the console
+  if (q.has('debug')) window.__game = { shaving, mammoth, rig, sound, camera, renderer, PUT_AWAY, game, hero, lifter, antics, U, state: game.state };   // dev: poke at the game from the console
   if (q.has('nopush')) shaving.noPush = true;                                      // dev: hair ignores the blades
   if (q.has('away')) shaving.pinned = num('away', 0);                              // dev: hold the tool part way put away (0 to 1)
   if (q.has('noclippings')) shaving.clippings.mesh.visible = false;

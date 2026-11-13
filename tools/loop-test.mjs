@@ -308,6 +308,20 @@ check(v.one === v.was + 1, 'with the hair gone, the next find is announced (one 
 check(v.found === v.total && v.thong, 'and in time all of them are, the thong among them');
 check(v.paid === 30 * (v.total - v.was - 1) + 120, 'each pays what Gnorman promised');
 
+// ---- and with nothing left to find and nothing left to cut, the legend is told to the end ----
+v = await T(`
+  T.frame(60 * 16);
+  const el = document.getElementById('finale');
+  return { shown: !el.hidden, mode: rig.mode, l1: el.querySelector('.l1').textContent, stats: el.querySelector('.stats').textContent, done: !!st.flags.done };
+`);
+console.log(`the end: "${v.l1}" (${v.stats})`);
+check(v.shown && v.mode === 'orbit' && v.done, 'bald, the shaving stops and the end is told');
+await page.click('#finale [data-act="admire"]');
+v = await T(`return { hidden: document.getElementById('finale').hidden, shorn: mammoth.shorn }`);
+check(v.hidden && v.shorn > 0.98, 'he can be left as he is');
+await page.click('#view-elf');
+await T(`T.frame(30)`);
+
 // ---- it is all still there after the page is loaded again ----
 const kept = await T(`
   game.choose('sheep'); T.frame(40);

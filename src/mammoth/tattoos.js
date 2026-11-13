@@ -285,6 +285,7 @@ export function makeTattooSheet() {
   texture.magFilter = THREE.LinearFilter;
   texture.anisotropy = 4;
   texture.flipY = false;
+  texture.premultiplyAlpha = true;       // (so that the soft edges of the ink filter cleanly; the shader divides it out again)
   // the lettering wants the page's own typefaces if they arrive late
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { paint(); texture.needsUpdate = true; });
   return { texture, rects: rects.map(([rx, ry, rw, rh]) => [rx / W, (ry * squeeze) / H, rw / W, (rh * squeeze) / H]) };
@@ -343,8 +344,8 @@ vec4 tattooInk(vec3 p, vec3 n, vec3 dpx, vec3 dpy) {
       vec2 gx = vec2(dot(dpx, uTatU[i].xyz), -dot(dpx, uTatV[i].xyz)) * 0.5 * r.zw;
       vec2 gy = vec2(dot(dpy, uTatU[i].xyz), -dot(dpy, uTatV[i].xyz)) * 0.5 * r.zw;
       vec4 t = textureGrad(uTatSheet, uv, gx, gy);
-      // (the sheet is drawn ink over nothing: undo the darkening of its soft edges)
-      t.rgb = t.a > 0.003 ? t.rgb / t.a : t.rgb;
+      // (the sheet holds ink times how much of it there is: divide that out, except where there is too little to trust the answer)
+      t.rgb = mix(vec3(0.086, 0.14, 0.17), t.rgb / max(t.a, 0.004), smoothstep(0.04, 0.3, t.a));
       // fade out at the very edge of the box, so nothing is cut off square
       float edge = smoothstep(1.0, 0.94, max(abs(x), abs(y)));
       if (t.a * edge > ink.a) ink = vec4(t.rgb, t.a * edge);

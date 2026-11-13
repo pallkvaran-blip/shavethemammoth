@@ -149,11 +149,13 @@ const LOOKS = {
   air: { colour: [1.7, 1.65, 1.6], add: false, size: [0.02, 0.05], life: [0.25, 0.5], speed: 3.4, spread: 0.35, gravity: 0.5, grow: 2.5, alpha: 0.28 },
   fire: { colour: [9, 4.2, 1.1], add: true, size: [0.014, 0.034], life: [0.12, 0.26], speed: 3.8, spread: 0.2, gravity: -0.5, grow: 1.2, alpha: 0.9 },
   snow: { colour: [1.9, 1.85, 1.8], add: false, size: [0.03, 0.07], life: [0.5, 1.1], speed: 1.2, spread: 1, gravity: 1.2, grow: 2.2, alpha: 0.35 },
+  // (not from a pack)
+  gas: { colour: [0.95, 1.3, 0.45], add: false, size: [0.08, 0.2], life: [1.4, 2.8], speed: 1, spread: 0.5, gravity: -0.3, grow: 2.6, alpha: 0.26 },
 };
 const MAX = 160;
 
 /** Puffs: foam, air, flame, and the snow they kick up. One set of points for each way of blending. */
-class Puffs {
+export class Puffs {
   constructor(scene) {
     this.sets = [false, true].map((add) => {
       const geo = new THREE.BufferGeometry();

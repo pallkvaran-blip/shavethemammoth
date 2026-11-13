@@ -66,6 +66,7 @@ export class Game {
     Object.assign(this, { scene, terrain, mammoth, shaving, rig, sound, hint });
     this.hero = null;            // the elf, who plays a scene when he gets a new tool (set once he is made)
     this.lifter = null;          // the ladders and packs, as seen and heard (likewise)
+    this.antics = null;          // what the mammoth gets up to, and wears (likewise)
     this.scenes = !dev.noscene;
     this.state = new GameState({ storage });
     this.resumed = !dev.fresh && this.state.load();
@@ -189,16 +190,59 @@ export class Game {
     if (what.startsWith('bought:')) {
       const id = what.slice(7), item = ITEMS[id];
       this.applyUpgrades();
-      if (id === 'tonic') {
-        this.mammoth.setHaircut(null);
-        this.state.stats.tonics++;
-        this.hint('<strong>It all grew back.</strong> He is furious, and fluffy.', 6);
-      }
+      if (id === 'tonic') this.regrow();
+      if (id === 'box') this.lucky();
+      if (item.wear && this.antics) this.antics.dress();
+      if (id === 'pinkdye' && this.antics) { this.antics.dye(); this.tell = '<strong>He is pink.</strong> All of him. He has not looked yet.'; }
       if (item.kind === 'cutter') { this.state.tool = id; this.shaving.take(id); this.celebrate(id); }
       if (item.kind === 'sweeper' && this.shaving.tool.def.sweep) this.shaving.setTool(id);
       if (item.kind === 'ladder') this.tell = `<strong>${item.name}.</strong> <span class="desk">Press <kbd>R</kbd> to stand it up where you are and climb; <kbd>F</kbd> comes down, <kbd>A</kbd> and <kbd>D</kbd> walk it sideways.</span><span class="nomouse">Hold Up to stand it where you are and climb.</span> He is taller than it is.`;
       if (item.kind === 'pack') this.tell = `<strong>${item.name}.</strong> <span class="desk">Hold <kbd>R</kbd> or the right mouse button to burn.</span><span class="nomouse">Hold Up to burn.</span> It fills up again on the ground. You can land on him.${this.state.climber ? ' <span class="desk"><kbd>T</kbd> swaps back to the ladder.</span>' : ''}`;
     }
+  }
+
+  /** The tonic: the coat comes back, in his own colour, and the shave starts again (what was bought is kept). */
+  regrow() {
+    const s = this.state;
+    this.mammoth.setHaircut(null);
+    s.stats.tonics++;
+    s.flags.pink = false; s.flags.done = false; s.flags.told = {};
+    if (this.antics) this.antics.dye();
+    this.hint('<strong>It all grew back.</strong> He is furious, and fluffy.', 6);
+    s.dirty = true;
+  }
+
+  /** The mystery box. On average it is a way of giving Gnorman forty gold. */
+  lucky() {
+    const s = this.state, r = Math.random();
+    if (r < 0.42) this.said = pick(['A sock. One. Left foot. Enjoy.', 'It is empty. No, wait. No, it is empty.', 'A drawing of what you could have won. I did it myself.']);
+    else if (r < 0.57) this.said = 'A smaller mystery box! ...With nothing in it. That is the mystery.';
+    else if (r < 0.82) { const g = 30 + Math.floor(Math.random() * 41); s.earn(g); this.said = `${g} gold! Somebody’s purse. Finders keepers. Do not look at the initials.`; }
+    else if (r < 0.94) { const got = s.pick(100); this.said = got > 1 ? `Hair! ${Math.round(got)} grams of it. Not his. Do not ask whose.` : 'Hair! ...Which you have no room for. I will keep it. Lovely doing business.'; }
+    else { s.earn(250); this.said = 'TWO HUNDRED AND FIFTY GOLD. I did not know that was in there. I want it noted that I did not know.'; }
+    this.fillDialog();
+  }
+
+  /** Bald. The legend is fulfilled; say so, and ask what next. */
+  finale() {
+    const el = $('finale'), s = this.state;
+    if (!el) return;
+    if (this.dialog) this.close();
+    el.querySelector('.stats').textContent = `${Math.round(s.stats.sold / 100) / 10} kg of hair sold · ${s.stats.earned} gold earned · ${s.found.length} of ${this.finds.total} things found under it${s.stats.farts ? ` · ${s.stats.farts} incidents` : ''}`;
+    el.hidden = false;
+    requestAnimationFrame(() => el.classList.add('show'));
+    this.sound.fanfare('grand');
+    this.sound.trumpet();
+    if (!this._finaleWired) {
+      this._finaleWired = true;
+      el.addEventListener('click', (e) => {
+        const b = e.target.closest('button');
+        if (!b) return;
+        el.classList.remove('show'); el.hidden = true;
+        if (b.dataset.act === 'regrow') { this.regrow(); this.state.stats.tonics--; this.save(true); }
+      });
+    }
+    this.save(true);
   }
 
   // ---- the scene for a new tool ----------------------------------------------------------
@@ -348,7 +392,7 @@ export class Game {
     if (this.tell) { this.hint(this.tell, 12); this.tipIn = 16; this.tell = null; }
   }
 
-  price() { return HAIR_PRICE * (this.state.flags.foot ? 1.15 : 1); }
+  price() { return HAIR_PRICE * (this.state.flags.foot ? 1.15 : 1) * (this.state.flags.pink ? 1.2 : 1); }
 
   fillDialog() {
     const d = $('dialog'), s = this.state, who = this.dialog;
@@ -358,7 +402,7 @@ export class Game {
     if (who === 'vulture') {
       const offer = Math.floor(s.hair * this.price() + 1e-6);
       html += `<header><h2>Mortimer</h2><p class="trade">Fine toupees. Hair bought by the gram.</p><p class="says">“${esc(this.said)}”</p></header>`;
-      html += `<div class="weigh"><p class="big">${grams(s.hair)}</p><p>in your ${this.sackName()}, at ${(this.price() * 100).toFixed(0)} gold the hundred grams${s.flags.foot ? " (the rabbit's foot is working)" : ''}</p>`;
+      html += `<div class="weigh"><p class="big">${grams(s.hair)}</p><p>in your ${this.sackName()}, at ${(this.price() * 100).toFixed(0)} gold the hundred grams${s.flags.foot ? " (the rabbit's foot is working)" : ''}${s.flags.pink ? ' (pink is extra)' : ''}</p>`;
       html += `<button type="button" class="deal" data-act="sell" ${offer > 0 ? '' : 'disabled'}>${offer > 0 ? `Sell it all for ${offer} gold` : 'Nothing to sell'}</button>`;
       const lying = this.shaving.clippings.lying;
       if (lying >= 1) html += `<p class="aside">There is another ${grams(lying)} lying about on the snow. He can see it from here. He is counting.</p>`;
@@ -445,6 +489,7 @@ export class Game {
     }
 
     this.finds.update(dt, !elf || !!this.dialog || playing);
+    if (this.antics) this.antics.update(dt, { elf, busy: !!this.dialog || playing });
     this.guide(dt, elf);
 
     // keep the haircut: it is the one thing that cannot be bought back (well, it can, for 150 gold)
@@ -487,6 +532,7 @@ export class Game {
     this.mammoth.setHaircut(null);
     this.shaving.setTool('scissors');
     this.applyUpgrades();
+    if (this.antics) { this.antics.dress(); this.antics.dye(); }
     this.refresh();
   }
 }

@@ -71,6 +71,13 @@ export class Finds {
     return spot.at.length ? k / spot.at.length : 0;
   }
 
+  /** How many are uncovered but not yet announced. */
+  pending() {
+    let n = 0;
+    for (const spot of this.spots) if (!this.state.found.includes(spot.id) && this.shown(spot) >= spot.need) n++;
+    return n;
+  }
+
   update(dt, quiet = false) {
     this.wait -= dt;
     if (this.wait > 0 || quiet) return;

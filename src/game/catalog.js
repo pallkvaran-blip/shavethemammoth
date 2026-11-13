@@ -79,6 +79,10 @@ export const ITEMS = {
   loyal: { kind: 'extra', name: 'Loyalty card', price: 100, flag: 'loyal', blurb: 'A tenth off everything, for ever. Every tenth stamp I judge you silently.' },
   foot: { kind: 'extra', name: "Lucky rabbit's foot", price: 150, flag: 'foot', blurb: 'Mortimer pays 15% more when you carry it. Not lucky for the rabbit, but then what is.' },
   cocoa: { kind: 'extra', name: 'Thermos of cocoa', price: 60, flag: 'cocoa', blurb: 'You walk a quarter faster. Mostly sugar. Partly something I found.' },
+  box: { kind: 'extra', name: 'Mystery box', price: 40, again: true, blurb: 'Could be anything. Has been, mostly, a sock.' },
+  partyhat: { kind: 'extra', name: 'Party hat (for him)', price: 80, wear: 'partyhat', blurb: 'He has not been to a party since the Pleistocene. Nobody came to that one either.' },
+  shades: { kind: 'extra', name: 'Sunglasses (for him)', price: 140, wear: 'shades', blurb: 'So that he does not have to watch what you are doing to him.' },
+  pinkdye: { kind: 'extra', name: 'A bucket of pink', price: 400, flag: 'pink', blurb: 'Does one mammoth, all over, until the tonic grows it out. Mortimer pays a fifth more for pink. Nobody has asked him why.' },
 };
 
 /** Things in a section, in the order the stall shows them. */

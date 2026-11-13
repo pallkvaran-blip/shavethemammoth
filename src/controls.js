@@ -52,6 +52,7 @@ export class CameraRig {
     this.thrusting = false;
     this.perched = false;           // standing on the mammoth
     this.shake = 0;                 // how hard the pack is shaking him, 0..1
+    this.rattle = 0;                // and how hard anything else is (it dies away by itself: see Antics)
     this.onLift = () => {};         // told what happens: 'up' (ladder stood up), 'rung', 'hop', 'away', 'burn', 'out', 'empty', 'land', 'thud'
 
     const wake = () => { this.idle = 0; };
@@ -344,8 +345,8 @@ export class CameraRig {
       this.pos.y = this.terrain.height(this.pos.x, this.pos.z) + eye;
       cam.position.copy(this.pos);
       cam.rotation.set(this.pitch, this.yaw, 0, 'YXZ');
-      if (this.shake > 0.01) {
-        const t = performance.now() * 0.001, k = this.shake;
+      if (this.shake > 0.01 || this.rattle > 0.01) {
+        const t = performance.now() * 0.001, k = Math.max(this.shake, this.rattle * 2.2);
         cam.position.x += Math.sin(t * 61) * 0.0012 * k; cam.position.y += Math.sin(t * 53) * 0.0016 * k;
         cam.rotation.z = Math.sin(t * 47) * 0.0045 * k;
       }
