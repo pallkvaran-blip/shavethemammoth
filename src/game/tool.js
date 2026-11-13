@@ -268,10 +268,10 @@ export class Kit {
     // across it as it should.
     const inFront = `{
       float zv = mvPosition.z;                                  // depth from the eye (negative)
-      float zb = min(zv + ${nearer.toFixed(3)}, -0.02);          // nearer, but never through the near plane
+      float zb = min(zv + ${nearer.toFixed(3)} * uToolNear, -0.02);   // nearer, but never through the near plane (and not at all when it is being shown off, held by an elf seen from outside)
       gl_Position.z = (projectionMatrix[2][2] * zb + projectionMatrix[3][2]) * (zv / zb);
     }`;
-    this.patch = (m) => patchStandardMaterial(m, { key: `tool-${nearer.toFixed(3)}`, bias: 0.03, extraVertex: inFront });
+    this.patch = (m) => patchStandardMaterial(m, { key: `tool-${nearer.toFixed(3)}`, bias: 0.03, extraVertex: inFront, vertexHead: 'uniform float uToolNear;' });
   }
 
   add(parent, geo, mat, name) {
@@ -330,6 +330,7 @@ export class Tool {
     // an electric tool: is its switch held, how fast its motor is turning (0..1), how hard it is working (0..1)
     this.on = false; this.power = 0; this.load = 0;
     this.budget = 0;          // how much it can still cut this instant (see Shaving._mow)
+    this.swing = 0; this.swinging = false;    // a broom's stroke: how far through it, and whether one is under way
     this.buzz = 0;            // seconds its motor has run: what its moving parts are timed by
     this.events = [];
     this.rnd = rngFrom(def.seed || 7);
@@ -370,8 +371,11 @@ export class Tool {
     // it is nearer than the eyes can see, leaving by the bottom of the view.
     // (Simply lowering it would stand it on the snow in plain sight: the
     // elf's eyes are only a hand's breadth above the ground.)
-    this.awayBack = this.tipReach - 0.03;
-    this.awayDown = 0.34 * this.awayBack;
+    // (A broom, which lies along the ground, is slid straight back past the
+    // elf's feet instead: looking down, "back and down" is where the eyes are.)
+    this.awayBack = def.level ? def.tip + 0.16 : this.tipReach - 0.03;
+    this.awayDown = def.level ? 0 : 0.34 * this.awayBack;
+    this._off = new THREE.Vector3();
 
     this.setAngle(this.angle);
   }
@@ -391,8 +395,9 @@ export class Tool {
     this.phase = 'open'; this.timer = 0; this.squeezing = false; this.stall = 0; this.catchAt = -1; this.kick = 0;
     this.poseReady = false; this.flat = 0; this.lying = 0;
     this.on = false; this.power = 0; this.load = 0; this.budget = 0;
+    this.swing = 0; this.swinging = false;
     this.setAngle(this.def.open);
-    if (this.def.motor && this.def.animate) this.def.animate(this, 0);
+    if ((this.def.motor || this.def.sweep) && this.def.animate) this.def.animate(this, 0);
   }
 
   /**
@@ -414,6 +419,18 @@ export class Tool {
       this.power += ((want ? 1 : 0) - this.power) * (1 - Math.exp(-dt / (want ? m.spinUp : m.spinDown)));
       if (!want && this.power < 0.01) this.power = 0;
       this.buzz += dt * this.power * (1 - 0.3 * this.load);
+      if (this.def.animate) this.def.animate(this, dt);
+      return ev;
+    }
+    if (this.def.sweep) {
+      // a broom, or a pair of hands: one stroke after another for as long as it is held, and the hair is taken at the middle of each ('sweep')
+      if (this.squeezing && this.away < 0.1 && !this.swinging) { this.swinging = true; this.swing = 0; ev.push('stroke'); }
+      if (this.swinging) {
+        const was = this.swing;
+        this.swing += dt / this.def.sweep.every;
+        if (was < 0.5 && this.swing >= 0.5) ev.push('sweep');
+        if (this.swing >= 1) { this.swing = 0; this.swinging = false; }
+      }
       if (this.def.animate) this.def.animate(this, dt);
       return ev;
     }
@@ -479,7 +496,8 @@ export class Tool {
     // Put away, a long tool has nowhere to go but through the snow at the
     // elf's own feet (looking up, "back" is down). By the time it is that far
     // back it is out of sight, so the snow gives way to it.
-    const sink = 0.35 * smoothstep(0.6, 1, this.away);
+    // (A broom is put away by sliding it back along the ground, and needs no such leave.)
+    const sink = this.def.level ? 0 : 0.35 * smoothstep(0.6, 1, this.away);
     let wx = 0, wy = 0, wz = 0, snow = false;
     // the deepest any part of the tool is inside anything (0 if none is)
     const deepest = () => {
@@ -548,13 +566,18 @@ export class Tool {
       .multiply(_qa.setFromAxisAngle(AHEAD, h.roll || 0))
       .multiply(BASE);
     this._freeP.set(h.pos[0] + this.sway.x + bobX, h.pos[1] + this.sway.y + bobY + breath, h.pos[2] - this.kick * 0.004);
+    if (def.level) {
+      // a broom rests on the ground whichever way the eyes are turned: it keeps its own level, not theirs
+      _qa.setFromAxisAngle(AX, -camera.rotation.x);
+      this._freeP.applyQuaternion(_qa); this._freeQ.premultiply(_qa);
+    }
 
     // ---- laid flat against the hide --------------------------------------------------
     // Pressed into the coat, the tool is turned to lie along the skin, as a
     // shearer holds it: blades in the plane of the hide, tips a few
     // millimetres off it, pointing up the limb.
     let flat = 0;
-    const hit = world && world.hide && this.away < 0.05 ? world.hide(camera, this._hit, this.flatFar + 0.03) : null;
+    const hit = world && world.hide && this.away < 0.05 && !def.noLie ? world.hide(camera, this._hit, this.flatFar + 0.03) : null;
     if (hit) {
       flat = 1 - THREE.MathUtils.smoothstep(hit.t, this.flatNear, this.flatFar);
       const e = camera.matrixWorld.elements, g = this._g;
@@ -603,15 +626,16 @@ export class Tool {
     this.poseP.lerp(P, follow); this.poseQ.slerp(Q, follow);
     this.poseReady = true;
     // being put away or brought up: drawn back and down by exactly that much (not left to the lag of the hands)
-    const backBy = this.away * this.awayBack, downBy = this.away * this.awayDown;
-    this._local.compose(this._tp.set(this.poseP.x, this.poseP.y - downBy, this.poseP.z + backBy), this.poseQ, this._one);
+    const off = this._off.set(0, -this.away * this.awayDown, this.away * this.awayBack);
+    if (def.level) off.applyQuaternion(_qa.setFromAxisAngle(AX, -camera.rotation.x));
+    this._local.compose(this._tp.copy(this.poseP).add(off), this.poseQ, this._one);
     this.group.matrix.multiplyMatrices(camera.matrixWorld, this._local);
     // Whatever the hands meant to do, steel does not pass through hide, horn
     // or packed snow: every part of the tool is moved clear, and the hands
     // remember where they ended up.
     if (world && this._clear(world, this._p.setFromMatrixPosition(camera.matrixWorld)) > 0) {
       this._m.copy(camera.matrixWorld).invert().multiply(this.group.matrix).decompose(this.poseP, this._tq, this._scale);
-      this.poseP.y += downBy; this.poseP.z -= backBy;
+      this.poseP.sub(off);
     }
     this.group.matrixWorld.copy(this.group.matrix);
     this.group.updateMatrixWorld(true);
@@ -643,6 +667,12 @@ export class Tool {
     out.blades[1].c.copy(out.forward).multiplyScalar(sn).addScaledVector(out.side, -c);
     out.shape = def.blade;
     return out;
+  }
+
+  /** Where the working end of the tool is, in the world (the bristles of a broom, the mouth of a nozzle). */
+  end(out) {
+    const e = this.group.matrixWorld.elements, t = this.def.tip;
+    return out.set(e[12] + e[0] * t, e[13] + e[1] * t, e[14] + e[2] * t);
   }
 
   /**

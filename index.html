@@ -17,6 +17,8 @@
     --veil-strong: rgba(13, 15, 21, 0.78);
     --line: rgba(244, 237, 225, 0.2);
     --amber: #eab676;                      /* the low sun */
+    --warn: #ff9d7c;                       /* a full sack */
+    --sheet-foot: rgba(16, 18, 24, 0.94);  /* the foot of a shop's list, over what scrolls beneath it */
     --font-display: 'Fraunces', 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
     --font-ui: 'Figtree', 'Segoe UI', system-ui, -apple-system, sans-serif;
     color-scheme: dark;
@@ -135,6 +137,12 @@
   }
   .settings select option { background: var(--night); color: var(--ink); }
   .settings input[type="range"] { width: 7rem; accent-color: var(--amber); }
+  .settings button {
+    font: inherit; font-size: 0.8rem; letter-spacing: 0.03em; color: var(--ink-dim); background: transparent;
+    border: 1px solid var(--line); border-radius: 7px; padding: 4px 10px; cursor: pointer;
+  }
+  .settings button:hover { color: var(--ink); border-color: var(--ink-dim); }
+  .settings button.sure { color: var(--night); background: var(--warn); border-color: var(--warn); }
   #hint {
     pointer-events: none; align-self: center; text-align: center; font-size: 0.82rem; color: var(--ink); letter-spacing: 0.03em;
     background: var(--veil-strong); padding: 7px 14px; border-radius: 999px; margin-bottom: 10px; max-width: 100%;
@@ -156,7 +164,112 @@
     font-size: 0.8rem; font-weight: 600; letter-spacing: 0.04em; font-variant-numeric: tabular-nums; color: var(--amber);
     background: var(--veil); padding: 5px 10px; border-radius: 6px;
   }
+  /* what the player has on them: gold, and how full the sack is */
+  #purse { display: flex; gap: 6px; }
+  #purse span {
+    font-size: 0.8rem; font-weight: 600; letter-spacing: 0.04em; font-variant-numeric: tabular-nums; color: var(--amber);
+    background: var(--veil); padding: 5px 10px; border-radius: 6px; white-space: nowrap;
+  }
+  #purse #bag { color: var(--ink); }
+  /* what is left in the pack's tank */
+  #fuel { width: 8rem; height: 9px; border-radius: 5px; background: var(--veil); border: 1px solid var(--line); overflow: hidden; }
+  #fuel i { display: block; height: 100%; background: var(--amber); transform-origin: left center; }
+  #fuel.low i { background: var(--warn); }
+  body:not(.elf) #fuel { display: none; }
+  /* by touch, a ladder or a pack brings two more buttons */
+  .touch #rise, .touch #sink { display: none; }
+  body.lift .touch #rise, body.lift .touch #sink { display: block; }
+  @media (max-width: 420px) { body.lift .touch { gap: 10px; } body.lift .touch button { width: 4.1rem; height: 4.1rem; } }
+  #purse #bag.full { color: var(--warn); }
+  /* someone within talking distance */
+  #prompt {
+    pointer-events: auto; align-self: center; appearance: none; cursor: pointer; font: inherit; font-weight: 600; letter-spacing: 0.03em;
+    color: var(--ink); background: var(--veil-strong); border: 1px solid var(--amber); padding: 8px 18px; border-radius: 999px; margin-bottom: 10px;
+  }
+  #prompt kbd { margin-right: 8px; }
   .mid { display: flex; flex-direction: column; justify-content: flex-end; flex: 1; min-height: 0; }
+
+  /* ---- the two shops ---- */
+  #dialog {
+    position: fixed; inset: 0; z-index: 6; display: grid; place-items: center; background: rgba(11, 13, 18, 0.34);
+    padding-top: max(14px, env(safe-area-inset-top, 0px)); padding-bottom: max(14px, env(safe-area-inset-bottom, 0px));
+    padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  /* with room to spare, the list keeps to one side and whoever is selling can be seen beside it */
+  @media (min-width: 60rem) { #dialog { justify-items: start; padding-left: max(4vw, env(safe-area-inset-left, 0px)); } }
+  .sheet {
+    width: min(35rem, 100%); max-height: 100%; overflow-y: auto; overscroll-behavior: contain; box-sizing: border-box;
+    background: var(--veil-strong); backdrop-filter: blur(14px) saturate(1.2); -webkit-backdrop-filter: blur(14px) saturate(1.2);
+    border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px 0;
+  }
+  .sheet h2 { font-family: var(--font-display); font-weight: 400; font-size: 1.7rem; line-height: 1.1; margin: 0; }
+  .sheet .trade { color: var(--ink-dim); font-size: 0.78rem; letter-spacing: 0.05em; margin: 3px 0 10px; }
+  .sheet .says { font-family: var(--font-display); font-style: italic; font-size: 1.06rem; line-height: 1.35; color: var(--amber); margin: 0 0 6px; text-wrap: pretty; min-height: 2.7em; }
+  .sheet h3 { font-size: 0.74rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink); margin: 18px 0 0; }
+  .sheet .note { font-size: 0.8rem; font-style: italic; color: var(--ink-dim); margin: 2px 0 6px; }
+  .sheet ul { list-style: none; margin: 0; padding: 0; }
+  .sheet li { display: flex; gap: 14px; align-items: center; justify-content: space-between; padding: 9px 0; border-top: 1px solid var(--line); }
+  .sheet li > div { min-width: 0; }
+  .sheet li strong { display: block; font-weight: 600; }
+  .sheet li div span { display: block; font-size: 0.84rem; line-height: 1.35; color: var(--ink-dim); text-wrap: pretty; }
+  .sheet button {
+    appearance: none; cursor: pointer; font: inherit; font-weight: 600; white-space: nowrap; flex: none;
+    color: var(--amber); background: transparent; border: 1px solid var(--amber); border-radius: 999px; padding: 6px 14px; transition: color 0.2s, background 0.2s;
+  }
+  .sheet button:hover:not(:disabled) { background: var(--amber); color: var(--night); }
+  .sheet button.dear { color: var(--ink-dim); border-color: var(--line); }
+  .sheet button.use { color: var(--ink); border-color: var(--line); }
+  .sheet button:disabled { color: var(--ink-dim); border-color: var(--line); cursor: default; }
+  .sheet .have { flex: none; color: var(--amber); font-size: 0.8rem; font-weight: 600; letter-spacing: 0.04em; white-space: nowrap; }
+  .sheet .weigh { text-align: center; padding: 6px 0 8px; }
+  .sheet .weigh p { margin: 0 0 12px; color: var(--ink-dim); font-size: 0.86rem; }
+  .sheet .weigh .big { font-family: var(--font-display); font-size: 2.8rem; line-height: 1; color: var(--ink); margin: 4px 0 6px; font-variant-numeric: tabular-nums; }
+  .sheet .weigh .deal { font-size: 1rem; padding: 10px 22px; margin-bottom: 14px; }
+  .sheet .weigh .aside { font-style: italic; }
+  .sheet footer {
+    position: sticky; bottom: 0; display: flex; justify-content: space-between; align-items: center; gap: 12px;
+    margin: 12px -20px 0; padding: 12px 20px 14px; border-top: 1px solid var(--line); background: var(--sheet-foot); border-radius: 0 0 14px 14px;
+  }
+  .sheet .purse { color: var(--amber); font-weight: 600; font-variant-numeric: tabular-nums; }
+  /* ---- a scene: the game stops to admire a new tool. Bars close in top and bottom, the controls step back, and the news is given across the foot ---- */
+  #bars::before, #bars::after {
+    content: ""; position: fixed; left: 0; right: 0; height: 11vh; background: #05060a; z-index: 7; pointer-events: none;
+    transition: transform 0.45s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+  #bars::before { top: 0; transform: translateY(-101%); }
+  #bars::after { bottom: 0; transform: translateY(101%); }
+  body.cine #bars::before, body.cine #bars::after { transform: none; }
+  body.cine #hud, body.cine #dialog { opacity: 0; pointer-events: none; }
+  #got {
+    position: fixed; left: 0; right: 0; bottom: calc(11vh + clamp(8px, 3vh, 30px)); z-index: 8; pointer-events: none; text-align: center;
+    padding: 0 max(16px, env(safe-area-inset-left, 0px)) 0 max(16px, env(safe-area-inset-right, 0px));
+    opacity: 0; transform: translateY(14px) scale(0.96); transition: opacity 0.35s ease, transform 0.5s cubic-bezier(0.2, 1.4, 0.4, 1);
+    text-shadow: 0 2px 3px rgba(0, 0, 0, 0.7), 0 0 30px rgba(0, 0, 0, 0.6);
+  }
+  #got.show { opacity: 1; transform: none; }
+  #got p { margin: 0; }
+  #got .you { font-size: clamp(0.8rem, 0.7rem + 0.5vw, 1rem); font-weight: 600; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink); }
+  #got .what { font-family: var(--font-display); font-style: italic; font-size: clamp(2rem, 1.1rem + 4.4vw, 4.2rem); line-height: 1.05; color: var(--amber); text-wrap: balance; }
+  #got .quip { font-family: var(--font-display); font-size: clamp(0.95rem, 0.8rem + 0.7vw, 1.25rem); color: var(--ink); margin-top: 0.35em; text-wrap: balance; }
+  /* ---- the end ---- */
+  #finale {
+    position: fixed; inset: 0; z-index: 9; display: grid; align-content: start; justify-items: center;
+    padding: clamp(1.4rem, 9vh, 6rem) max(16px, env(safe-area-inset-right, 0px)) 0 max(16px, env(safe-area-inset-left, 0px));
+    background: linear-gradient(to bottom, rgba(11, 13, 18, 0.72), rgba(11, 13, 18, 0.4) 40%, rgba(11, 13, 18, 0) 68%);
+    opacity: 0; transition: opacity 1.4s ease; text-align: center;
+  }
+  #finale.show { opacity: 1; }
+  #finale .words { width: min(46rem, 100%); text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 0 26px rgba(0, 0, 0, 0.55); }
+  #finale p { margin: 0 0 0.6em; font-family: var(--font-display); text-wrap: balance; }
+  #finale .l1 { font-size: clamp(1.5rem, 0.9rem + 2.6vw, 2.5rem); line-height: 1.2; }
+  #finale .l2 { font-style: italic; color: var(--amber); font-size: clamp(1.1rem, 0.8rem + 1.3vw, 1.6rem); }
+  #finale .stats { font-family: var(--font-ui); font-size: 0.86rem; letter-spacing: 0.04em; color: var(--ink-dim); margin-top: 1.2em; }
+  #finale .row { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 1.2em; }
+  #finale button {
+    appearance: none; cursor: pointer; font: inherit; font-weight: 600; color: var(--amber); background: var(--veil-strong);
+    border: 1px solid var(--amber); border-radius: 999px; padding: 9px 20px;
+  }
+  #finale button:hover { background: var(--amber); color: var(--night); }
   @media (max-width: 640px) {
     .bottom { flex-direction: column; align-items: stretch; }
     .shave { flex-direction: column; }
@@ -190,19 +303,40 @@
   </div>
 </div>
 
+<div id="bars" aria-hidden="true"></div>
+<div id="got" role="status" aria-live="polite" hidden>
+  <p class="you">You got the</p>
+  <p class="what"></p>
+  <p class="quip"></p>
+</div>
+
+<div id="finale" hidden>
+  <div class="words">
+    <p class="l1">And that is how the last mammoth became the first elephant.</p>
+    <p class="l2">Legend has it an elf did it, with small bad scissors and worse judgement.</p>
+    <p class="stats"></p>
+    <div class="row"><button type="button" data-act="admire">Admire him</button><button type="button" data-act="regrow">Grow it all back</button></div>
+  </div>
+</div>
+
 <div id="hud">
   <div class="top">
     <p class="wordmark">Shave the <em>Mammoth</em></p>
     <div class="readouts">
+      <div id="purse" hidden><span id="gold">0 gold</span><span id="bag">0 g of 100 g</span></div>
+      <div id="fuel" role="img" aria-label="What is left in the tank" hidden><i></i></div>
       <div id="progress" hidden>Shorn 0.000%</div>
       <div id="stats" hidden></div>
     </div>
   </div>
   <div class="mid">
+    <button type="button" id="prompt" hidden></button>
     <div id="hint"></div>
     <div class="touch">
       <button type="button" id="walk" aria-label="Hold to walk forward">Walk</button>
       <button type="button" id="snip" aria-label="Hold to cut">Cut</button>
+      <button type="button" id="rise" aria-label="Hold to go up">Up</button>
+      <button type="button" id="sink" aria-label="Hold to come down">Down</button>
     </div>
     <div class="bottom">
       <div class="panel views" role="group" aria-label="Views">
@@ -223,6 +357,7 @@
             <option value="ultra">Ultra</option>
           </select>
         </label>
+        <button type="button" id="new-game" title="Give him his coat back and start again with nothing">New game</button>
       </div>
     </div>
     <div class="shave">
@@ -232,11 +367,14 @@
         <button type="button" id="tool-garden" data-tool="garden" aria-pressed="true"><kbd>3</kbd>Garden clippers</button>
         <button type="button" id="tool-electric" data-tool="electric" aria-pressed="false"><kbd>4</kbd>Electric shears</button>
         <button type="button" id="tool-shaver" data-tool="shaver" aria-pressed="false"><kbd>5</kbd>Beard shaver</button>
+        <button type="button" id="tool-sweep" data-tool="sweep" aria-pressed="false" title="Pick up the hair you have cut"><kbd>Q</kbd><span>Bare hands</span></button>
       </div>
       <button type="button" id="view-elf" class="start" aria-pressed="false">Start shaving</button>
     </div>
   </div>
 </div>
+
+<div id="dialog" role="dialog" aria-modal="true" aria-label="Shop" hidden><div class="sheet"></div></div>
 
 <script type="module" src="/src/main.js"></script>
 </body>

@@ -31,6 +31,7 @@ export const U = {
   uWind: { value: new THREE.Vector4(1, 0, 0.35, 0.65) },
   uExposureComp: { value: 1 },
   uPxScale: { value: 1000 },   // pixels per metre at one metre from the eye
+  uToolNear: { value: 1 },     // 1 = a tool in hand is drawn a little nearer the eye than it is (see Kit); 0 = where it is
 
   uShadowNear: { value: blackTex },
   uShadowNearMat: { value: new THREE.Matrix4() },

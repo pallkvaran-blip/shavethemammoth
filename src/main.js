@@ -10,8 +10,12 @@ import { buildSnowDust, Breath } from './world/particles.js';
 import { Mammoth } from './mammoth/mammoth.js';
 import { buildAnatomy, SNOW_DEPTH } from './mammoth/anatomy.js';
 import { CameraRig, VIEWS } from './controls.js';
-import { Shaving, TOOL_ORDER, PUT_AWAY } from './game/shaving.js';
+import { Shaving, PUT_AWAY } from './game/shaving.js';
 import { Sound } from './game/audio.js';
+import { Game } from './game/game.js';
+import { Hero } from './game/hero.js';
+import { Lift } from './game/lift.js';
+import { Antics } from './game/antics.js';
 
 const q = new URLSearchParams(location.search);
 const num = (k, d) => (q.has(k) ? parseFloat(q.get(k)) : d);
@@ -128,7 +132,7 @@ async function start() {
   scene.add(land);
 
   // keep the trail and the mammoth's own patch of ground clear
-  const avoid = [{ x0: -30, x1: 4.5, z0: -3.2, z1: 3.2 }];
+  const avoid = [{ x0: -30, x1: 4.5, z0: -3.2, z1: 3.2 }, { x0: -0.8, x1: 5.2, z0: 3.2, z1: 5.2 }];   // (and where the traders have set up)
   setProgress(0.36, 'Scattering stones and grass');
   const rocks = buildRocks(terrain, { avoid });
   scene.add(rocks.group);
@@ -149,8 +153,7 @@ async function start() {
   if (q.has('nofur')) mammoth.setCoatVisible(false);
   // the tools, and the hair they cut
   const sound = new Sound();
-  const lastTool = (() => { try { return localStorage.getItem('mammoth-tool'); } catch { return null; } })();
-  const shaving = new Shaving({ scene, mammoth, terrain, sound, a2c: Q.samples > 0, tool: q.get('tool') || lastTool || 'garden' });
+  const shaving = new Shaving({ scene, mammoth, terrain, sound, a2c: Q.samples > 0, tool: q.get('tool') || 'scissors' });
   if (q.has('cutdisc')) {
     // dev: ?cutdisc=x,y,z,nx,ny,nz,radius[;...] shears everything crossing a disc
     for (const spec of q.get('cutdisc').split(';')) {
@@ -190,7 +193,8 @@ async function start() {
   const elfCentre = new THREE.Vector3(), elfAhead = new THREE.Vector3();
   // (every tool that is showing, not only the one in hand: while the scene warms up all of them are drawn once)
   const toolCasters = () => Object.values(shaving.tools).filter((t) => t.group.visible).flatMap((t) => t.meshes);
-  const nearCasters = () => [...mammoth.casters, ...terrain.meshes.filter((m) => m.userData.castNear), ...rocks.meshes, grass, ...toolCasters()];
+  let game = null, hero = null, lifter = null, antics = null;
+  const nearCasters = () => [...mammoth.casters, ...terrain.meshes.filter((m) => m.userData.castNear), ...rocks.meshes, grass, ...toolCasters(), ...(game ? game.casters : []), ...(hero ? hero.casters : []), ...(lifter ? lifter.casters : []), ...(antics ? antics.casters : [])];
   const farCasters = [...terrain.meshes.filter((m) => m.userData.castFar), ...rocks.meshes];
   const fitShadows = () => {
     shadowNear.fit(new THREE.Vector3(1.0, 1.45, 0), sky.sunDir, 4.8, 2.4, 160);
@@ -286,42 +290,67 @@ async function start() {
     snip.addEventListener('pointerdown', hold(true));
     for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) snip.addEventListener(ev, hold(false));
   }
+  for (const [id, code] of [['rise', 'KeyR'], ['sink', 'KeyF']]) {
+    const b = $(id);
+    if (!b) continue;
+    const go = (on) => (e) => { e.preventDefault(); on ? rig.keys.add(code) : rig.keys.delete(code); };
+    b.addEventListener('pointerdown', go(true));
+    for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) b.addEventListener(ev, go(false));
+  }
   const progressEl = $('progress');
   rig.onSqueeze = (on) => shaving.squeeze(on);
   rig.onStep = (run) => sound.step(run);
 
+  // ---- the game: money, the traders, what is owned ---------------------------------
+  // (dev stills and ?unlock have everything; ?gold=n sets the purse; ?fresh ignores a kept game; ?nosave keeps nothing)
+  game = new Game({
+    scene, terrain, mammoth, shaving, rig, sound, hint: showHint, storage: !shot && !q.has('nosave'),
+    dev: { unlock: shot || q.has('unlock'), gold: q.has('gold') ? num('gold', 0) : null, fresh: shot || q.has('fresh'), noscene: q.has('noscene') },
+  });
+  // the elf himself: seen from outside before the shaving starts, and whenever he has something new to show off
+  hero = new Hero({ scene, camera, rig, shaving, terrain, mammoth, sound });
+  game.hero = hero;
+  lifter = new Lift({ scene, rig, terrain, sound, hero });
+  game.lifter = lifter;
+  game.applyUpgrades();
+  antics = new Antics({ mammoth, rig, sound, hint: showHint, state: game.state, puffs: lifter.puffs, terrain, shaving });
+  game.antics = antics;
+  // bald: the shaving stops, the camera goes round to his best side, and the legend is told to the end
+  antics.ready = () => game.finds.pending() === 0;
+  antics.hush = () => (game.tipIn ?? 0) > 4;
+  antics.onBald = () => { if (rig.mode === 'elf') rig.leaveElf(false); goView(1); game.finale(); };
+  { const heard = rig.onLift; rig.onLift = (what) => { heard(what); if (what === 'thud') antics.feat('thud'); }; }
+  // dev: ?wear=partyhat,shades dresses him; ?pink dyes him
+  if (q.has('wear')) { game.state.worn.push(...q.get('wear').split(',')); antics.dress(); }
+  if (q.has('pink')) { game.state.flags.pink = true; antics.dye(); }
+  if (!q.has('tool')) shaving.setTool(game.state.tool);
+
   // ---- which tool ---------------------------------------------------------------
   const toolButtons = [...document.querySelectorAll('[data-tool]')];
-  const markTool = (id) => toolButtons.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.tool === id)));
-  const chooseTool = (id) => {
-    if (!shaving.tools[id]) return;
-    markTool(id);
-    shaving.setTool(id);
-    try { localStorage.setItem('mammoth-tool', id); } catch { /* the choice simply is not kept */ }
-  };
+  const chooseTool = (id) => (id === 'sweep' ? game.toggleSweep() : game.choose(id));
   shaving.onTool = (tool) => {
     rig.reachGoal = tool.def.reach;
     if (rig.mode !== 'elf') rig.reach = rig.reachGoal;   // (while shaving, the elf steps in or back over a moment)
-    markTool(tool.id);
+    game.refresh();
     if (rig.mode === 'elf') showHint(`<strong>${tool.name}.</strong> ${tool.def.blurb}`, 4);
   };
   rig.reachGoal = rig.reach = shaving.tool.def.reach;
-  markTool(shaving.tool.id);
+  game.refresh();
   toolButtons.forEach((b) => b.addEventListener('click', () => chooseTool(b.dataset.tool)));
-  rig.onWheel = (dir) => {
-    const now = TOOL_ORDER.indexOf(shaving.next || shaving.tool.id);
-    chooseTool(TOOL_ORDER[(now + dir + TOOL_ORDER.length) % TOOL_ORDER.length]);
-  };
+  rig.onWheel = (dir) => game.step(dir);
+  $('prompt')?.addEventListener('click', () => game.interact());
   rig.onChange = (mode) => {
     const elf = mode === 'elf';
     document.body.classList.toggle('elf', elf);
     shaving.setActive(elf);
+    if (!elf && game.dialog) game.close();
     if (progressEl) progressEl.hidden = !elf;
+    if ($('purse')) $('purse').hidden = !elf;
     if (elfButton) elfButton.textContent = elf ? 'Stop shaving' : 'Start shaving';
     if (elf) {
       if (!shot) sound.start();   // allowed now: this follows a click or a key press
       markView('elf');
-      showHint(`<strong>${shaving.tool.name}.</strong> ${shaving.tool.def.motor ? 'Walk up to the mammoth, lay it flat against the hide, hold it on and push.' : 'Walk up to the mammoth and cut; lay the blades flat against the hide for a close shave.'} <span class="desk"><kbd>Left mouse</kbd> or <kbd>Space</kbd> cuts (hold to keep cutting), <kbd>1</kbd> to <kbd>5</kbd> or the wheel changes tool, <kbd>W A S D</kbd> walks, <kbd>Esc</kbd> stops.</span>`, 12);
+      if (!game.arrive()) showHint(`<strong>${shaving.tool.name}.</strong> ${shaving.tool.def.sweep ? 'Look at the hair on the snow and hold the cut button to gather it.' : shaving.tool.def.motor ? 'Walk up to the mammoth, lay it flat against the hide, hold it on and push.' : 'Walk up to the mammoth and cut; lay the blades flat against the hide for a close shave.'} <span class="desk"><kbd>Left mouse</kbd> or <kbd>Space</kbd> cuts (hold to keep cutting), <kbd>Q</kbd> swaps to picking the hair up, <kbd>E</kbd> talks, <kbd>W A S D</kbd> walks, <kbd>Esc</kbd> stops.</span>`, 12);
     } else {
       markView(-1);
     }
@@ -334,8 +363,33 @@ async function start() {
     if (e.length >= 2 && !Number.isNaN(e[1])) rig.pos.set(e[0], 0, e[1]);
     if (e.length >= 4) { rig.yaw = e[2]; rig.pitch = e[3]; }
   }
+  // dev: ?lift=<ladder or pack> has that to go up with, and ?up=<metres> starts that far off the snow on it
+  if (q.has('lift')) { game.state.owned.add(q.get('lift')); game.use(q.get('lift')); }
+  if (q.has('up') && rig.mode === 'elf') {
+    rig.update(1 / 60);
+    rig.keys.add('KeyR'); rig.update(1 / 60);
+    rig.height = num('up', 1); rig.vy = 0;
+    if (!q.has('burn')) rig.keys.delete('KeyR');
+    rig.update(1 / 600);
+  }
   $('detail').value = qualityName;
   $('detail').addEventListener('change', (e) => applyQuality(e.target.value));
+  // starting again: asked twice, because it grows his coat back and takes everything bought
+  const again = $('new-game');
+  if (again) {
+    let sure = 0;
+    const calm = () => { clearTimeout(sure); sure = 0; again.classList.remove('sure'); again.textContent = 'New game'; };
+    again.addEventListener('click', () => {
+      if (!sure) {
+        again.classList.add('sure'); again.textContent = 'Sure? Everything goes';
+        sure = setTimeout(calm, 4000);
+        return;
+      }
+      calm();
+      game.restart();
+      showHint('<strong>A new game.</strong> His coat is back, your gold is gone, and you have the small bad scissors.', 7);
+    });
+  }
   const sunInput = $('sun');
   sunInput.value = String(elevation);
   let sunPending = null;
@@ -344,13 +398,22 @@ async function start() {
   const statsEl = $('stats');
   window.addEventListener('keydown', (e) => {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
+    // a scene is playing: any key gets on with it (Esc still stops the shaving altogether)
+    if (hero.playing && e.code !== 'Escape') { e.preventDefault(); hero.skip(); return; }
+    // talking to someone: E or Esc ends it, and nothing else is a command
+    if (game.dialog) { if (e.code === 'KeyE' || e.code === 'Escape') { e.preventDefault(); game.close(); } return; }
     if (e.code.startsWith('Digit')) {
       const i = +e.code.slice(5) - 1;
       // with a tool in hand the number keys change it; otherwise they change the view
-      if (rig.mode === 'elf') { if (i >= 0 && i < TOOL_ORDER.length) chooseTool(TOOL_ORDER[i]); }
+      if (rig.mode === 'elf') game.chooseNumber(i);
       else if (i >= 0 && i < VIEWS.length) goView(i);
     } else if (e.code === 'KeyE') {
-      rig.mode === 'elf' ? rig.leaveElf() : rig.enterElf();
+      // E starts the shaving; once down on the snow it talks to whoever is in front of the elf
+      if (rig.mode === 'elf') game.interact(); else rig.enterElf();
+    } else if (e.code === 'KeyQ' && rig.mode === 'elf') {
+      game.toggleSweep();
+    } else if (e.code === 'KeyT' && rig.mode === 'elf') {
+      game.swapLift();
     } else if (e.code === 'Escape' && rig.mode === 'elf') {
       rig.leaveElf();
     } else if (e.code === 'KeyH') {
@@ -358,6 +421,7 @@ async function start() {
     } else if (e.code === 'KeyP') {
       showStats = !showStats;
       statsEl.hidden = !showStats;
+  window.addEventListener('pointerdown', () => { if (hero.playing) hero.skip(); });
     } else if (e.code === 'KeyM') {
       sound.setMuted(!sound.muted);
       showHint(sound.muted ? 'Sound off' : 'Sound on', 2);
@@ -390,7 +454,13 @@ async function start() {
     say(-1);
     document.body.classList.add('told');
     window.removeEventListener('keydown', skipLegend, true);
-    if (!shot) setTimeout(() => showHint('Choose a tool, then press <strong>Start shaving</strong>. <span class="desk">Or drag to look around; <kbd>H</kbd> hides these controls, <kbd>M</kbd> mutes the sound.</span>', 9), tellLegend ? 1500 : 5200);
+    if (!shot) {
+      const s = game.state, back = game.resumed && (s.stats.picked > 0 || s.gold > 0);
+      const first = back
+        ? `<strong>Welcome back.</strong> ${s.gold} gold, and he is ${(mammoth.shorn * 100).toFixed(mammoth.shorn < 0.1 ? 1 : 0)}% shorn. Press <strong>Start shaving</strong> to carry on.`
+        : 'All you have is a pair of <strong>small bad scissors</strong>. Press <strong>Start shaving</strong> to climb down and use them.';
+      setTimeout(() => showHint(`${first} <span class="desk">Or drag to look around; <kbd>H</kbd> hides these controls, <kbd>M</kbd> mutes the sound.</span>`, 9), tellLegend ? 1500 : 5200);
+    }
   };
   legend.onSkip = () => {
     if (waiting) { const open = waiting; waiting = null; open(); }                  // the scene was ready and only waiting for the first line
@@ -421,7 +491,7 @@ async function start() {
     if (wait > 0) { waiting = open; later(() => { if (waiting) { waiting = null; open(); } }, wait); } else open();
   };
 
-  if (q.has('debug')) window.__game = { shaving, mammoth, rig, sound, camera, renderer, PUT_AWAY };   // dev: poke at the game from the console
+  if (q.has('debug')) window.__game = { shaving, mammoth, rig, sound, camera, renderer, PUT_AWAY, game, hero, lifter, antics, U, state: game.state };   // dev: poke at the game from the console
   if (q.has('nopush')) shaving.noPush = true;                                      // dev: hair ignores the blades
   if (q.has('away')) shaving.pinned = num('away', 0);                              // dev: hold the tool part way put away (0 to 1)
   if (q.has('noclippings')) shaving.clippings.mesh.visible = false;
@@ -464,7 +534,20 @@ async function start() {
     }
     rig.yaw -= num('snipyaw', 0) * num('snips', 1) * num('snipback', 0.5); rig.pitch -= num('snippitch', 0) * num('snips', 1) * num('snipback', 0.5);
   }
+  // dev: ?bald (or ?bald=<metres left>) takes the whole coat off at once, to see what is under it
+  if (q.has('bald')) mammoth.setHaircut(new Float32Array(mammoth.bodyCut.length).fill(num('bald', 0.0005) || 0.0005));
+  // dev: ?shave=x,y,z,r[,metres left] takes the coat off within r of a point (several, separated by semicolons)
+  if (q.has('shave')) {
+    const P = mammoth.data.body.positions, cut = Float32Array.from(mammoth.bodyCut);
+    for (const spec of q.get('shave').split(';')) {
+      const [x, y, z, r, left = 0.0005] = spec.split(',').map(Number);
+      for (let v = 0; v < cut.length; v++) if (Math.hypot(P[v * 3] - x, P[v * 3 + 1] - y, P[v * 3 + 2] - z) < r) cut[v] = Math.min(cut[v], left);
+    }
+    mammoth.setHaircut(cut);
+  }
   if (q.has('open')) shaving.tool.setAngle(shaving.tool.def.open * num('open', 1));
+  // dev: ?scene=<tool>&st=<seconds> shows the scene for getting that tool, stopped at that moment
+  if (q.has('scene') && rig.mode === 'elf' && hero.celebrate(q.get('scene'))) { rig.update(0); hero.jump(num('st', 2.2)); rig.update(0); camera.updateMatrixWorld(true); }
   if (shot && rig.mode === 'elf') shaving.lowered = num('away', 0);   // dev stills: the tool is already up
   if (q.has('look')) { const l = q.get('look').split(',').map(Number); rig.yaw = l[0]; rig.pitch = l[1]; }   // dev: where to look after the snips
   for (let i = 0, n = num('warm', 0); i < n; i++) {
@@ -508,10 +591,13 @@ async function start() {
     camera.updateMatrixWorld(true);
     mammoth.sampler.begin(mammoth.furMats.uniforms.uBreath.value);
     shaving.update(dt, camera, rig.feel);
+    game.update(dt);
+    hero.update(dt);
+    lifter.update(dt);
     if (frames < 3 && !shot) shaving.warm(camera, frames < 2);   // drawn once behind the loading card
     if (frames % 12 === 0) {
       sound.setWind(mammoth.sampler.windGust(camera.position.x, camera.position.z));
-      if (progressEl && !progressEl.hidden) { const pct = mammoth.shorn * 100; progressEl.textContent = `Shorn ${pct.toFixed(pct < 1 ? 3 : pct < 10 ? 2 : 1)}%`; }
+      if (progressEl && !progressEl.hidden) { const pct = mammoth.shorn * 100; progressEl.textContent = `Shorn ${pct.toFixed(pct < 1 ? 3 : pct < 10 ? 2 : 1)}%${game.finds.count ? ` · ${game.finds.count} of ${game.finds.total} found` : ''}`; }
     }
 
     // fewer strands are needed the further away the mammoth is
@@ -531,7 +617,7 @@ async function start() {
     if (rig.mode === 'elf' && !q.has('noelfshadow')) {
       // centred a little ahead of the elf, at about the height of its work
       camera.getWorldDirection(elfAhead); elfAhead.y = 0; elfAhead.normalize();
-      elfCentre.copy(camera.position).addScaledVector(elfAhead, 0.45); elfCentre.y = terrain.height(elfCentre.x, elfCentre.z) + 0.5;
+      elfCentre.copy(camera.position).addScaledVector(elfAhead, 0.45); elfCentre.y = terrain.height(elfCentre.x, elfCentre.z) + 0.5 + rig.height;
       shadowElf.fit(elfCentre, sky.sunDir, 1.3, 0.65, 70, true);
       shadowElf.bind(U.uShadowElf, U.uShadowElfMat, U.uShadowElfInfo);
       for (const o of casters) o.layers.enable(LAYER_SHADOW_ELF);

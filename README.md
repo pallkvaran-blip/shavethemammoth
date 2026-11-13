@@ -3,17 +3,58 @@
 > Legend has it, great woolly mammoths roamed the earth, but then a legend came and
 > shaved them all, and now they are elephants. That legend is you.
 
-A first-person game in the making: you are a very small creature (an elf, perhaps)
-and your job is to give one very large woolly mammoth a clean shave.
+A first-person game: you are an elf twenty centimetres tall, and your job is to give
+one very large woolly mammoth a clean shave.
 
-So far there is the mammoth, its coat, the light and the land around it, and five
-tools to shave it with, used in first person from the elf's height: small bad
-scissors, shears, garden clippers, electric shears and a beard shaver. You can also
-orbit the mammoth, jump between
-a few views and move the sun. The game opens on its legend, told a line at a time
-over the first shot of the mammoth (any key or a click skips it).
+You start with nothing but a pair of small bad scissors. The hair you cut is worth
+gold to Mortimer, a vulture in the wig trade; gold buys better tools, brooms and
+vacuum cleaners, ladders and jet packs from Gnorman, a gnome who is the mammoth's
+biggest fan and keeps a stall beside him. The more of the mammoth you can reach, the
+more there is to cut, and the more of what is under the coat comes to light. He has
+tattoos. He is also wearing something.
+
+The game opens on its legend, told a line at a time over the first shot of the
+mammoth (any key or a click skips it). It keeps itself in the browser between visits.
 
 ![The end of the opening: "That legend is you." over the mammoth at sunset](docs/legend.jpg)
+
+## The elf
+
+| Waiting to start | A new tool |
+| --- | --- |
+| ![A small elf in a striped hat looking up at the mammoth's legs](docs/the-elf.jpg) | ![The elf holding a pair of shears over his head, light bursting behind them, under the words "You got the Shears!"](docs/you-got-shears.jpg) |
+
+Most of the time you look out of his eyes and see only his shadow. Whenever he gets
+a new cutting tool the game stops to admire it: the camera steps outside him, he
+thrusts it over his head, a fanfare plays, and the camera goes once round him and
+back in through his hat. Each tool gets the scene it deserves. The garden clippers
+are bigger than he is:
+
+![The elf straining to hold a pair of garden clippers over his head like a barbell](docs/you-got-clippers.jpg)
+
+## The traders
+
+| Gnorman | Mortimer |
+| --- | --- |
+| ![A fat gnome with a fan on his hat and a foam finger, behind a striped stall](docs/gnorman.jpg) | ![A vulture in a ruff, a monocle and a ginger toupee, behind a table of wigs and a pair of scales](docs/mortimer.jpg) |
+
+![Gnorman's list of wares, with prices in gold](docs/shop.jpg)
+
+## Under the coat
+
+![A patch shaved on his flank, showing a butcher's chart and a heart with MUM across it](docs/under-the-coat.jpg)
+
+| Close to | From behind |
+| --- | --- |
+| ![A barcode on a hind leg: BEST BEFORE END OF ICE AGE](docs/tattoo.jpg) | ![The mammoth shaved, from behind and above: a pink thong, and several regrettable tattoos](docs/thong.jpg) |
+
+## Getting up there, and other purchases
+
+| Up a ladder | Picking it up | Sundries |
+| --- | --- | --- |
+| ![Looking down from a ladder past the garden clippers at the hair of a foreleg](docs/ladder.jpg) | ![A push broom held out over the snow](docs/broom.jpg) | ![The mammoth dyed pink, in a party hat and sunglasses](docs/pink.jpg) |
+
+## The tools
 
 | Small bad scissors | Shears | Garden clippers |
 | --- | --- | --- |
@@ -57,18 +98,56 @@ Then open the address Vite prints (http://localhost:5173 by default).
 
 | Input | What it does |
 | --- | --- |
-| Any key, a click or a tap during the opening | Skip the legend |
-| **Start shaving** button, or `E` | Pick up the chosen tool at the elf's height (`Esc` or `E` puts it down) |
-| Tool buttons; while shaving, `1` to `5` or the mouse wheel | Small bad scissors, shears, garden clippers, electric shears, beard shaver |
-| Left mouse, or `Space` | Cut. Hold to keep cutting (an electric tool runs for as long as it is held) |
+| Any key, a click or a tap during the opening or a scene | Skip it |
+| **Start shaving** button, or `E` | Climb down to the snow with the tool last used (`Esc` stops) |
+| Left mouse, or `Space` | Cut. Hold to keep cutting (an electric tool runs for as long as it is held). With a broom or a vacuum in hand, gather |
 | `W A S D`, `Shift`, mouse | Walk, run, look |
+| `1` to `5`, the mouse wheel, or the tool buttons | The cutting tools you own |
+| `Q` | Swap between cutting and picking up |
+| `E` | Talk to Gnorman or Mortimer when standing at their stalls (`E` or `Esc` leaves) |
+| `R`, or the right mouse button | Up: stand the ladder where you are and climb it, or burn the jet pack |
+| `F` | Down. At the bottom of the ladder, puts it away |
+| `A` `D` on a ladder | Walk the ladder sideways |
+| `T` | With a ladder and a pack both, change which of them `R` works |
 | `M` | Sound on or off |
 | Drag / scroll | Orbit and zoom (when not shaving) |
 | `1` `2` `3` `4` (when not shaving) | The mammoth, in profile, into the sun, the coat |
 | `H` | Hide or show the controls |
 | `P` | Frame rate, resolution, hairs on screen and which graphics card is in use |
-| Sun slider | Height of the sun, from last light to mid-morning |
-| Detail menu | Low, Medium, High, Ultra |
+| Sun slider, Detail menu | Height of the sun; Low, Medium, High, Ultra |
+| **New game** (asks twice) | Gives him his coat back and takes everything you have |
+
+By touch there are buttons for walking, cutting, going up and coming down; drag to
+look, and tap the prompt that appears at a stall to talk.
+
+## The game
+
+**Hair into gold.** Every lock you cut falls as itself and lies on the snow until it
+is picked up (`Q`, look at it, hold the cut button). Your pockets hold 100 g. Mortimer
+pays 25 gold the hundred grams. The whole coat is about 70 kg.
+
+**Gnorman's stall.**
+
+| | Gold | |
+| --- | --- | --- |
+| Shears, garden clippers, beard shaver, electric shears | 15, 120, 300, 600 | Each cuts more, or closer, than the last. A minute of work: about 25 g with the bad scissors, 200 to 300 g with the shears or the clippers, and as much as you can sweep with the electric ones |
+| Twig broom, push broom | 10, 80 | Gather what is under the head of the broom at each stroke |
+| Hand vacuum, shop vacuum; more suck | 350, 1000; 250, 600 | Hair flies up the nozzle from a distance |
+| Sack, wheelbarrow, bottomless sack | 30, 180, 600 | Carry 350 g, 1.2 kg, 5 kg |
+| Milk crate, step ladder, painter's ladder, fire brigade ladder | 20, 90, 300, 800 | Reach 0.45, 1.05, 2.05 and 3.75 m off the snow. He is 3.2 m at the top of his head |
+| Fizzy-pop rocket belt, leaf-blower pack, jet pack; bigger tanks | 500, 1200, 2600; 350, 800 | One short violent hop; six seconds of steady lift; a pack that holds you where you are. All fill up again on the ground. You can land on his back and work there |
+| Regrowth tonic | 150 | It all grows back, and you keep what you bought |
+| Loyalty card, rabbit's foot, cocoa | 100, 150, 60 | A tenth off; Mortimer pays 15% more; you walk a quarter faster |
+| Mystery box, party hat, sunglasses, a bucket of pink | 40, 80, 140, 400 | Nobody needs these |
+
+**Under the coat** there are twenty-two tattoos and a pink thong, drawn on the hide and
+visible only where the hair is off. Each is announced when enough of it is uncovered,
+and Gnorman pays for the gossip. The beard shaver is the tool that makes them easy to
+read.
+
+**He notices.** He rumbles, breaks wind (sooner if you stand behind him), and sneezes
+on anyone who loiters in front of his trunk. When he is bald the shaving stops and the
+legend is told to its end; you can leave him as he is or grow it all back and go again.
 
 ### Shaving
 
@@ -106,9 +185,10 @@ was. Then it comes away as one piece: squeezed out of the coat, it drops, turns,
 and settles on the snow, where it stays. The readout at the top right shows how
 much of the coat has gone.
 
-The elf stands about 20 cm tall at the eye (the garden clippers are longer than
-that), so for now only the feet, the lower legs and the tip of the trunk are
-within reach.
+The elf stands about 20 cm tall (the garden clippers are longer than that), so from
+the snow only the feet, the lower legs and the tip of the trunk are within reach.
+The rest wants a ladder or a pack. Off the ground the hide stops him in every
+direction, and where it is underneath him it holds him up.
 
 The scene also tunes itself while it runs: if the frame rate drops it lowers the
 resolution and draws less of the coat, and raises them again when there is headroom.
@@ -132,7 +212,14 @@ Settings > System > Display > Graphics.
 | Cutting | `src/mammoth/strand.js`, `mammoth.js`, `src/game/shaving.js` | The fur is shaped on the GPU, so the same recipe is followed in JavaScript for the guide strand of each lock to find the ones between the blades. Each is cut as a blade reaches it during the stroke, by writing a shorter length for it; its hairs follow. A poor tool misses some of the locks and leaves the others at uneven lengths. An electric tool is asked every frame instead, which needs a much quicker search: it looks only at locks rooted in the mouth of its comb (and, held in the air, at a sixth of the locks that might hang into it, a different sixth each frame). It can cut only so much a second; pushed faster than that through long hair it bogs down and leaves some standing. The hide shows as skin where the coat is down to stubble |
 | Hair and steel | `src/mammoth/furMaterial.js`, `src/game/tool.js` | The fur's vertex shader is told where the blades are and how they are shaped, and moves hair off them. As a last guarantee a tool is drawn as if a few centimetres nearer the eye than it is (5.5 cm for the clippers, 3 cm for the scissors), so any hair lying that close in front of it is hidden behind it and no strand can be seen passing through steel |
 | Cut hair | `src/game/clippings.js`, `furMaterial.js` | A cut copies the strand (and the pose of the skin and the wind at that moment) into a pool drawn by a variant of the fur shader, which grows the same hairs and keeps only the part beyond the cut. That part is then moved as one rigid piece: it falls, turns, flutters, slides off the mammoth and is laid flat on the snow |
-| Sound | `src/game/audio.js` | Synthesised with the Web Audio API: blades sliding and meeting, hair parting, boots in snow, wind that follows the gusts on screen. Each tool has its own voice: the clippers' wooden handles knock, the shears ring and twang as the bow opens them, the scissors tick, rattle and squeak. The electric tools hum for as long as they run, with the clatter of the cutter in step, and their note sags under load |
+| Sound | `src/game/audio.js` | Synthesised with the Web Audio API: blades sliding and meeting, hair parting, boots in snow, wind that follows the gusts on screen, coins, a fanfare for a new tool (and a deflating one for the bad scissors), the packs, and the mammoth's own noises. Each tool has its own voice: the clippers' wooden handles knock, the shears ring and twang as the bow opens them, the scissors tick, rattle and squeak. The electric tools hum for as long as they run, with the clatter of the cutter in step, and their note sags under load |
+| The game | `src/game/game.js`, `state.js`, `catalog.js` | What is owned, the gold, the sack, the two shops, the advice given once each when it is first needed, and what is kept in the browser between visits. The haircut is kept twice: lock by lock, which is exact but only fits a coat of the same detail, and point by point of the hide, which fits any. `catalog.js` is everything Gnorman sells, with a note on how the prices were set from measured cutting rates |
+| Picking up | `src/game/tools/sweepers.js`, `clippings.js` | Hands, two brooms and two vacuums are tools like the others, held the same way; the brooms keep to the ground whichever way the eyes are turned. Each fallen piece carries the grams it stands for. A vacuum pulls pieces up its nozzle one by one |
+| The elf | `src/game/people/elf.js`, `src/game/hero.js` | The player's character, built of simple solids with joints: he can hold a thing up in one hand or two, strain under it, be shaken by it and be let down by it. Looked out of, only his shadow is drawn. `hero.js` plays the scene for a new tool: where he stands (clear of the stall or the mammoth), what he does with each tool, the light behind it, and the camera's path once round him and back into his head |
+| The traders | `src/game/people/gnome.js`, `vulture.js`, `model.js` | Gnorman and his stall, Mortimer and his table; they turn to watch whoever comes by |
+| Getting up | `src/controls.js`, `src/game/lift.js` | The elf has a height above the snow. A ladder is stood up under him and climbed (it is drawn only as high as his feet, so it is never between him and the hair); a pack burns what is in its tank. `lift.js` is what is seen and heard of it: the ladders, the packs on his back, what comes out of them, the gauge |
+| Under the coat | `src/mammoth/tattoos.js`, `bodyMaterial.js`, `src/game/finds.js` | Twenty-two tattoos drawn in code on one sheet of ink, each projected onto the hide where it belongs (found by walking in from outside until the skin is met); and a thong, which is a formula. The skin's shader shows both only where the hair is off. Bare hide is a pavement of cracked plates, as an elephant's is |
+| Antics | `src/game/antics.js` | What he does while he is being shaved, what he can be made to wear, the remarks at each milestone, and the end |
 | Picture | `src/gfx/post.js` | HDR rendering, bloom, light shafts, a film-style tone curve that keeps colour in the highlights, vignette and grain |
 | Opening | `index.html`, `src/main.js` | The legend: its first line shows on the dark while the scene is being made, the others over the opening camera move, high in the sky where they can be read. The controls come up when it ends |
 
@@ -152,8 +239,17 @@ Settings > System > Display > Graphics.
   tool part way put away, 0 to 1), `legend=n` (hold line n of the opening legend; `nolegend` on
   the live page goes without it), `sync` (wait for the graphics side every frame: the tests use
   it, because without a graphics card frames are queued faster than they are drawn), `bare`
-  (leave the land undrawn: most of what makes a frame slow without a graphics card), and
-  `debug` (exposes the game as `window.__game`).
+  (leave the land undrawn: most of what makes a frame slow without a graphics card),
+  `debug` (exposes the game as `window.__game`), `unlock` (own everything, and no scenes; stills
+  always do), `gold=n`, `fresh` (ignore a kept game), `nosave` (keep nothing), `noscene`,
+  `scene=<tool>` with `st=<seconds>` (the scene for getting that tool, stopped at that moment),
+  `lift=<ladder or pack>` with `up=<metres>` (start that far off the snow on it), `bald` (the
+  whole coat off at once), `shave=x,y,z,r` (the coat off within r of a point; several separated
+  by semicolons), `wear=partyhat,shades` and `pink`.
+- `tools/loop-test.mjs` plays the whole game through on the live page: the first scene, cutting,
+  picking up by hand, selling, buying, the scene for a new tool, every broom and vacuum, a full
+  sack, a ladder, the packs, landing on his back, everything under the coat, the ending, and
+  saving and loading. It steps the game itself rather than waiting for frames, so it is quick.
 - `tools/smoke.mjs` drives the live page through every control and reports script errors;
   `tools/intro-test.mjs` checks the opening legend and the ways of skipping it;
   `tools/snip-test.mjs` picks up each tool in turn and cuts with real key presses;
@@ -166,7 +262,6 @@ Settings > System > Display > Graphics.
 
 ## What comes next
 
-1. Reaching the rest of the mammoth: climbing its coat, or something to stand on.
-2. The mammoth noticing: shifting its weight, lifting a foot, turning its head.
-3. The elf's hands on the handles (they are below the frame for now), and a reason
-   to start with the bad scissors: earning the better tools.
+1. The mammoth moving: shifting his weight, lifting a foot, turning his head to look.
+2. The elf's hands on the handles in first person (they are below the frame for now).
+3. More to do with the hair: Mortimer's wigs changing with what he has been sold.

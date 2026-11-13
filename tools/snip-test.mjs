@@ -22,7 +22,7 @@ const errors = [];
 page.on('console', (m) => { if (m.type() === 'error' || /THREE\.WebGLProgram|Shader Error|GL_INVALID|INVALID_/.test(m.text())) errors.push(m.text().slice(0, 700)); });
 page.on('pageerror', (e) => errors.push('pageerror: ' + e.message + '\n' + (e.stack || '').slice(0, 400)));
 // start beside the right foreleg with the garden clippers, close enough for them to lie on the hide
-await page.goto(base + '?q=low&strands=40000&adapt=5&stats&debug&sync&bare&tool=garden&elf=1.413,0.896,0.76,0.14', { waitUntil: 'load' });
+await page.goto(base + '?q=low&strands=40000&adapt=5&stats&debug&sync&bare&unlock&nosave&tool=garden&elf=1.413,0.896,0.76,0.14', { waitUntil: 'load' });
 await page.waitForFunction(() => document.body.classList.contains('ready'), null, { timeout: 300000 });
 
 let drawn = 0;
@@ -186,7 +186,11 @@ if (shots) await page.screenshot({ path: 'shots/snip_c.png', timeout: 300000 });
 await page.mouse.wheel(0, 120);
 await frames(7);
 now = await state();
-check(now.tool === 'scissors' && now.up, 'one more notch comes round to the small bad scissors');
+check(now.tool === 'hands' && now.up, 'one more notch is whatever picks the hair up (bare hands, here)');
+await page.mouse.wheel(0, 120);
+await frames(7);
+now = await state();
+check(now.tool === 'scissors' && now.up, 'and one more comes round to the small bad scissors');
 await page.keyboard.press('Digit2');
 await page.keyboard.press('Digit3');
 await frames(9);

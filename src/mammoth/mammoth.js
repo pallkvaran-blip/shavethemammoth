@@ -8,6 +8,7 @@ import { StrandSampler } from './strand.js';
 import { BodyCollider } from './collider.js';
 import { makeFurGeometry, makeFurMaterials, makeStrandAttributes, isWoolBatch, BATCH } from './furMaterial.js';
 import { makeBodyMaterials } from './bodyMaterial.js';
+import { makeTattooSheet, placeTattoos, tattooUniforms } from './tattoos.js';
 import { patchStandardMaterial } from '../gfx/patch.js';
 import { makeDepthMaterial } from '../gfx/shadows.js';
 import { LAYER_SHADOW_NEAR } from '../gfx/globals.js';
@@ -279,6 +280,10 @@ export class Mammoth {
     m.body.geometry.setAttribute('aCut', new THREE.BufferAttribute(m.bodyCutShown, 1));
     m.sampler = new StrandSampler({ volume: data.volume, skeleton: rig.skeleton });
     m.collider = new BodyCollider({ sdf: data.sdf, anat, rig });
+    // what is under the coat: found on the hide as he stands at rest, and given to the skin to show where it is shorn
+    m.collider.begin();
+    m.tattoos = placeTattoos(m.collider);
+    Object.assign(bodyMats.color.uniforms, tattooUniforms(makeTattooSheet(), m.tattoos));
 
     // ---- rigid parts ride on bones ----------------------------------------
     const rigidDepth = makeDepthMaterial();
@@ -630,6 +635,34 @@ export class Mammoth {
       if (g.cutDirty) { f.geometry.attributes.iCut.needsUpdate = true; g.cutDirty = false; }
     });
     if (this.bodyCutDirty) { this.body.geometry.attributes.aCut.needsUpdate = true; this.bodyCutDirty = false; }
+  }
+
+  /**
+   * Give the mammoth a haircut all at once: metres of coat left at each point
+   * of the hide (as this.bodyCut holds them), or null to grow it all back.
+   * Each lock takes the shortest cut of its patch of hide; or, if `locks` is
+   * given ({ long, short }: what this.groom[...].iCut held, for a coat of this
+   * same detail), exactly the length it had.
+   */
+  setHaircut(cut, locks = null) {
+    const bc = this.bodyCut, shown = this.bodyCutShown;
+    for (let v = 0; v < bc.length; v++) { bc[v] = cut ? cut[v] : UNCUT; shown[v] = Math.min(SHOWN_MAX, bc[v]); }
+    const I = this.data.body.indices;
+    this.cutLength = 0;
+    for (const c of this.chunks) {
+      const a = c.arrays, name = c.long ? 'long' : 'short', g = this.groom[name], own = cut && locks ? locks[name] : null;
+      for (let i = 0; i < c.count; i++) {
+        const L = a.iA[i * 4], t = a.tri[i] * 3;
+        const left = own ? own[a.orig[i]] : Math.min(bc[I[t]], bc[I[t + 1]], bc[I[t + 2]]);
+        const to = left < L ? left : UNCUT;
+        a.iCut[i] = to; g.iCut[a.orig[i]] = to;
+        if (left < L) this.cutLength += L - left;
+      }
+      this.dirtyChunks.add(c);
+    }
+    for (const name of ['long', 'short']) this.groom[name].cutDirty = true;
+    this.bodyCutDirty = true;
+    this.flushCuts();
   }
 
   /** Share of the coat (by length of hair) that has been cut away, 0..1. */

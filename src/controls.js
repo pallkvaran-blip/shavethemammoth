@@ -39,6 +39,21 @@ export class CameraRig {
     this.reachGoal = 0.25;
     this.onWheel = () => {};        // the wheel is turned while shaving: +1 or -1
     this._tmp = new THREE.Vector3();
+    this.busy = false;              // talking to someone: the elf stands still and the pointer is free
+    this.obstacles = [];            // things to walk round: { x, z, r }
+    this.pace = 1;                  // how fast the elf walks, as a multiple of its usual pace
+    this.cine = null;               // a scene is being played: { pos, target, fov } is where the camera is, and the elf does as the scene says
+    // getting off the ground
+    this.height = 0;                // how far the elf's feet are above the snow (up a ladder, in the air, on the mammoth's back)
+    this.vy = 0;                    // how fast that is changing, metres a second
+    this.lift = null;               // what there is to go up with: { kind: 'ladder', top, lean } or { kind: 'pack', thrust, tank, refill, air, hover }
+    this.ladder = null;             // the ladder, while it stands: { x, z, dx, dz, top, lean } (its foot, and the way it leans)
+    this.fuel = 0;                  // seconds of thrust left in the pack
+    this.thrusting = false;
+    this.perched = false;           // standing on the mammoth
+    this.shake = 0;                 // how hard the pack is shaking him, 0..1
+    this.rattle = 0;                // and how hard anything else is (it dies away by itself: see Antics)
+    this.onLift = () => {};         // told what happens: 'up' (ladder stood up), 'rung', 'hop', 'away', 'burn', 'out', 'empty', 'land', 'thud'
 
     const wake = () => { this.idle = 0; };
     canvas.addEventListener('pointerdown', wake);
@@ -55,10 +70,11 @@ export class CameraRig {
     document.addEventListener('pointerlockchange', () => {
       const locked = document.pointerLockElement === canvas;
       // leaving the lock (Esc) ends the walk, but only if we ever had it
-      if (!locked && this.locked && this.mode === 'elf') this.leaveElf();
+      if (!locked && this.locked && this.mode === 'elf' && !this.busy) this.leaveElf();
       this.locked = locked;
     });
     const look = (dx, dy, k) => {
+      if (this.busy || this.cine) return;
       this.yaw -= dx * k;
       this.pitch = THREE.MathUtils.clamp(this.pitch - dy * k, -1.2, 1.45);
     };
@@ -78,12 +94,16 @@ export class CameraRig {
     // the tool in hand: the left button, or the space bar, squeezes the handles
     let held = false;
     const squeeze = (on) => { if (on !== held) { held = on; this.onSqueeze(on); } };
-    canvas.addEventListener('pointerdown', (e) => { if (this.mode === 'elf' && this.locked && e.button === 0) squeeze(true); });
+    canvas.addEventListener('pointerdown', (e) => { if (this.mode === 'elf' && this.locked && !this.busy && !this.cine && e.button === 0) squeeze(true); });
     window.addEventListener('pointerup', (e) => { if (e.button === 0) squeeze(false); });
-    window.addEventListener('keydown', (e) => { if (e.code === 'Space' && this.mode === 'elf' && !e.repeat) { e.preventDefault(); squeeze(true); } });
+    window.addEventListener('keydown', (e) => { if (e.code === 'Space' && this.mode === 'elf' && !this.busy && !this.cine && !e.repeat) { e.preventDefault(); squeeze(true); } });
     window.addEventListener('keyup', (e) => { if (e.code === 'Space') squeeze(false); });
     window.addEventListener('blur', () => squeeze(false));
     this._squeeze = squeeze;
+    // the right button (or R) goes up: a rung of the ladder, or a burst from the pack
+    canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+    canvas.addEventListener('pointerdown', (e) => { if (this.mode === 'elf' && e.button === 2) this.keys.add('Thrust'); });
+    window.addEventListener('pointerup', (e) => { if (e.button === 2) this.keys.delete('Thrust'); });
   }
 
   setView(view, seconds = 2.4) {
@@ -106,6 +126,27 @@ export class CameraRig {
     this.orbit.update();
   }
 
+  /**
+   * Stand still and let go of the pointer (to talk to someone), or carry on.
+   * Carrying on asks for the pointer back; that only works from a click or a
+   * key press, which is how a conversation ends.
+   */
+  hold(on, aim = null) {
+    this.busy = on;
+    this.aim = on ? aim : null;      // { yaw, pitch }: where to turn the eyes while standing there
+    this.keys.clear();
+    this._squeeze(false);
+    if (this.mode !== 'elf') return;
+    if (on) {
+      if (document.pointerLockElement === this.canvas) document.exitPointerLock();
+    } else {
+      try {
+        const req = this.canvas.requestPointerLock?.();
+        if (req && req.catch) req.catch(() => {});
+      } catch { /* drag-to-look still works */ }
+    }
+  }
+
   enterElf() {
     if (this.mode === 'elf') return;
     this.mode = 'elf';
@@ -114,6 +155,7 @@ export class CameraRig {
     this.saved = { pos: this.camera.position.clone(), target: this.orbit.target.clone(), fov: this.camera.fov };
     // stand a couple of paces from a foreleg, looking at it
     this.pos.set(2.3, 0, 1.75);
+    this.height = 0; this.vy = 0; this.ladder = null; this.perched = false;
     this.yaw = Math.atan2(-(1.02 - this.pos.x), -(0.57 - this.pos.z));
     this.pitch = 0.2;
     this._lastYaw = this.yaw; this._lastPitch = this.pitch;
@@ -131,6 +173,9 @@ export class CameraRig {
   leaveElf(restore = true) {
     if (this.mode !== 'elf') return;
     this.mode = 'orbit';
+    this.cine = null;
+    this.height = 0; this.vy = 0; this.perched = false; this.thrusting = false;
+    if (this.ladder) { this.ladder = null; this.onLift('away'); }
     if (document.pointerLockElement === this.canvas) document.exitPointerLock();
     this._squeeze(false);
     this.camera.near = 0.08;
@@ -145,33 +190,135 @@ export class CameraRig {
 
   update(dt) {
     const cam = this.camera;
+    if (this.mode === 'elf' && this.cine) {
+      const c = this.cine, fl = this.feel;
+      this.pos.y = this.terrain.height(this.pos.x, this.pos.z) + 0.17;
+      cam.position.copy(c.pos);
+      cam.lookAt(c.target);
+      if (cam.fov !== c.fov) { cam.fov = c.fov; cam.updateProjectionMatrix(); }
+      fl.yawRate = 0; fl.pitchRate = 0; fl.moving = false; fl.running = false;
+      this._lastYaw = this.yaw; this._lastPitch = this.pitch;
+      return;
+    }
     if (this.mode === 'elf') {
       const run = this.keys.has('ShiftLeft') || this.keys.has('ShiftRight');
-      const speed = run ? 3.2 : 1.15;
+      const speed = (run ? 3.2 : 1.15) * this.pace;
       let f = 0, s = 0;
-      if (this.keys.has('KeyW') || this.keys.has('ArrowUp')) f += 1;
-      if (this.keys.has('KeyS') || this.keys.has('ArrowDown')) f -= 1;
-      if (this.keys.has('KeyD') || this.keys.has('ArrowRight')) s += 1;
-      if (this.keys.has('KeyA') || this.keys.has('ArrowLeft')) s -= 1;
-      const l = Math.hypot(f, s) || 1;
+      if (!this.busy) {
+        if (this.keys.has('KeyW') || this.keys.has('ArrowUp')) f += 1;
+        if (this.keys.has('KeyS') || this.keys.has('ArrowDown')) f -= 1;
+        if (this.keys.has('KeyD') || this.keys.has('ArrowRight')) s += 1;
+        if (this.keys.has('KeyA') || this.keys.has('ArrowLeft')) s -= 1;
+      }
       const sy = Math.sin(this.yaw), cy = Math.cos(this.yaw);
-      this.pos.x += (-sy * f + cy * s) / l * speed * dt;
-      this.pos.z += (-cy * f - sy * s) / l * speed * dt;
+      const sd = this._sd || (this._sd = new Float32Array(4));
+      const goUp = !this.busy && (this.keys.has('KeyR') || this.keys.has('Thrust'));
+      const goDown = !this.busy && this.keys.has('KeyF');
+      const lift = this.lift, pack = lift && lift.kind === 'pack' ? lift : null;
+
+      // ---- a ladder: R (or W) goes up it, F (or S) down; A and D walk it sideways, a hop at a time ----
+      if (this.ladder) {
+        const L = this.ladder;
+        const climb = (goUp || f > 0 ? 1 : 0) - (goDown || f < 0 ? 1 : 0);
+        const before = this.height;
+        this.height = THREE.MathUtils.clamp(before + climb * (run ? 1.8 : 1.05) * dt, 0, L.top);
+        if (Math.floor(this.height / 0.2) !== Math.floor(before / 0.2)) this.onLift('rung');
+        if (s !== 0) {
+          L.x += cy * s * 0.42 * dt; L.z += -sy * s * 0.42 * dt;
+          const hops = Math.floor((L.hop = (L.hop || 0) + dt * 3.2));
+          if (hops !== L.hops) { L.hops = hops; this.onLift('hop'); }
+        }
+        if (before <= 0 && climb < 0) {
+          // off at the bottom, and it is put away
+          this.ladder = null;
+          this.onLift('away');
+        } else {
+          this.pos.x = L.x + L.dx * L.lean * this.height;
+          this.pos.z = L.z + L.dz * L.lean * this.height;
+        }
+        this.vy = 0;
+        f = 0; s = 0;
+      } else if (lift && lift.kind === 'ladder' && goUp && this.height < 0.01) {
+        // stood up where the elf is, leaning towards the mammoth if he is near enough to lean on (else the way the elf faces)
+        let dx = -sy, dz = -cy;
+        if (this.body) {
+          this.body.sampleVolume(this.pos.x, 0.7, this.pos.z, sd);
+          const gl = Math.hypot(sd[0], sd[2]);
+          if (sd[3] < 2.2 && gl > 1e-3) { dx = -sd[0] / gl; dz = -sd[2] / gl; }
+        }
+        this.ladder = { x: this.pos.x, z: this.pos.z, dx, dz, top: lift.top, lean: lift.lean, hop: 0, hops: 0 };
+        this.onLift('up');
+      }
+
+      // ---- a pack: R, or the right button, burns what is in the tank ----
+      let burn = false;
+      if (pack && goUp && !this.ladder) {
+        if (this.fuel > 0) {
+          burn = true;
+          this.vy += pack.thrust * dt;
+          this.fuel = Math.max(0, this.fuel - dt);
+          if (this.height <= 0) this.height = 0.002;
+          if (this.fuel <= 0) this.onLift('empty');
+        }
+      }
+      if (burn !== this.thrusting) { this.thrusting = burn; this.onLift(burn ? 'burn' : 'out'); }
+      const flying = !this.ladder && (this.height > 0 || this.vy > 0);
+      if (flying) {
+        // the best pack holds him where he is when nothing is asked of it; the others only know up
+        const hover = pack && pack.hover && !burn && !goDown && this.fuel > 0 && this.height > 0.25 && !this.perched;
+        if (hover) { this.vy -= this.vy * Math.min(1, dt * 5); this.fuel = Math.max(0, this.fuel - dt * 0.3); }
+        else this.vy -= 6.5 * dt;
+        if (goDown && pack) this.vy -= 5 * dt;
+        this.vy *= Math.exp(-1.3 * dt);
+        this.height += this.vy * dt;
+        if (this.height <= 0) {
+          this.onLift(this.vy < -2.4 ? 'thud' : 'land');
+          this.height = 0; this.vy = 0;
+        }
+      }
+      if (pack && !burn) this.fuel = Math.min(pack.tank, this.fuel + dt * (this.height <= 0 || this.perched ? pack.refill : pack.air || 0));
+
+      const l = Math.hypot(f, s) || 1;
+      const pace = speed * (flying && !this.perched ? 1.3 : 1);
+      this.pos.x += (-sy * f + cy * s) / l * pace * dt;
+      this.pos.z += (-cy * f - sy * s) / l * pace * dt;
       // The mammoth's legs are as wide as tree trunks: walk around them. The
       // elf stops an arm's length from the hide, so that the tips of the
-      // tool in hand just reach the skin.
-      const eyeY = this.terrain.height(this.pos.x, this.pos.z) + 0.17;
+      // tool in hand just reach the skin. Off the ground the same holds in
+      // every direction: he cannot climb or fly into the belly, and where the
+      // hide is underneath him it holds him up, so he can stand on its back.
+      const ground = this.terrain.height(this.pos.x, this.pos.z);
+      let eyeY = ground + 0.17 + this.height;
       // a shorter tool lets the elf lean in closer; it steps back smoothly when a longer one is taken up
       this.reach += THREE.MathUtils.clamp(this.reachGoal - this.reach, -dt * 0.6, dt * 0.6);
+      const wasPerched = this.perched;
+      this.perched = false;
       if (this.body) {
-        const sd = this._sd || (this._sd = new Float32Array(4));
-        for (let it = 0; it < 3; it++) {
+        for (let it = 0; it < 4; it++) {
           this.body.sampleVolume(this.pos.x, eyeY, this.pos.z, sd);
           const short = this.reach - sd[3];
           if (short <= 0) break;
-          const gl = Math.hypot(sd[0], sd[2]);
-          if (gl < 1e-3) break;
-          this.pos.x += (sd[0] / gl) * short; this.pos.z += (sd[2] / gl) * short;
+          if (this.height > 0.02) {
+            const gl = Math.hypot(sd[0], sd[1], sd[2]);
+            if (gl < 1e-3) break;
+            const up = sd[1] / gl;
+            this.pos.x += (sd[0] / gl) * short; this.pos.z += (sd[2] / gl) * short;
+            // (on a ladder the hide can stop him going up, and shoulder him aside, but it does not lift him off the rungs)
+            this.height = Math.max(0, this.height + (this.ladder ? Math.min(0, up * short) : up * short));
+            eyeY = this.terrain.height(this.pos.x, this.pos.z) + 0.17 + this.height;
+            if (up > 0.45 && !this.ladder) {
+              // on top of him
+              if (this.vy < -2.4 && !wasPerched) this.onLift('thud');
+              if (this.vy < 0) this.vy = 0;
+              this.perched = true;
+            } else if (up < -0.45 && this.vy > 0) this.vy = 0;          // (bumped his head on the belly)
+            // shouldered aside on a ladder, its foot goes with him: it stands where it must for him to be where he is
+            if (this.ladder) { const L = this.ladder; L.x = this.pos.x - L.dx * L.lean * this.height; L.z = this.pos.z - L.dz * L.lean * this.height; }
+          } else {
+            const gl = Math.hypot(sd[0], sd[2]);
+            if (gl < 1e-3) break;
+            this.pos.x += (sd[0] / gl) * short; this.pos.z += (sd[2] / gl) * short;
+          }
         }
       } else {
         for (const foot of this.feet) {
@@ -180,14 +327,29 @@ export class CameraRig {
           if (d < r && d > 1e-4) { this.pos.x = foot.c[0] + (dx / d) * r; this.pos.z = foot.c[2] + (dz / d) * r; }
         }
       }
-      const moving = f !== 0 || s !== 0;
+      if (this.aim) {
+        // turning to face whoever is being spoken to
+        const k = Math.min(1, dt * 5), turn = Math.atan2(Math.sin(this.aim.yaw - this.yaw), Math.cos(this.aim.yaw - this.yaw));
+        this.yaw += turn * k; this.pitch += (this.aim.pitch - this.pitch) * k;
+      }
+      // and round the stalls
+      for (const o of this.obstacles) {
+        const dx = this.pos.x - o.x, dz = this.pos.z - o.z, d = Math.hypot(dx, dz), r = o.r + 0.06;
+        if (d < r && d > 1e-4) { this.pos.x = o.x + (dx / d) * r; this.pos.z = o.z + (dz / d) * r; }
+      }
+      const moving = (f !== 0 || s !== 0) && (this.height <= 0 || this.perched);
       const before = Math.floor((this.bob || 0) / Math.PI);
       this.bob = (this.bob || 0) + (moving ? dt * (run ? 13 : 8.5) : 0);
       if (moving && Math.floor(this.bob / Math.PI) !== before) this.onStep(run);
-      const eye = 0.17 + (moving ? Math.sin(this.bob) * 0.006 : 0);
+      const eye = 0.17 + this.height + (moving ? Math.sin(this.bob) * 0.006 : 0);
       this.pos.y = this.terrain.height(this.pos.x, this.pos.z) + eye;
       cam.position.copy(this.pos);
       cam.rotation.set(this.pitch, this.yaw, 0, 'YXZ');
+      if (this.shake > 0.01 || this.rattle > 0.01) {
+        const t = performance.now() * 0.001, k = Math.max(this.shake, this.rattle * 2.2);
+        cam.position.x += Math.sin(t * 61) * 0.0012 * k; cam.position.y += Math.sin(t * 53) * 0.0016 * k;
+        cam.rotation.z = Math.sin(t * 47) * 0.0045 * k;
+      }
       const fl = this.feel, inv = 1 / Math.max(dt, 1e-3);
       fl.yawRate = (this.yaw - (this._lastYaw ?? this.yaw)) * inv; fl.pitchRate = (this.pitch - (this._lastPitch ?? this.pitch)) * inv;
       this._lastYaw = this.yaw; this._lastPitch = this.pitch;

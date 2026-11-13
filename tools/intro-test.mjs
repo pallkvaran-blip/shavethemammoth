@@ -16,6 +16,23 @@ const open = async () => {
   const page = await browser.newPage({ viewport: { width: 520, height: 300 } });
   page.setDefaultTimeout(600000);
   page.on('pageerror', (e) => failures.push('pageerror: ' + e.message));
+  // The page keeps its own record of what the opening showed, in order. (Asking it from outside every so often is
+  // not enough: without a graphics card a single frame can outlast a whole line of the legend, and nothing can be
+  // asked of a page in the middle of a frame.)
+  await page.addInitScript(() => {
+    window.__seen = [];
+    const note = () => {
+      const b = document.body, hud = document.getElementById('hud');
+      if (!b) return;
+      const s = {
+        line: [...document.querySelectorAll('#legend p')].findIndex((p) => p.classList.contains('on')), ready: b.classList.contains('ready'), told: b.classList.contains('told'),
+        hud: hud ? +getComputedStyle(hud).opacity : 0, at: performance.now(),
+      };
+      const last = window.__seen[window.__seen.length - 1];
+      if (!last || last.line !== s.line || last.ready !== s.ready || last.told !== s.told) window.__seen.push(s);
+    };
+    new MutationObserver(note).observe(document, { subtree: true, childList: true, attributes: true, attributeFilter: ['class'] });
+  });
   return page;
 };
 /** What the opening is showing right now. */
@@ -37,15 +54,8 @@ const t0 = Date.now();
 await page.goto(url, { waitUntil: 'load' });
 const text = await page.$$eval('#legend p', (ps) => ps.map((p) => p.textContent.trim()));
 console.log('  ' + text.map((t) => `"${t}"`).join('\n  '));
-const seen = [];
-let last = '';
-for (;;) {
-  const s = await look(page);
-  const key = `${s.line}${s.ready}${s.told}`;
-  if (key !== last) { seen.push({ ...s, at: ((Date.now() - t0) / 1000).toFixed(1) }); last = key; }
-  if (s.told || Date.now() - t0 > 400000) break;
-  await page.waitForTimeout(150);
-}
+await page.waitForFunction(() => document.body.classList.contains('told'), null, { timeout: 400000 });
+const seen = (await page.evaluate(() => window.__seen)).filter((s) => s.line >= 0 || s.told).map((s) => ({ ...s, at: (s.at / 1000).toFixed(1) }));
 for (const s of seen) console.log(`  ${s.at.padStart(6)} s: ${s.told ? 'legend over' : s.line < 0 ? 'no line' : 'line ' + (s.line + 1)}, scene ${s.ready ? 'showing' : 'still dark'}, controls ${s.hud > 0.5 ? 'up' : 'hidden'}`);
 const order = seen.map((s) => (s.told ? 'end' : `${s.line + 1}${s.ready ? 'r' : 'd'}`)).join(' ');
 check(/^1d( 1r)? 2r 3r end$/.test(order), `first line on the dark, the others over the scene, then the end (saw: ${order})`);
