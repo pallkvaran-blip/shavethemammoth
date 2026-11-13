@@ -62,9 +62,9 @@ function starTexture() {
 }
 
 export class Hero {
-  constructor({ scene, camera, rig, shaving, terrain, mammoth, sound }) {
+  constructor({ scene, camera, rig, shaving, terrain, mammoth, sound, baked = null }) {
     Object.assign(this, { scene, camera, rig, shaving, terrain, mammoth, sound });
-    this.elf = buildElf();
+    this.elf = buildElf({ baked });
     scene.add(this.elf.group);
     this.casters = this.elf.meshes;
     this.time = 0;
@@ -106,7 +106,8 @@ export class Hero {
   _show(on) {
     if (on === this.seen) return;
     this.seen = on;
-    for (const m of this.elf.meshes) { if (on) m.layers.enable(0); else m.layers.disable(0); }
+    // (looked out of, he is only a shadow on the snow, and a shadow does not need every hair of his head)
+    for (const m of this.elf.meshes) { if (on) m.layers.enable(0); else m.layers.disable(0); if (m.name === 'locks') m.visible = on; }
   }
 
   /** The box a tool fills in its own frame (x along the blades). */

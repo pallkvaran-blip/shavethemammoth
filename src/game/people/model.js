@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { patchStandardMaterial } from '../../gfx/patch.js';
 import { makeDepthMaterial } from '../../gfx/shadows.js';
+import { LAMP } from '../../gfx/glsl.js';
 import { LAYER_SHADOW_NEAR } from '../../gfx/globals.js';
 import { canvasTexture } from '../tool.js';
 
@@ -15,7 +16,7 @@ export class Model {
     this.group = new THREE.Group();
     this.group.name = name;
     this.meshes = [];
-    this.patch = patch || { key: 'folk', bias: 0.03 };
+    this.patch = patch || { key: 'folk', bias: 0.03, fragmentHead: LAMP, fragmentLight: 'reflectedLight.directDiffuse += material.diffuseColor * lampLight(vWPos, normalize(vWNormal));' };
     this.depth = own || depth;
   }
 

@@ -16,6 +16,7 @@ import { Game } from './game/game.js';
 import { Hero } from './game/hero.js';
 import { Lift } from './game/lift.js';
 import { Antics } from './game/antics.js';
+import { startBaking } from './game/people/bakery.js';
 
 const q = new URLSearchParams(location.search);
 const num = (k, d) => (q.has(k) ? parseFloat(q.get(k)) : d);
@@ -55,8 +56,8 @@ if (!legend.over) {
 // run time (resolution and how much of the coat is drawn) to hold a steady
 // frame rate on whatever graphics card it finds.
 const PRESETS = {
-  low: { children: 5, strands: 110000, shadow: [2048, 1024], samples: 2, scale: 0.72, dpr: 1, furShadow: 0.4, grass: 0.55, dust: 0.4 },
-  medium: { children: 8, strands: 160000, shadow: [2048, 1024], samples: 4, scale: 0.86, dpr: 1, furShadow: 0.5, grass: 0.8, dust: 0.7 },
+  low: { children: 5, strands: 110000, shadow: [2048, 1024], samples: 2, scale: 0.72, dpr: 1, furShadow: 0.4, grass: 0.55, dust: 0.4, folk: 0.55 },
+  medium: { children: 8, strands: 160000, shadow: [2048, 1024], samples: 4, scale: 0.86, dpr: 1, furShadow: 0.5, grass: 0.8, dust: 0.7, folk: 0.8 },
   high: { children: 12, strands: 240000, shadow: [4096, 2048], samples: 4, scale: 1, dpr: 1.25, furShadow: 0.6, grass: 1, dust: 1 },
   ultra: { children: 20, strands: 400000, shadow: [4096, 2048], samples: 4, scale: 1, dpr: 2, furShadow: 0.7, grass: 1, dust: 1 },
 };
@@ -105,6 +106,10 @@ async function start() {
     camera.updateProjectionMatrix();
     post.setSize(size.x, size.y);
   };
+
+  // the people of the place are sculpted while everything else loads (on threads of their own, where the page allows it;
+  // ?nothreads keeps it here)
+  const baking = startBaking(['elf', 'gnome', 'vulture'], { threads: !q.has('nothreads') });
 
   // ---- sky & sun ------------------------------------------------------------
   setProgress(0.02, 'Lighting the sky');
@@ -303,13 +308,25 @@ async function start() {
 
   // ---- the game: money, the traders, what is owned ---------------------------------
   // (dev stills and ?unlock have everything; ?gold=n sets the purse; ?fresh ignores a kept game; ?nosave keeps nothing)
+  setProgress(0.97, 'Dressing the locals');
+  const waitedFrom = performance.now();
+  const baked = { elf: await baking.elf, gnome: await baking.gnome, vulture: await baking.vulture };
+  const folkTimes = { ...baking.took, where: Object.values(baking.where).join(','), waited: Math.round(performance.now() - waitedFrom) };
+  const dressFrom = performance.now();
   game = new Game({
-    scene, terrain, mammoth, shaving, rig, sound, hint: showHint, storage: !shot && !q.has('nosave'),
+    scene, terrain, mammoth, shaving, rig, sound, hint: showHint, storage: !shot && !q.has('nosave'), baked,
     dev: { unlock: shot || q.has('unlock'), gold: q.has('gold') ? num('gold', 0) : null, fresh: shot || q.has('fresh'), noscene: q.has('noscene') },
   });
   // the elf himself: seen from outside before the shaving starts, and whenever he has something new to show off
-  hero = new Hero({ scene, camera, rig, shaving, terrain, mammoth, sound });
+  hero = new Hero({ scene, camera, rig, shaving, terrain, mammoth, sound, baked: baked.elf });
+  folkTimes.dressed = Math.round(performance.now() - dressFrom);
   game.hero = hero;
+  // Everything the people are made of is got ready behind the loading card. They are left out of the picture when they
+  // are not in it; one first drawn later would hold everything up while its materials were made.
+  const folkToWarm = [];
+  for (const root of [hero.elf.group, ...Object.values(game.people).flatMap((p) => p.parts.map((part) => part.group))]) {
+    root.traverse((o) => { if (o.isMesh && o.frustumCulled) { o.frustumCulled = false; folkToWarm.push(o); } });
+  }
   lifter = new Lift({ scene, rig, terrain, sound, hero });
   game.lifter = lifter;
   game.applyUpgrades();
@@ -494,7 +511,7 @@ async function start() {
     if (wait > 0) { waiting = open; later(() => { if (waiting) { waiting = null; open(); } }, wait); } else open();
   };
 
-  if (q.has('debug')) window.__game = { shaving, mammoth, rig, sound, camera, renderer, PUT_AWAY, game, hero, lifter, antics, U, state: game.state };   // dev: poke at the game from the console
+  if (q.has('debug')) window.__game = { shaving, mammoth, rig, sound, camera, renderer, PUT_AWAY, game, hero, lifter, antics, U, state: game.state, folkTimes };   // dev: poke at the game from the console
   if (q.has('nopush')) shaving.noPush = true;                                      // dev: hair ignores the blades
   if (q.has('away')) shaving.pinned = num('away', 0);                              // dev: hold the tool part way put away (0 to 1)
   if (q.has('noclippings')) shaving.clippings.mesh.visible = false;
@@ -608,6 +625,17 @@ async function start() {
     const far = THREE.MathUtils.clamp(10 / Math.max(dist, 0.1), 0.42, 1);
     const coat = furBase * ADAPT[adaptLevel].fur;
     mammoth.setFurDetail(THREE.MathUtils.clamp(coat * far, 0.05, 1), Q.furShadow * Math.min(1, coat * 1.4));
+    // (and the people's hair goes the same way as his when the frames are slow)
+    const folkHair = THREE.MathUtils.clamp((Q.folk ?? 1) * ADAPT[adaptLevel].fur, 0.3, 1);
+    // each of them is told how far off the eye is: at a distance fewer faces and fewer strands will do. (Looked out of,
+    // the elf is only his own shadow, which never needs more than that.)
+    const eye = camera.position;
+    hero.elf.see(rig.mode === 'elf' && !hero.playing ? 99 : eye.distanceTo(hero.elf.group.position), folkHair);
+    for (const who of ['gnome', 'vulture']) {
+      const at = game.people[who], d = Math.hypot(eye.x - at.x, eye.y - at.y - 0.25, eye.z - at.z);
+      game[who].see(d, folkHair);
+      if (who === 'vulture') game.table.see(d, folkHair);
+    }
     U.uPxScale.value = size.y * 0.5 * camera.projectionMatrix.elements[5];
     mammoth.updateCoat(camera, U.uPxScale.value, Math.max(2, num('children', Q.children) * ADAPT[adaptLevel].kids));
 
@@ -663,13 +691,13 @@ async function start() {
 
     frames++;
     // the first frame compiles every shader; only lift the loading card once that is done
-    if (frames === 2) reveal();
+    if (frames === 2) { for (const o of folkToWarm) o.frustumCulled = true; reveal(); }
     if (showStats && frames % 20 === 0) {
       statsEl.textContent = `${fps ? fps.toFixed(0) : '–'} fps · ${size.x}×${size.y} · ${Math.round((mammoth.hairsDrawn || 0) / 1000)}k hairs · ${(renderer.info.render.triangles / 1e6).toFixed(1)}M triangles · detail ${qualityName}${adaptLevel ? ' −' + adaptLevel : ''} · ${gpuName}`;
     }
     if (shot && frames === 2) {
       gl.finish();
-      window.__info = { shorn: +(mammoth.shorn * 100).toFixed(3), clippings: shaving.clippings.count, tris: renderer.info.render.triangles, calls: renderer.info.render.calls, strands: mammoth.strands, hairs: mammoth.hairsDrawn, coatDraws: mammoth.coatDraws, sun: sky.sunColor.toArray().map((v) => +v.toFixed(2)), meter: +meter.toFixed(3), exposure: +renderer.toneMappingExposure.toFixed(3), gpu: gpuName };
+      window.__info = { shorn: +(mammoth.shorn * 100).toFixed(3), clippings: shaving.clippings.count, tris: renderer.info.render.triangles, calls: renderer.info.render.calls, strands: mammoth.strands, hairs: mammoth.hairsDrawn, coatDraws: mammoth.coatDraws, sun: sky.sunColor.toArray().map((v) => +v.toFixed(2)), meter: +meter.toFixed(3), exposure: +renderer.toneMappingExposure.toFixed(3), gpu: gpuName, folk: folkTimes, loaded: Math.round(performance.now()) };
       window.__shotReady = true;
       return;
     }

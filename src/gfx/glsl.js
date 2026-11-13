@@ -210,3 +210,17 @@ mat4 boneMatrix(float i) {
     texelFetch(uBoneTex, ivec2(x + 2, y), 0), texelFetch(uBoneTex, ivec2(x + 3, y), 0));
 }
 `;
+
+// A lamp near by: what it adds to a point facing n. Soft, falling off with the square of the distance, gone altogether
+// by two metres, and with no shadow of its own.
+export const LAMP = /* glsl */ `
+uniform vec3 uLampPos;
+uniform vec3 uLampCol;
+vec3 lampLight(vec3 wp, vec3 n) {
+  vec3 to = uLampPos - wp;
+  float d2 = dot(to, to);
+  if (d2 > 4.0) return vec3(0.0);
+  float facing = clamp((dot(n, to * inversesqrt(d2)) + 0.4) / 1.4, 0.0, 1.0);
+  return uLampCol * facing / (d2 + 0.08) * (1.0 - smoothstep(2.2, 4.0, d2));
+}
+`;

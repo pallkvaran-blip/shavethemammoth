@@ -29,6 +29,20 @@ function mat3FromQuat(q) {
   ];
 }
 
+// a turn that takes a solid's own y axis to the direction given
+function mat3FromAxis(axis) {
+  const l = Math.hypot(axis[0], axis[1], axis[2]) || 1;
+  const yx = axis[0] / l, yy = axis[1] / l, yz = axis[2] / l;
+  // across it: whichever of z and x it is least like
+  let xx, xy, xz;
+  if (Math.abs(yz) < 0.9) { xx = yy; xy = -yx; xz = 0; } else { xx = 0; xy = yz; xz = -yy; }
+  const xl = Math.hypot(xx, xy, xz) || 1;
+  xx /= xl; xy /= xl; xz /= xl;
+  const zx = xy * yz - xz * yy, zy = xz * yx - xx * yz, zz = xx * yy - xy * yx;
+  return [xx, yx, zx, xy, yy, zy, xz, yz, zz];
+}
+const turnOf = (p) => (p.axis ? mat3FromAxis(p.axis) : mat3FromQuat(quatFromEulerZYX(...(p.rot || [0, 0, 0]))));
+
 export function smin(a, b, k) {
   if (k <= 0) return a < b ? a : b;
   const h = Math.max(k - Math.abs(a - b), 0) / k;
@@ -44,6 +58,13 @@ export function smax(a, b, k) {
  *  sphere:    { type:'sph', c:[x,y,z], r }
  *  ellipsoid: { type:'ell', c:[x,y,z], r:[rx,ry,rz], rot:[degX,degY,degZ] }
  *  roundcone: { type:'rc',  a:[x,y,z], b:[x,y,z], r1, r2 }
+ *  torus:     { type:'tor', c:[x,y,z], R, r, rot:[degX,degY,degZ], s:[sx,sy,sz] }   (a ring about its own y axis; s squashes it)
+ *  box:       { type:'box', c:[x,y,z], h:[hx,hy,hz], rot:[degX,degY,degZ], round }   (half sizes; corners rounded by `round`)
+ *  leaf:      { type:'leaf', a:[x,y,z], b:[x,y,z], r1, r2, t, t2, n:[x,y,z], bend, curl }
+ *             (a flat blade: the outline of a round cone from a to b, lying across the direction n, half as thick as
+ *              `t` (`t2` at the far end) with a rolled edge; `bend` bows its middle sideways, `curl` turns its end out
+ *              of the flat, both in metres)
+ *             (an ellipsoid, a torus or a box may give `axis: [x, y, z]`, the way its own y axis is to point, instead of `rot`)
  * common:     { k: blend radius, bone: 'name', fur: {...}, name }
  */
 export function compilePrims(list) {
@@ -58,8 +79,7 @@ export function compilePrims(list) {
       o.t = 1;
       o.cx = p.c[0]; o.cy = p.c[1]; o.cz = p.c[2];
       o.rx = p.r[0]; o.ry = p.r[1]; o.rz = p.r[2];
-      const rot = p.rot || [0, 0, 0];
-      const m = mat3FromQuat(quatFromEulerZYX(rot[0], rot[1], rot[2]));
+      const m = turnOf(p);
       // world->local is the transpose
       o.m00 = m[0]; o.m01 = m[3]; o.m02 = m[6];
       o.m10 = m[1]; o.m11 = m[4]; o.m12 = m[7];
@@ -76,9 +96,48 @@ export function compilePrims(list) {
       o.il2 = 1 / o.l2;
       o.bx = (p.a[0] + p.b[0]) * 0.5; o.by = (p.a[1] + p.b[1]) * 0.5; o.bz = (p.a[2] + p.b[2]) * 0.5;
       o.br = Math.sqrt(o.l2) * 0.5 + Math.max(p.r1, p.r2);
+    } else if (p.type === 'tor' || p.type === 'box') {
+      o.t = p.type === 'tor' ? 3 : 4;
+      o.cx = p.c[0]; o.cy = p.c[1]; o.cz = p.c[2];
+      const m = turnOf(p);
+      o.m00 = m[0]; o.m01 = m[3]; o.m02 = m[6];
+      o.m10 = m[1]; o.m11 = m[4]; o.m12 = m[7];
+      o.m20 = m[2]; o.m21 = m[5]; o.m22 = m[8];
+      o.bx = o.cx; o.by = o.cy; o.bz = o.cz;
+      if (o.t === 3) {
+        const sc = p.s || [1, 1, 1];
+        o.R = p.R; o.r = p.r; o.sx = sc[0]; o.sy = sc[1]; o.sz = sc[2];
+        o.smin = Math.min(sc[0], sc[1], sc[2]);
+        o.br = Math.max((p.R + p.r) * Math.max(sc[0], sc[2]), Math.hypot(p.R * Math.max(sc[0], sc[2]), p.r * sc[1]));
+      } else {
+        o.hx = p.h[0]; o.hy = p.h[1]; o.hz = p.h[2]; o.round = p.round || 0;
+        o.br = Math.hypot(p.h[0], p.h[1], p.h[2]);
+      }
+    } else if (p.type === 'leaf') {
+      o.t = 5;
+      o.ax = p.a[0]; o.ay = p.a[1]; o.az = p.a[2];
+      o.bax = p.b[0] - p.a[0]; o.bay = p.b[1] - p.a[1]; o.baz = p.b[2] - p.a[2];
+      o.l2 = o.bax * o.bax + o.bay * o.bay + o.baz * o.baz;
+      o.il2 = 1 / o.l2;
+      const h = Math.sqrt(o.l2);
+      o.h = h; o.r1 = p.r1; o.r2 = p.r2; o.th = p.t; o.th2 = p.t2 ?? p.t;
+      // a frame: u along it, w through its thickness, v across its width
+      o.ux = o.bax / h; o.uy = o.bay / h; o.uz = o.baz / h;
+      const n = p.n || [0, 0, 1], along = n[0] * o.ux + n[1] * o.uy + n[2] * o.uz;
+      let wx = n[0] - o.ux * along, wy = n[1] - o.uy * along, wz = n[2] - o.uz * along;
+      const wl = Math.hypot(wx, wy, wz) || 1;
+      wx /= wl; wy /= wl; wz /= wl;
+      o.wx = wx; o.wy = wy; o.wz = wz;
+      o.vx = wy * o.uz - wz * o.uy; o.vy = wz * o.ux - wx * o.uz; o.vz = wx * o.uy - wy * o.ux;
+      o.cb = (p.r1 - p.r2) / h; o.ca = Math.sqrt(Math.max(0, 1 - o.cb * o.cb));
+      o.bend = p.bend || 0; o.curl = p.curl || 0;
+      o.bx = (p.a[0] + p.b[0]) * 0.5; o.by = (p.a[1] + p.b[1]) * 0.5; o.bz = (p.a[2] + p.b[2]) * 0.5;
+      o.br = h * 0.5 + Math.max(p.r1, p.r2, o.th, o.th2) + Math.abs(o.bend) + Math.abs(o.curl);
     } else {
       throw new Error('unknown primitive ' + p.type);
     }
+    // (kept for whoever builds on these: any other field of the description, such as a tag or a pattern)
+    o.src = p;
     return o;
   });
 }
@@ -100,6 +159,35 @@ export function primDist(o, x, y, z) {
     if (k1 < EPS) return -Math.min(o.rx, o.ry, o.rz);
     return (k0 * (k0 - 1)) / k1;
   }
+  if (o.t === 3 || o.t === 4) {
+    const dx = x - o.cx, dy = y - o.cy, dz = z - o.cz;
+    const lx = o.m00 * dx + o.m01 * dy + o.m02 * dz, ly = o.m10 * dx + o.m11 * dy + o.m12 * dz, lz = o.m20 * dx + o.m21 * dy + o.m22 * dz;
+    if (o.t === 3) {
+      const ax = lx / o.sx, ay = ly / o.sy, az = lz / o.sz;
+      const q = Math.sqrt(ax * ax + az * az) - o.R;
+      return (Math.sqrt(q * q + ay * ay) - o.r) * o.smin;
+    }
+    const qx = Math.abs(lx) - o.hx + o.round, qy = Math.abs(ly) - o.hy + o.round, qz = Math.abs(lz) - o.hz + o.round;
+    const ox = Math.max(qx, 0), oy = Math.max(qy, 0), oz = Math.max(qz, 0);
+    return Math.sqrt(ox * ox + oy * oy + oz * oz) + Math.min(Math.max(qx, Math.max(qy, qz)), 0) - o.round;
+  }
+  if (o.t === 5) {
+    const px = x - o.ax, py = y - o.ay, pz = z - o.az;
+    const u = px * o.ux + py * o.uy + pz * o.uz;
+    let v = px * o.vx + py * o.vy + pz * o.vz, w = px * o.wx + py * o.wy + pz * o.wz;
+    const t = u / o.h, tc = t < 0 ? 0 : t > 1 ? 1 : t;
+    v -= o.bend * 4 * tc * (1 - tc);
+    w -= o.curl * tc * tc;
+    // its outline, flat (an uneven capsule, after Inigo Quilez)...
+    const av = v < 0 ? -v : v, k = o.ca * u - o.cb * av;
+    let d2;
+    if (k < 0) d2 = Math.sqrt(av * av + u * u) - o.r1;
+    else if (k > o.ca * o.h) d2 = Math.sqrt(av * av + (u - o.h) * (u - o.h)) - o.r2;
+    else d2 = o.ca * av + o.cb * u - o.r1;
+    // ...and that outline, drawn in by the thickness, swollen out again all round
+    const th = o.th + (o.th2 - o.th) * tc, e = d2 + th;
+    return e > 0 ? Math.sqrt(e * e + w * w) - th : (w < 0 ? -w : w) - th;
+  }
   // round cone (after Inigo Quilez)
   const pax = x - o.ax, pay = y - o.ay, paz = z - o.az;
   const yy = pax * o.bax + pay * o.bay + paz * o.baz;
@@ -116,7 +204,7 @@ export function primDist(o, x, y, z) {
 
 // parameter 0..1 along a round cone's axis (0 for other primitives)
 export function primParam(o, x, y, z) {
-  if (o.t !== 2) return 0;
+  if (o.t !== 2 && o.t !== 5) return 0;
   const t = ((x - o.ax) * o.bax + (y - o.ay) * o.bay + (z - o.az) * o.baz) * o.il2;
   return t < 0 ? 0 : t > 1 ? 1 : t;
 }
