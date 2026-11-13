@@ -56,8 +56,8 @@ if (!legend.over) {
 // run time (resolution and how much of the coat is drawn) to hold a steady
 // frame rate on whatever graphics card it finds.
 const PRESETS = {
-  low: { children: 5, strands: 110000, shadow: [2048, 1024], samples: 2, scale: 0.72, dpr: 1, furShadow: 0.4, grass: 0.55, dust: 0.4 },
-  medium: { children: 8, strands: 160000, shadow: [2048, 1024], samples: 4, scale: 0.86, dpr: 1, furShadow: 0.5, grass: 0.8, dust: 0.7 },
+  low: { children: 5, strands: 110000, shadow: [2048, 1024], samples: 2, scale: 0.72, dpr: 1, furShadow: 0.4, grass: 0.55, dust: 0.4, folk: 0.55 },
+  medium: { children: 8, strands: 160000, shadow: [2048, 1024], samples: 4, scale: 0.86, dpr: 1, furShadow: 0.5, grass: 0.8, dust: 0.7, folk: 0.8 },
   high: { children: 12, strands: 240000, shadow: [4096, 2048], samples: 4, scale: 1, dpr: 1.25, furShadow: 0.6, grass: 1, dust: 1 },
   ultra: { children: 20, strands: 400000, shadow: [4096, 2048], samples: 4, scale: 1, dpr: 2, furShadow: 0.7, grass: 1, dust: 1 },
 };
@@ -321,6 +321,12 @@ async function start() {
   hero = new Hero({ scene, camera, rig, shaving, terrain, mammoth, sound, baked: baked.elf });
   folkTimes.dressed = Math.round(performance.now() - dressFrom);
   game.hero = hero;
+  // Everything the people are made of is got ready behind the loading card. They are left out of the picture when they
+  // are not in it; one first drawn later would hold everything up while its materials were made.
+  const folkToWarm = [];
+  for (const root of [hero.elf.group, ...Object.values(game.people).flatMap((p) => p.parts.map((part) => part.group))]) {
+    root.traverse((o) => { if (o.isMesh && o.frustumCulled) { o.frustumCulled = false; folkToWarm.push(o); } });
+  }
   lifter = new Lift({ scene, rig, terrain, sound, hero });
   game.lifter = lifter;
   game.applyUpgrades();
@@ -619,6 +625,9 @@ async function start() {
     const far = THREE.MathUtils.clamp(10 / Math.max(dist, 0.1), 0.42, 1);
     const coat = furBase * ADAPT[adaptLevel].fur;
     mammoth.setFurDetail(THREE.MathUtils.clamp(coat * far, 0.05, 1), Q.furShadow * Math.min(1, coat * 1.4));
+    // (and the people's hair goes the same way as his when the frames are slow)
+    const folkHair = THREE.MathUtils.clamp((Q.folk ?? 1) * ADAPT[adaptLevel].fur, 0.3, 1);
+    for (const who of [hero.elf, game.gnome, game.vulture, game.table]) who.detail(folkHair);
     U.uPxScale.value = size.y * 0.5 * camera.projectionMatrix.elements[5];
     mammoth.updateCoat(camera, U.uPxScale.value, Math.max(2, num('children', Q.children) * ADAPT[adaptLevel].kids));
 
@@ -674,7 +683,7 @@ async function start() {
 
     frames++;
     // the first frame compiles every shader; only lift the loading card once that is done
-    if (frames === 2) reveal();
+    if (frames === 2) { for (const o of folkToWarm) o.frustumCulled = true; reveal(); }
     if (showStats && frames % 20 === 0) {
       statsEl.textContent = `${fps ? fps.toFixed(0) : '–'} fps · ${size.x}×${size.y} · ${Math.round((mammoth.hairsDrawn || 0) / 1000)}k hairs · ${(renderer.info.render.triangles / 1e6).toFixed(1)}M triangles · detail ${qualityName}${adaptLevel ? ' −' + adaptLevel : ''} · ${gpuName}`;
     }

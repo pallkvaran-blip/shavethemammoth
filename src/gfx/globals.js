@@ -43,6 +43,10 @@ export const U = {
   uShadowElfMat: { value: new THREE.Matrix4() },
   uShadowElfInfo: { value: new THREE.Vector4(1, 1, 1, 0) },
 
+  // a lamp (the one on Gnorman's stall): where it is, and its light at a metre. What is near it is lit by it.
+  uLampPos: { value: new THREE.Vector3(0, -1000, 0) },
+  uLampCol: { value: new THREE.Vector3(0, 0, 0) },
+
   uSkyLut: { value: blackTex },
   uFogParams: { value: new THREE.Vector4(0.004, 0.08, 0, 0.00004) },
   uFogTint: { value: new THREE.Vector3(1, 1, 1) },

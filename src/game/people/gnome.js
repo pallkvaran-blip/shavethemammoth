@@ -127,7 +127,7 @@ export function buildGnome({ bare = false, baked = null } = {}) {
   fig.bound([0, 0.22, 0], 0.4);
   let turn = 0, hello = 0, blinkIn = 1.7, blink = 0;
   return {
-    group, meshes, height: 0.3, rig, data, materials: M,
+    group, meshes, height: 0.3, rig, data, materials: M, detail: fig.detail,
     /**
      * @param look     which way the visitor is, as an angle about y from the gnome's own forward (radians)
      * @param near     0 when nobody is about, 1 when someone is at the counter

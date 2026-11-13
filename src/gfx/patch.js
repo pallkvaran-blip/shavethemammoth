@@ -16,9 +16,10 @@ import { U } from './globals.js';
  * @param opts.fragmentLight   statements run with `sv` (how much sun reaches here, 0..1), to add light of the material's own
  * @param opts.fragmentAmbient statements run when all light is in, to hold some of it back (occlusion)
  * @param opts.extraFragment   statements run last, on `gl_FragColor`
+ * @param opts.offset          how far off the surface (metres, along its normal) the shadow is looked up: less for small things
  */
 export function patchStandardMaterial(mat, {
-  taps = 6, sigma = 160, bias = 0.02, radius = 0.03, key = '', extraUniforms = null,
+  taps = 6, sigma = 160, bias = 0.02, radius = 0.03, offset = 0.01, key = '', extraUniforms = null,
   vertexHead = '', extraVertex = '', fragmentHead = '', fragmentColor = '', fragmentSurface = '', fragmentNormal = '',
   fragmentMaterial = '', fragmentLight = '', fragmentAmbient = '', extraFragment = '',
 } = {}) {
@@ -44,7 +45,7 @@ export function patchStandardMaterial(mat, {
         ${fragmentHead}`)
       .replace('#include <lights_fragment_begin>', `#include <lights_fragment_begin>
         {
-          float sv = sunVisibility(vWPos + normalize(vWNormal) * 0.01, ${sigma.toFixed(1)}, ${bias.toFixed(4)}, ${radius.toFixed(4)}, ign(gl_FragCoord.xy));
+          float sv = sunVisibility(vWPos + normalize(vWNormal) * ${offset.toFixed(4)}, ${sigma.toFixed(1)}, ${bias.toFixed(4)}, ${radius.toFixed(4)}, ign(gl_FragCoord.xy));
           reflectedLight.directDiffuse *= sv;
           reflectedLight.directSpecular *= sv;
           #ifdef USE_CLEARCOAT
@@ -64,6 +65,6 @@ export function patchStandardMaterial(mat, {
     if (fragmentAmbient) f = f.replace('#include <lights_fragment_end>', `#include <lights_fragment_end>\n${fragmentAmbient}`);
     shader.fragmentShader = f;
   };
-  mat.customProgramCacheKey = () => `sun-${taps}-${sigma}-${bias}-${radius}-${key}`;
+  mat.customProgramCacheKey = () => `sun-${taps}-${sigma}-${bias}-${radius}-${offset}-${key}`;
   return mat;
 }

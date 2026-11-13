@@ -4,7 +4,7 @@
 // a feather its sheen: a soft light that slides across it as it turns.
 import * as THREE from 'three';
 import { U, LAYER_SHADOW_NEAR } from '../../gfx/globals.js';
-import { COMMON, SHADOWS, ATMOSPHERE } from '../../gfx/glsl.js';
+import { COMMON, SHADOWS, ATMOSPHERE, LAMP } from '../../gfx/glsl.js';
 
 const VERT = /* glsl */ `
 ${COMMON}
@@ -52,6 +52,7 @@ const FRAG = /* glsl */ `
 ${COMMON}
 ${SHADOWS}
 ${ATMOSPHERE}
+${LAMP}
 uniform vec3 uBase;
 uniform vec3 uEdge;
 uniform vec3 uShaft;
@@ -112,6 +113,7 @@ void main() {
   col += sqrt(albedo) * vec3(1.0, 0.7, 0.42) * uSunColor * back * 0.5 * smoothstep(0.3, 0.9, y);
 
   col += albedo * ambientLight(normalize(N + vec3(0.0, 0.25, 0.0))) * open;
+  col += albedo * lampLight(vPosW, N) * open;
   col = applyAtmosphere(col, vPosW, cameraPosition);
   gl_FragColor = vec4(col, alpha);
 }`;

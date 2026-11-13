@@ -4,6 +4,7 @@
 // Gnorman's stall. This file holds that together: who stands where, what the
 // player owns, the two shops, and what is kept between visits.
 import * as THREE from 'three';
+import { U } from '../gfx/globals.js';
 import { GameState, packLengths, unpackLengths } from './state.js';
 import { ITEMS, SECTIONS, HAIR_PRICE, inSection } from './catalog.js';
 import { TOOL_ORDER } from './shaving.js';
@@ -105,6 +106,9 @@ export class Game {
     gnome.group.translateZ(-0.11);
     gnome.group.updateMatrixWorld(true);
     this.gnome = gnome; this.stall = stall;
+    // the lamp on the stall lights whoever is at it (it is always nearly dark there, under the awning with the sun behind)
+    stall.lamp.getWorldPosition(U.uLampPos.value);
+    U.uLampCol.value.set(0.34, 0.2, 0.085);
     const [table, vulture] = place('vulture', [() => buildWigTable({ baked: baked.vulture }), () => buildVulture({ baked: baked.vulture })]);
     vulture.group.position.y += 0.1;                             // on his stump
     vulture.group.translateZ(-0.05);

@@ -58,6 +58,19 @@ export class Sculpt {
     return d;
   }
 
+  /** The distance to the layer before anything was carved out of it (how thick the flesh is, whatever hollows there are in it). */
+  uncut(x, y, z) {
+    const prims = this.solids;
+    let d = 1e9;
+    for (let i = 0; i < prims.length; i++) {
+      const o = prims[i];
+      const dx = x - o.bx, dy = y - o.by, dz = z - o.bz;
+      if (Math.sqrt(dx * dx + dy * dy + dz * dz) - o.br >= d + o.k) continue;
+      d = smin(d, primDist(o, x, y, z), o.k);
+    }
+    return d;
+  }
+
   grad(x, y, z, out, h = this.eps) {
     const gx = this.dist(x + h, y, z) - this.dist(x - h, y, z);
     const gy = this.dist(x, y + h, z) - this.dist(x, y - h, z);
@@ -242,7 +255,9 @@ export function meshLayer(sculpt, { cell = 0.0015, rig = null, occluder = null, 
     for (const h of ao) { dark += Math.max(0, h - occ(x + nx * h, y + ny * h, z + nz * h)) / h * scale; scale *= 0.75; }
     dark *= 1.25;                                    // (three looks do the work of four)
     shade[i * 2] = Math.max(0, 1 - dark * 0.55);
-    shade[i * 2 + 1] = Math.min(1, Math.max(0, 1 + sculpt.dist(x - nx * thin, y - ny * thin, z - nz * thin) / thin));
+    // how thin it is here: a little way in along the normal, is that still inside? (Measured on the layer as it was before
+    // anything was carved out of it: the rim of an eye socket is not a thin place, it only has a hole behind it.)
+    shade[i * 2 + 1] = Math.min(1, Math.max(0, 1 + sculpt.uncut(x - nx * thin, y - ny * thin, z - nz * thin) / thin));
     owner[i] = sculpt.owner(x, y, z);
     if (paint) { out4[0] = out4[1] = out4[2] = out4[3] = 1; paint(x, y, z, nx, ny, nz, out4); tint[i * 4] = out4[0]; tint[i * 4 + 1] = out4[1]; tint[i * 4 + 2] = out4[2]; tint[i * 4 + 3] = out4[3]; }
     if (rig) {

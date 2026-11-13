@@ -40,13 +40,17 @@ export function buildFigure(name, bones, data, materials) {
     B[bone].add(object);
     return object;
   };
-  /** Hang hair (from growLocks, grown where the figure stands at rest) on a bone. */
+  const hairs = [];
+  /** Hang hair or feathers (grown where the figure stands at rest) on a bone. */
   const grow = (bone, locks) => {
     locks.mesh.position.sub(rig.rest[bone]);
     B[bone].add(locks.mesh);
     meshes.push(locks.mesh);
+    if (locks.detail) hairs.push(locks);
     return locks;
   };
+  /** Draw this share of every strand of its hair (1 = all of it). */
+  const detail = (f) => { for (const h of hairs) h.detail(f); };
   /** Hair that has to turn about a point of its own (an eyebrow): returns the pivot, a group on the bone. */
   const pivot = (bone, locks, at) => {
     const p = new THREE.Group(), r = rig.rest[bone];
@@ -55,6 +59,7 @@ export function buildFigure(name, bones, data, materials) {
     p.add(locks.mesh);
     B[bone].add(p);
     meshes.push(locks.mesh);
+    if (locks.detail) hairs.push(locks);
     return p;
   };
   /**
@@ -85,5 +90,5 @@ export function buildFigure(name, bones, data, materials) {
       }
     }
   };
-  return { group, rig, B, meshes, data, materials, hang, grow, pivot, eye, bound };
+  return { group, rig, B, meshes, data, materials, hang, grow, pivot, eye, bound, detail };
 }

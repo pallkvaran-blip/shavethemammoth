@@ -2,7 +2,7 @@
 // that turns to face whoever is looking, lit as the mammoth's hair is.
 import * as THREE from 'three';
 import { U, LAYER_SHADOW_NEAR } from '../../gfx/globals.js';
-import { COMMON, SHADOWS, ATMOSPHERE } from '../../gfx/glsl.js';
+import { COMMON, SHADOWS, ATMOSPHERE, LAMP } from '../../gfx/glsl.js';
 import { growStrands } from './strands.js';
 
 const VERT = /* glsl */ `
@@ -66,6 +66,7 @@ const FRAG = /* glsl */ `
 ${COMMON}
 ${SHADOWS}
 ${ATMOSPHERE}
+${LAMP}
 uniform vec3 uRoot;
 uniform vec3 uTip;
 uniform vec3 uShine;
@@ -118,6 +119,7 @@ void main() {
   col += sqrt(albedo) * vec3(1.0, 0.72, 0.45) * uSunColor * back * (0.05 + 2.4 * edge) * smoothstep(0.15, 0.9, t) * max(vis, edge * back * 0.6) * 0.7;
 
   col += albedo * ambientLight(normalize(N + vec3(0.0, 0.3, 0.0))) * open * (0.65 + 0.35 * mid);
+  col += albedo * lampLight(vPosW, N) * mix(0.55, 1.0, deep);
   col = applyAtmosphere(col, vPosW, cameraPosition);
   gl_FragColor = vec4(col, alpha);
 }`;
@@ -162,7 +164,17 @@ export function locksMesh(strands, { width = strands.width, colour = {}, flex = 
   mesh.frustumCulled = false;
   mesh.userData.shadowMaterial = depth;
   mesh.layers.enable(LAYER_SHADOW_NEAR);
-  return { mesh, material, count: strands.count };
+  // (for a machine that is struggling: fewer strands, each a little wider, so that the mass of it looks the same)
+  const per = strands.index.length / Math.max(1, strands.count);
+  let shown = 1;
+  const detail = (f) => {
+    f = Math.min(1, Math.max(0.2, f));
+    if (Math.abs(f - shown) < 0.02) return;
+    shown = f;
+    geo.setDrawRange(0, Math.max(1, Math.round(strands.count * f)) * per);
+    own.uWidth.value = width / Math.sqrt(f);
+  };
+  return { mesh, material, count: strands.count, detail };
 }
 
 /** Grow hair and make a mesh of it, in one go (see growStrands and locksMesh for what may be asked). */

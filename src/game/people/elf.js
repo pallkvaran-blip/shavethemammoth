@@ -183,7 +183,7 @@ export function buildElf({ bare = false, baked = null } = {}) {
 
   return {
     group, meshes, height: 0.2, eye: 0.17, back,
-    want, pose, rig, data, materials: M,
+    want, pose, rig, data, materials: M, detail: fig.detail,
     /** Where a hand is (world): 'R', 'L', or 'both' for the point midway between them. ('R' is the one he lifts things with.) */
     hand(which, out = _v) {
       if (which === 'both') return B.handL.getWorldPosition(out).add(B.handR.getWorldPosition(_w)).multiplyScalar(0.5);

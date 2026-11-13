@@ -9,6 +9,7 @@
 // by rule, and coordinates in metres round and along the limb it is on.
 import * as THREE from 'three';
 import { patchStandardMaterial } from '../../gfx/patch.js';
+import { LAMP } from '../../gfx/glsl.js';
 
 const VERT_HEAD = /* glsl */ `
 attribute vec2 aShade;
@@ -202,7 +203,7 @@ const KINDS = {
         float thin = vShade.y;
         if (thin > 0.02) {
           float back = clamp(-ndl * 0.8 + 0.35, 0.0, 1.0);
-          float lit = sunVisibility(vWPos + uSunDir * 0.02, 160.0, 0.02, 0.03, ign(gl_FragCoord.xy));
+          float lit = sunVisibility(vWPos + uSunDir * 0.02, 160.0, 0.02, 0.012, ign(gl_FragCoord.xy));
           reflectedLight.directDiffuse += material.diffuseColor * uSunColor * back * thin * lit * vec3(1.0, 0.27, 0.14) * uFolkA.z * 1.9;
         }
       }
@@ -362,9 +363,11 @@ export function folkMaterial(kind, { color = 0xffffff, a = [0, 0, 0, 0], b = [0,
   }
   m.userData.folk = uniforms;
   return patchStandardMaterial(m, {
-    key: `folk-${kind}-${sculpted ? 's' : 'p'}${picture ? '-pic' : ''}`, bias: 0.012, radius: 0.012, taps: 8, extraUniforms: uniforms,
-    vertexHead: VERT_HEAD, extraVertex: VERT_BODY, fragmentHead: LIB,
-    fragmentColor: K.color || '', fragmentSurface: K.surface || '', fragmentNormal: K.normal || '', fragmentLight: K.light || '',
+    key: `folk-${kind}-${sculpted ? 's' : 'p'}${picture ? '-pic' : ''}`, bias: 0.012, radius: 0.012, offset: 0.004, taps: 8, extraUniforms: uniforms,
+    vertexHead: VERT_HEAD, extraVertex: VERT_BODY, fragmentHead: LAMP + LIB,
+    fragmentColor: K.color || '', fragmentSurface: K.surface || '', fragmentNormal: K.normal || '',
+    // (whatever else lights it, the lamp on the stall does if it is near)
+    fragmentLight: (K.light || '') + 'reflectedLight.directDiffuse += material.diffuseColor * lampLight(vWPos, normalize(vWNormal));',
     fragmentAmbient: OCCLUDE,
   });
 }

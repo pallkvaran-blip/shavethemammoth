@@ -101,7 +101,7 @@ export function buildVulture({ bare = false, baked = null } = {}) {
   fig.bound([0, 0.26, 0], 0.42);
   let turn = 0, nod = 0, blinkIn = 3, blink = 0;
   return {
-    group, meshes, height: 0.47, rug: B.rug, rig, data, materials: M,
+    group, meshes, height: 0.47, rug: B.rug, rig, data, materials: M, detail: fig.detail,
     update(dt, t, look, near, pleased = 0) {
       turn += (THREE.MathUtils.clamp(look, -1, 1) * near - turn) * Math.min(1, dt * 3);
       // he looks you up and down; a sale gets a quick greedy nod
@@ -161,6 +161,7 @@ export function buildWigTable({ baked = null } = {}) {
   }
   // wigs on stands: a ginger mop, a tall fair one, and a black quiff on the skull of somebody who haggled
   const strands = baked ? baked.hair : (() => { const h = vultureRecipe().hair; return { wigMop: h.wigMop(), wigTower: h.wigTower(), wigQuiff: h.wigQuiff() }; })();
+  const wigs = [];
   const wig = (x, name, stand = null) => {
     const g = new THREE.Group();
     g.position.set(x, 0.157, 0.2);
@@ -172,6 +173,7 @@ export function buildWigTable({ baked = null } = {}) {
       const locks = locksMesh(strands[name], { colour: WIG_HAIR[name], dense: 5, flex: 0.008 });
       g.add(locks.mesh);
       M.meshes.push(locks.mesh);
+      wigs.push(locks);
     }
     return g;
   };
@@ -190,6 +192,7 @@ export function buildWigTable({ baked = null } = {}) {
   let tipped = 0;
   return {
     group: M.group, meshes: M.meshes, radius: 0.36,
+    detail(f) { for (const w of wigs) w.detail(f); },
     /** @param weighing 0..1: there is hair in the pan */
     update(dt, t, weighing) {
       tipped += (weighing - tipped) * Math.min(1, dt * 4);

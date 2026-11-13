@@ -22,8 +22,8 @@ function bakeAway(who, bare, onProgress) {
   return new Promise((resolve, reject) => {
     let worker, alive = false;
     const fail = (why) => { clearTimeout(timer); try { if (worker) worker.terminate(); } catch { /* it is gone already */ } reject(new Error(why)); };
-    // (a thread that has not said it is ready within a few seconds is not going to)
-    const timer = setTimeout(() => { if (!alive) fail('no answer from the baking thread'); }, 6000);
+    // (a thread that has not said it is ready in a quarter of a minute is not going to)
+    const timer = setTimeout(() => { if (!alive) fail('no answer from the baking thread'); }, 15000);
     try { worker = new BakeWorker(); } catch (err) { fail(String(err)); return; }
     worker.onerror = (e) => fail((e && e.message) || 'the baking thread failed');
     worker.onmessage = (e) => {

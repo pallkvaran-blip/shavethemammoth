@@ -172,6 +172,17 @@ function paintGnome(x, y, z, nx, ny, nz, out) {
 
 const CELL = { head: 0.0015, hand: 0.0015, jersey: 0.0023, jerseyRib: 0.0016, trousers: 0.0026, belt: 0.0016, boots: 0.002, hat: 0.0022, foam: 0.0022 };
 
+// (the same list in another order, the same every time: roots from two places mixed, so that a share of them is a fair share)
+function shuffled(list, seed) {
+  let s = seed >>> 0 || 1;
+  for (let i = list.length - 1; i > 0; i--) {
+    s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
+    const j = Math.floor((s / 4294967296) * (i + 1)), t = list[i];
+    list[i] = list[j]; list[j] = t;
+  }
+  return list;
+}
+
 /** Where an eyebrow turns about (s = 1 for his left). */
 export const browAt = (s) => [s * 0.023, 0.2575, 0.0565];
 
@@ -193,17 +204,17 @@ export function gnomeRecipe() {
     hair: {
       // the beard: from under his nose to his belt, lying on the belly as on a shelf. Thickest in the middle, where it
       // has furthest to go; and none of it rooted where his collar is
-      beard: (data) => growStrands([
+      beard: (data) => growStrands(shuffled([
         ...scatter(data.head, 6000, (x, y, z) => (clothes(x, y, z) < 0.0015 ? 0 : inBeard(x, y, z) * (1 + 3 * clamp01(1 - Math.abs(x) / 0.03))), 51),
         // (he has no neck, and his chin is down inside his collar: in the middle the beard comes out over the top of it)
         ...scatter(data.jersey, 3000, (x, y, z) => (y > 0.168 && z > 0.04 && Math.abs(x) < 0.046 && L.head.dist(x, y, z) > 0.0006 ? 1 + 2 * clamp01((y - 0.168) / 0.02) : 0), 52),
-      ], {
+      ], 59), {
         seed: 21, segments: 10, width: 0.00074, clump: 0.6, clumps: 150, frizz: 0.003, curl: [0.0022, 52], loft: 0.012,
         body: (x, y, z) => Math.min(L.head.dist(x, y, z), clothes(x, y, z)),
         shape: (p, n, rnd) => {
           const ax = Math.abs(p[0]), mid = 1 - clamp01(ax / 0.052);
           return {
-            length: 0.042 + 0.046 * mid + rnd() * 0.02,
+            length: 0.04 + 0.036 * mid + rnd() * 0.02,
             dir: [n[0] * 0.75 + Math.sign(p[0]) * 0.12 * (1 - mid) + (rnd() - 0.5) * 0.7 * mid, -0.8, 0.45 * Math.max(n[2], 0) + 0.3 + 0.35 * mid],
             droop: 1.5, stiff: 0.25,
           };
