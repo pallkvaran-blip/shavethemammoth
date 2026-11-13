@@ -317,6 +317,7 @@ async function start() {
   game.antics = antics;
   // bald: the shaving stops, the camera goes round to his best side, and the legend is told to the end
   antics.ready = () => game.finds.pending() === 0;
+  antics.hush = () => (game.tipIn ?? 0) > 4;
   antics.onBald = () => { if (rig.mode === 'elf') rig.leaveElf(false); goView(1); game.finale(); };
   { const heard = rig.onLift; rig.onLift = (what) => { heard(what); if (what === 'thud') antics.feat('thud'); }; }
   // dev: ?wear=partyhat,shades dresses him; ?pink dyes him

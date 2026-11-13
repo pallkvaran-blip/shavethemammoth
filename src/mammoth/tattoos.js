@@ -242,6 +242,35 @@ export const TATTOOS = [
       words(g, 'NOBODY', w / 2, h * 0.9, h * 0.15, { font: BLOCK, style: '', colour: GREEN, fit: w * 0.8 });
     },
   },
+  {
+    // as on the back of a lorry
+    id: 'wide', name: 'WIDE LOAD', from: [-2.4, 1.52, -0.75], dir: [0.82, 0.1, 0.56], size: [0.44, 0.16],
+    draw(g, w, h) {
+      g.fillStyle = 'rgba(226,170,40,0.95)'; g.beginPath(); g.roundRect(w * 0.02, h * 0.06, w * 0.96, h * 0.88, h * 0.08); g.fill();
+      g.save(); g.beginPath(); g.rect(w * 0.02, h * 0.06, w * 0.96, h * 0.2); g.rect(w * 0.02, h * 0.74, w * 0.96, h * 0.2); g.clip();
+      g.fillStyle = INK; for (let x = -h; x < w + h; x += h * 0.42) { g.beginPath(); g.moveTo(x, h); g.lineTo(x + h * 0.21, h); g.lineTo(x + h * 1.21, 0); g.lineTo(x + h, 0); g.closePath(); g.fill(); }
+      g.restore();
+      words(g, 'WIDE LOAD', w / 2, h * 0.5, h * 0.36, { font: BLOCK, style: '', fit: w * 0.86, spacing: 2 });
+    },
+  },
+  {
+    // underneath, in small letters
+    id: 'tooclose', name: 'IF YOU CAN READ THIS YOU ARE TOO CLOSE', from: [-0.45, 0.5, 0], dir: [0, 1, 0], up: [1, 0, 0], size: [0.56, 0.17],
+    draw(g, w, h) {
+      words(g, 'IF YOU CAN READ THIS', w / 2, h * 0.3, h * 0.34, { font: BLOCK, style: '', fit: w * 0.94 });
+      words(g, 'YOU ARE TOO CLOSE', w / 2, h * 0.72, h * 0.34, { font: BLOCK, style: '', colour: RED, fit: w * 0.94 });
+    },
+  },
+  {
+    id: 'tusks', name: 'I ♥ BIG TUSKS', from: [1.75, 2.75, -1.6], dir: [-0.25, -0.2, 1], size: [0.42, 0.22],
+    draw(g, w, h) {
+      words(g, 'I', w * 0.2, h * 0.34, h * 0.5, { font: BLOCK, style: '' });
+      heart(g, w * 0.42, h * 0.33, h * 0.2, 'rgba(156,36,28,0.92)', INK, h * 0.03);
+      words(g, 'BIG', w * 0.74, h * 0.34, h * 0.46, { font: BLOCK, style: '', fit: w * 0.4 });
+      words(g, 'TUSKS', w / 2, h * 0.68, h * 0.34, { font: BLOCK, style: '', fit: w * 0.9, spacing: 3 });
+      words(g, '(and I cannot lie)', w / 2, h * 0.91, h * 0.11, { style: 'italic' });
+    },
+  },
 ];
 
 /** The sheet of ink: every tattoo drawn into its own box. Returns the texture and where each one is on it. */

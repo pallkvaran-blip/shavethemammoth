@@ -140,7 +140,7 @@ pays 25 gold the hundred grams. The whole coat is about 70 kg.
 | Loyalty card, rabbit's foot, cocoa | 100, 150, 60 | A tenth off; Mortimer pays 15% more; you walk a quarter faster |
 | Mystery box, party hat, sunglasses, a bucket of pink | 40, 80, 140, 400 | Nobody needs these |
 
-**Under the coat** there are nineteen tattoos and a pink thong, drawn on the hide and
+**Under the coat** there are twenty-two tattoos and a pink thong, drawn on the hide and
 visible only where the hair is off. Each is announced when enough of it is uncovered,
 and Gnorman pays for the gossip. The beard shaver is the tool that makes them easy to
 read.
@@ -218,7 +218,7 @@ Settings > System > Display > Graphics.
 | The elf | `src/game/people/elf.js`, `src/game/hero.js` | The player's character, built of simple solids with joints: he can hold a thing up in one hand or two, strain under it, be shaken by it and be let down by it. Looked out of, only his shadow is drawn. `hero.js` plays the scene for a new tool: where he stands (clear of the stall or the mammoth), what he does with each tool, the light behind it, and the camera's path once round him and back into his head |
 | The traders | `src/game/people/gnome.js`, `vulture.js`, `model.js` | Gnorman and his stall, Mortimer and his table; they turn to watch whoever comes by |
 | Getting up | `src/controls.js`, `src/game/lift.js` | The elf has a height above the snow. A ladder is stood up under him and climbed (it is drawn only as high as his feet, so it is never between him and the hair); a pack burns what is in its tank. `lift.js` is what is seen and heard of it: the ladders, the packs on his back, what comes out of them, the gauge |
-| Under the coat | `src/mammoth/tattoos.js`, `bodyMaterial.js`, `src/game/finds.js` | Nineteen tattoos drawn in code on one sheet of ink, each projected onto the hide where it belongs (found by walking in from outside until the skin is met); and a thong, which is a formula. The skin's shader shows both only where the hair is off. Bare hide is a pavement of cracked plates, as an elephant's is |
+| Under the coat | `src/mammoth/tattoos.js`, `bodyMaterial.js`, `src/game/finds.js` | Twenty-two tattoos drawn in code on one sheet of ink, each projected onto the hide where it belongs (found by walking in from outside until the skin is met); and a thong, which is a formula. The skin's shader shows both only where the hair is off. Bare hide is a pavement of cracked plates, as an elephant's is |
 | Antics | `src/game/antics.js` | What he does while he is being shaved, what he can be made to wear, the remarks at each milestone, and the end |
 | Picture | `src/gfx/post.js` | HDR rendering, bloom, light shafts, a film-style tone curve that keeps colour in the highlights, vignette and grain |
 | Opening | `index.html`, `src/main.js` | The legend: its first line shows on the dark while the scene is being made, the others over the opening camera move, high in the sky where they can be read. The controls come up when it ends |

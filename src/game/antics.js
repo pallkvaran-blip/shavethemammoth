@@ -126,6 +126,7 @@ export class Antics {
     this.quiet = 6;                 // seconds before the next remark may be made (so they do not talk over one another)
     this.onBald = () => {};
     this.ready = () => true;        // (the end waits for anything else that has to be said first)
+    this.hush = () => false;        // (and his remarks wait while the player is being told something that matters)
     this._v = new THREE.Vector3();
     this.dress();
     this.dye();
@@ -143,7 +144,7 @@ export class Antics {
   }
 
   say(html, seconds = 6) {
-    if (this.quiet > 0) return false;
+    if (this.quiet > 0 || this.hush()) return false;
     this.hint(html, seconds);
     this.quiet = seconds + 5;
     return true;

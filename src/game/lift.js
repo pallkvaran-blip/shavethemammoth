@@ -274,7 +274,7 @@ export class Lift {
     const rig = this.rig, feet = rig.pos.y - 0.17;
     // ---- the ladder ----
     const L = rig.mode === 'elf' ? rig.ladder : null;
-    for (const [id, M] of Object.entries(this.ladders)) M.group.visible = !!L && rig.lift && rig.lift.id === id;
+    for (const [id, M] of Object.entries(this.ladders)) M.group.visible = !!(L && rig.lift && rig.lift.id === id);
     if (L && rig.lift) {
       const g = this.ladders[rig.lift.id].group;
       // it rocks from foot to foot as it is walked sideways

@@ -26,6 +26,9 @@ const SAYS = {
   hello: 'Kevin.',
   pad: 'You are standing on it.',
   property: 'It has been a long ten thousand years.',
+  wide: 'It is not wrong.',
+  tooclose: 'You are. You have been for some time.',
+  tusks: 'He has two. He is very proud.',
 };
 
 /** Whether a point of the hide (rest pose) is under the thong: the same sum the skin's shader does. */

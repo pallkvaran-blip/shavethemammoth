@@ -254,6 +254,13 @@ export class Game {
     got[id] = true;
     this.state.dirty = true;
     if (!this.hero || !this.scenes || this.rig.mode !== 'elf') return false;
+    // (for anyone who has asked their machine for less motion, the news without the camera going round)
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      this.sound.fanfare(id === 'scissors' ? 'droop' : 'grand');
+      this.hint(`<strong>You got the ${ITEMS[id].name}!</strong> ${ITEMS[id].got || ''}`, 8);
+      this.tipIn = 12;
+      return false;
+    }
     // bought at a stall: he steps out from under its awning with his back to it, and the shop waits
     const who = this.dialog, d = $('dialog');
     const stall = who ? { x: this.people[who].x, z: this.people[who].z, r: (who === 'gnome' ? this.stall : this.table).radius } : null;
