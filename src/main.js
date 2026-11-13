@@ -124,7 +124,8 @@ async function start() {
   // ---- land -----------------------------------------------------------------
   const anat = buildAnatomy();
   const terrain = new Terrain({ sunAzimuth: azimuth, feet: anat.feet, snowDepth: SNOW_DEPTH });
-  scene.add(await terrain.build((p, l) => setProgress(0.05 + p * 0.3, l), { detail: 1 }));
+  const land = await terrain.build((p, l) => setProgress(0.05 + p * 0.3, l), { detail: 1 });
+  scene.add(land);
 
   // keep the trail and the mammoth's own patch of ground clear
   const avoid = [{ x0: -30, x1: 4.5, z0: -3.2, z1: 3.2 }];
@@ -137,6 +138,9 @@ async function start() {
   scene.add(dust);
   const breath = new Breath();
   scene.add(breath.points);
+  // dev: ?bare leaves the land undrawn (it is still there to walk on). The tests of the tools
+  // use it: without a graphics card most of a frame goes on snow, grass and stones.
+  if (q.has('bare')) for (const o of [land, rocks.group, grass, dust]) o.visible = false;
 
   // ---- mammoth --------------------------------------------------------------
   const mammoth = await Mammoth.create({ strands: Q.strands, cell: 0.025, a2c: Q.samples > 0 }, (p, l) => setProgress(0.38 + p * 0.58, l));
@@ -317,7 +321,7 @@ async function start() {
     if (elf) {
       if (!shot) sound.start();   // allowed now: this follows a click or a key press
       markView('elf');
-      showHint(`<strong>${shaving.tool.name}.</strong> Walk up to the mammoth and cut; lay the blades flat against the hide for a close shave. <span class="desk"><kbd>Left mouse</kbd> or <kbd>Space</kbd> cuts (hold to keep cutting), <kbd>1</kbd> to <kbd>5</kbd> or the wheel changes tool, <kbd>W A S D</kbd> walks, <kbd>Esc</kbd> stops.</span>`, 12);
+      showHint(`<strong>${shaving.tool.name}.</strong> ${shaving.tool.def.motor ? 'Walk up to the mammoth, lay it flat against the hide, hold it on and push.' : 'Walk up to the mammoth and cut; lay the blades flat against the hide for a close shave.'} <span class="desk"><kbd>Left mouse</kbd> or <kbd>Space</kbd> cuts (hold to keep cutting), <kbd>1</kbd> to <kbd>5</kbd> or the wheel changes tool, <kbd>W A S D</kbd> walks, <kbd>Esc</kbd> stops.</span>`, 12);
     } else {
       markView(-1);
     }

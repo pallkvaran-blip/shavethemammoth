@@ -90,7 +90,7 @@
   }
   .bottom { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 10px 16px; transition: opacity 0.5s ease; }
   /* with a tool in hand the view is left clear (where there is no mouse, the buttons stay: they are the way back) */
-  @media (hover: hover) { body.elf .bottom { opacity: 0; pointer-events: none; } }
+  @media (hover: hover) { body.elf .bottom, body.elf .bottom .panel { opacity: 0; pointer-events: none; } }   /* (the panels too: they ask for the pointer themselves) */
   .panel {
     pointer-events: auto; background: var(--veil); backdrop-filter: blur(10px) saturate(1.2); -webkit-backdrop-filter: blur(10px) saturate(1.2);
     border: 1px solid var(--line); border-radius: 10px; padding: 6px; min-width: 0;
