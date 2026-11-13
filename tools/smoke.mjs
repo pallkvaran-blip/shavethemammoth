@@ -50,21 +50,22 @@ await step('run it', async () => { await page.keyboard.down('Space'); await page
 // take longer than a key would be held, and a key pressed and let go between two frames does nothing.)
 const frames = (n) => page.evaluate((count) => new Promise((done) => { let k = 0; const tick = () => (++k > count ? done() : requestAnimationFrame(tick)); requestAnimationFrame(tick); }), n);
 const holdFor = async (key, n) => { await page.keyboard.down(key); await frames(n); await page.keyboard.up(key); await frames(1); };
-await holdFor('KeyR', 5);
+await holdFor('KeyR', 3);
 const up = await page.evaluate(() => ({ height: +window.__game.rig.height.toFixed(2), ladder: !!window.__game.rig.ladder }));
 console.log(`ok: R (up the ladder): on it ${up.ladder}, ${up.height} m up`);
 if (!up.ladder || up.height <= 0) errors.push('R did not climb the ladder');
 await page.screenshot({ path: 'shots/smoke_ladder.png', timeout: 300000 });
-await holdFor('KeyF', 12);
-const down = await page.evaluate(() => ({ height: +window.__game.rig.height.toFixed(2), ladder: !!window.__game.rig.ladder }));
-console.log(`ok: F (down again): ${down.height} m up, ladder ${down.ladder ? 'still standing' : 'put away'}`);
+await holdFor('KeyF', 2);
+// (the rest of the way down would take this machine minutes; tools/loop-test.mjs climbs all the way down)
+await page.evaluate(() => { const { rig } = window.__game; rig.height = 0; rig.ladder = null; rig.onLift('away'); });
 await step('T (the pack instead)', () => page.keyboard.press('KeyT'), 1000);
-await holdFor('KeyR', 5);
+await holdFor('KeyR', 3);
 const air = await page.evaluate(() => ({ height: +window.__game.rig.height.toFixed(2), lift: window.__game.rig.lift && window.__game.rig.lift.id }));
 console.log(`ok: R (burn): in the air on the ${air.lift}, ${air.height} m up`);
 if (!(air.height > 0)) errors.push('R did not burn the pack');
 await page.screenshot({ path: 'shots/smoke_air.png', timeout: 300000 });
-await holdFor('KeyF', 8);
+await holdFor('KeyF', 2);
+await page.evaluate(() => { const { rig } = window.__game; rig.height = 0; rig.vy = 0; });
 await step('Q (the best thing owned for picking hair up)', () => page.keyboard.press('KeyQ'), 3000);
 await step('run it', async () => { await page.keyboard.down('Space'); await page.waitForTimeout(2500); await page.keyboard.up('Space'); }, 1500);
 await step('Q (back to cutting)', () => page.keyboard.press('KeyQ'), 3000);
