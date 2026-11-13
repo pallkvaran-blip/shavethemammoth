@@ -69,5 +69,21 @@ export function buildFigure(name, bones, data, materials) {
     lid.rotation.x = open;
     return { ball, lid, low, r, shut(v) { lid.rotation.x = open + 1.1 * v; } };
   };
-  return { group, rig, B, meshes, data, materials, hang, grow, pivot, eye };
+  /**
+   * Say how much room the figure takes up (a ball round `centre`, where it stands at rest), so that it is not drawn,
+   * nor its shadow worked out, when it is nowhere in the picture. For a figure that stays where it is put.
+   */
+  const bound = (centre, radius) => {
+    const ball = new THREE.Sphere(new THREE.Vector3(...centre), radius);
+    for (const m of meshes) {
+      m.frustumCulled = true;
+      if (m.isSkinnedMesh) { m.boundingSphere = ball.clone(); continue; }
+      // (anything hung on a bone goes where the bone goes, and knows its own size; hair and feathers stir a little beyond theirs)
+      if (m.geometry.boundingSphere === null) {
+        m.geometry.computeBoundingSphere();
+        if (m.name === 'locks' || m.name === 'plumes') m.geometry.boundingSphere.radius = m.geometry.boundingSphere.radius * 1.2 + 0.01;
+      }
+    }
+  };
+  return { group, rig, B, meshes, data, materials, hang, grow, pivot, eye, bound };
 }

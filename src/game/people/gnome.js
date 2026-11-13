@@ -124,8 +124,7 @@ export function buildGnome({ bare = false, baked = null } = {}) {
     fig.grow('head', locksMesh(hair.nape, { colour: white, dense: 5 }));
   }
 
-  const home = {};
-  for (const b of rig.list) home[b.name] = b.position.clone();
+  fig.bound([0, 0.22, 0], 0.4);
   let turn = 0, hello = 0, blinkIn = 1.7, blink = 0;
   return {
     group, meshes, height: 0.3, rig, data, materials: M,

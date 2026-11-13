@@ -42,7 +42,8 @@ function bakeAway(who, bare, onProgress) {
  */
 export function startBaking(names, { bare = false, threads = true } = {}) {
   const done = Object.fromEntries(names.map((n) => [n, 0]));
-  const out = { where: {}, progress: () => names.reduce((a, n) => a + done[n], 0) / names.length };
+  const began = performance.now();
+  const out = { where: {}, took: {}, progress: () => names.reduce((a, n) => a + done[n], 0) / names.length };
   let chain = Promise.resolve();
   const here = (n) => {
     // (one at a time: they would only get in each other's way)
@@ -56,7 +57,7 @@ export function startBaking(names, { bare = false, threads = true } = {}) {
     out[n] = (out.where[n] === 'thread'
       ? bakeAway(n, bare, (v) => { done[n] = v; }).catch((err) => { console.warn(`baking ${n} on this thread instead (${err.message})`); return here(n); })
       : here(n)
-    ).then((baked) => { done[n] = 1; return baked; });
+    ).then((baked) => { done[n] = 1; out.took[n] = Math.round(performance.now() - began); return baked; });
   }
   return out;
 }

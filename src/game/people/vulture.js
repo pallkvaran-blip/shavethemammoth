@@ -2,92 +2,131 @@
 // buys hair by the gram. He would rather you were dead, professionally
 // speaking, but he is prepared to wait.
 //
-// A hunched black body, a bare pink neck out of a white ruff, a hooked beak,
-// a monocle, and on his head an example of his own work. He stands on a stump
-// behind a table with his scales and three wigs on stands (one stand is the
-// skull of a previous customer). Built facing +z, at the origin.
+// He is sculpted (see sculpt.js) and feathered (feathers.js): a hunched dark
+// body under a coat of overlapping feathers, the long ones of his folded wings
+// crossed over a fan of tail; a bare wrinkled neck out of a ruff of white
+// down; a hooked beak; a monocle on a chain; and on his head an example of his
+// own work. He stands on a stump behind a table with his scales and three
+// wigs on stands (one stand is the skull of a previous customer). Built facing
+// +z, at the origin.
 import * as THREE from 'three';
 import { Model, signTexture, plankTexture } from './model.js';
+import { buildFigure } from './figure.js';
+import { bakeFigure } from './bake.js';
+import { folkMaterial } from './materials.js';
+import { locksMesh } from './locks.js';
+import { plumesMesh } from './plumes.js';
+import { patchStandardMaterial } from '../../gfx/patch.js';
+import { LAYER_SHADOW_NEAR } from '../../gfx/globals.js';
+import { vultureRecipe, EYE, EYE_R, WIG_BLOCK } from './vulture.recipe.js';
 
-export function buildVulture() {
-  const M = new Model('vulture');
-  const feather = M.mat(0x17130f, { rough: 0.75, sheen: 0.6 });
-  const wing = M.mat(0x0e0c0a, { rough: 0.7, sheen: 0.8 });
-  const bare = M.mat(0xc46a62, { rough: 0.55, coat: 0.1 });
-  const ruffMat = M.mat(0xece6da, { rough: 1 });
-  const horn = M.mat(0xd8c9a0, { rough: 0.4, coat: 0.3 });
-  const tip = M.mat(0x2a211a, { rough: 0.4, coat: 0.3 });
-  const eye = M.mat(0xd8c25a, { rough: 0.2, coat: 1 });
-  const dark = M.mat(0x050404, { rough: 0.2, coat: 1 });
-  const gold = M.mat(0xd4a93a, { rough: 0.25, metal: 1 });
-  const ginger = M.mat(0x8a4a22, { rough: 0.95, sheen: 0.5 });
-  const leg = M.mat(0x9a8f86, { rough: 0.7 });
-  const all = M.group;
+const WIG_HAIR = {
+  wigMop: { root: 0x4a2410, tip: 0xb5642a, shine: 0xffd9a0 },
+  wigTower: { root: 0xa07a2c, tip: 0xf7e2a0, shine: 0xffffff },
+  wigQuiff: { root: 0x050404, tip: 0x241d18, shine: 0x9fb4e0 },
+};
 
-  // legs and feet
-  for (const s of [-1, 1]) {
-    M.rod(all, leg, [s * 0.035, 0.11, 0], [s * 0.04, 0.012, 0.006], 0.008, 0.006);
-    for (const a of [-0.5, 0, 0.5]) M.rod(all, leg, [s * 0.04, 0.008, 0.006], [s * 0.04 + Math.sin(a) * 0.035, 0.004, 0.006 + Math.cos(a) * 0.035], 0.005, 0.003);
-    M.rod(all, leg, [s * 0.04, 0.008, 0.006], [s * 0.04, 0.004, -0.022], 0.005, 0.003);
+export function buildVulture({ bare = false, baked = null } = {}) {
+  const recipe = vultureRecipe();
+  const { data, hair } = baked || bakeFigure(recipe, { bare });
+  const skin = folkMaterial('skin', { color: 0xc8736a, a: [0.35, 1.6, 1.2, 0.3], roughness: 0.56, clearcoat: 0.08, clearcoatRoughness: 0.5 });
+  const under = folkMaterial('plain', { color: 0x0f0c0a, a: [0.004, 0.5, 0, 0], roughness: 0.95 });
+  const M = {
+    head: skin,
+    beak: folkMaterial('plain', { color: 0xdccca0, a: [0.006, 0.18, 0, 0], roughness: 0.3, clearcoat: 0.7, clearcoatRoughness: 0.25 }),
+    body: under, wings: under,
+    legs: folkMaterial('leather', { color: 0x8c8176, a: [0.0017, 0.6, 0.3, 0], roughness: 0.6, clearcoat: 0.15, clearcoatRoughness: 0.5 }),
+    ruff: folkMaterial('felt', { color: 0xd9d2c4, a: [0.001, 1, 0, 0] }),
+    rug: folkMaterial('cloth', { color: 0x5a2d14, a: [0.0012, 0.6, 0, 0] }),
+  };
+  const fig = buildFigure('vulture', recipe.bones, data, M);
+  const { group, rig, B, meshes, hang } = fig;
+
+  // ---- eyes: yellow, unblinking for longer than is comfortable ----
+  const eyeMat = folkMaterial('eye', { sculpted: false, color: 0xe9dfc2, second: 0xc9a52c, a: [0.86, 0.34, 0, 0], roughness: 0.08, clearcoat: 1, clearcoatRoughness: 0.03 });
+  const lidMat = folkMaterial('skin', { sculpted: false, color: 0x9a6a72, a: [0, 1, 0.6, 0], roughness: 0.55 });
+  const eyes = [1, -1].map((s) => {
+    const e = fig.eye('head', [s * EYE[0], EYE[1], EYE[2]], EYE_R, eyeMat, lidMat, { under: 0.7 });
+    e.ball.rotation.y = s * 0.3;                      // (set at the corners of his head: he looks at you with one, then the other)
+    for (const lid of [e.lid, e.low]) lid.rotation.y = s * 0.3;
+    return e;
+  });
+
+  // ---- the monocle, on a chain ----
+  const gold = folkMaterial('plain', { sculpted: false, color: 0xd9b043, a: [0.003, 0.2, 0, 0], roughness: 0.25, metalness: 1 });
+  {
+    const eyeglass = new THREE.Group();
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.0118, 0.0013, 10, 36), gold);
+    const lens = new THREE.Mesh(new THREE.CircleGeometry(0.0112, 32), patchStandardMaterial(new THREE.MeshPhysicalMaterial({
+      color: 0xdfeaf0, roughness: 0.03, metalness: 0, transparent: true, opacity: 0.16, clearcoat: 1, clearcoatRoughness: 0.02, side: THREE.DoubleSide, depthWrite: false,
+    }), { key: 'folk-lens' }));
+    eyeglass.add(rim, lens);
+    hang('head', eyeglass, [EYE[0] + 0.0042, EYE[1] - 0.0008, EYE[2] + 0.0092]);
+    // (glass casts no shadow, and is not drawn when shadows are)
+    lens.userData.shadowMaterial = undefined;
+    lens.layers.disable(LAYER_SHADOW_NEAR);
+    meshes.splice(meshes.indexOf(lens), 1);
+    eyeglass.rotation.y = 0.3;
+    // the chain: links, hanging in a curve from the rim to somewhere in his ruff
+    const from = new THREE.Vector3(EYE[0] + 0.0148, EYE[1] - 0.006, EYE[2] + 0.005), to = new THREE.Vector3(0.036, 0.345, 0.03);
+    const chain = new THREE.Group(), n = 30, link = new THREE.TorusGeometry(0.00165, 0.00042, 5, 10), up = new THREE.Vector3(0, 1, 0), at = new THREE.Vector3(), next = new THREE.Vector3();
+    const point = (t, out) => out.lerpVectors(from, to, t).add(new THREE.Vector3(0.012, -0.03, 0.006).multiplyScalar(4 * t * (1 - t)));
+    for (let i = 0; i < n; i++) {
+      const m = new THREE.Mesh(link, gold);
+      point((i + 0.5) / n, at); point((i + 1) / n, next);
+      m.position.copy(at);
+      m.quaternion.setFromUnitVectors(up, next.sub(at).normalize());
+      m.rotateY(i % 2 ? Math.PI / 2 : 0);
+      chain.add(m);
+    }
+    hang('head', chain, [0, 0, 0]);
+    chain.position.set(-rig.rest.head.x, -rig.rest.head.y, -rig.rest.head.z);
   }
-  // the body, hunched forward; wings folded down its sides; a fan of tail
-  const body = new THREE.Group();
-  body.position.set(0, 0.2, -0.02); body.rotation.x = 0.22;
-  all.add(body);
-  M.ball(body, feather, 0.1, [0, 0, 0], [0.92, 1.22, 1.02]);
-  for (const s of [-1, 1]) M.ball(body, wing, 0.1, [s * 0.078, -0.01, -0.022], [0.36, 1.3, 0.95]).rotation.z = s * 0.1;
-  M.ball(body, wing, 0.07, [0, -0.115, -0.07], [1, 0.35, 0.9]);
-  // the ruff, and out of it the neck: it follows the customer about
-  const ruff = M.add(all, new THREE.TorusGeometry(0.046, 0.03, 10, 22), ruffMat, 'ruff');
-  ruff.rotation.x = Math.PI / 2 - 0.25; ruff.position.set(0, 0.318, 0.012);
-  for (let i = 0; i < 9; i++) { const a = (i / 9) * Math.PI * 2; M.ball(all, ruffMat, 0.024, [Math.cos(a) * 0.052, 0.318 + Math.sin(a) * 0.012, 0.012 + Math.sin(a) * 0.05]); }
-  const neck = new THREE.Group();
-  neck.position.set(0, 0.325, 0.02);
-  all.add(neck);
-  M.rod(neck, bare, [0, 0, 0], [0, 0.062, 0.042], 0.023, 0.02);
-  M.rod(neck, bare, [0, 0.062, 0.042], [0, 0.115, 0.04], 0.02, 0.018);
-  for (const y of [0.03, 0.075]) { const r = M.add(neck, new THREE.TorusGeometry(0.0215, 0.0035, 6, 16), bare, 'wrinkle'); r.rotation.x = Math.PI / 2; r.position.set(0, y, y * 0.55); }
-  const head = new THREE.Group();
-  head.position.set(0, 0.13, 0.05);
-  neck.add(head);
-  M.ball(head, bare, 0.036, [0, 0, 0], [0.94, 0.94, 1.12]);
-  // the beak: long, and hooked over at the end
-  const beak = M.add(head, new THREE.ConeGeometry(0.017, 0.062, 12), horn, 'beak');
-  beak.rotation.x = Math.PI / 2 + 0.25; beak.position.set(0, -0.012, 0.058);
-  M.ball(head, tip, 0.008, [0, -0.026, 0.082], [0.8, 1.3, 0.9]);
-  for (const s of [-1, 1]) {
-    M.ball(head, eye, 0.0085, [s * 0.022, 0.008, 0.027]);
-    M.ball(head, dark, 0.004, [s * 0.0245, 0.008, 0.0335]);
-    M.ball(head, bare, 0.013, [s * 0.021, 0.02, 0.026], [1.2, 0.5, 1]).rotation.z = -s * 0.5;      // a brow that has seen things
-  }
-  // the monocle, on a chain
-  const glass = M.add(head, new THREE.TorusGeometry(0.0125, 0.0018, 6, 20), gold, 'monocle');
-  glass.position.set(0.024, 0.006, 0.034); glass.rotation.y = 0.5;
-  M.rod(head, gold, [0.034, -0.004, 0.03], [0.03, -0.09, 0.0], 0.0008);
-  // the toupee: ginger, askew, fooling nobody
-  const rug = new THREE.Group();
-  rug.position.set(0.004, 0.03, -0.004); rug.rotation.z = 0.22;
-  head.add(rug);
-  M.ball(rug, ginger, 0.037, [0, 0, 0], [1.05, 0.42, 1.15]);
-  M.ball(rug, ginger, 0.025, [-0.02, 0.006, 0.022], [1.2, 0.4, 0.8]);
 
-  let turn = 0, nod = 0;
+  // ---- feathers; down; a toupee ----
+  if (hair.coat) {
+    const coat = { base: 0x16110d, edge: 0x6a5540, shaft: 0x6b5a48, shine: 0x8fa0c8 };
+    const wing = { base: 0x0d0b09, edge: 0x4a3c2e, shaft: 0x5a4c3e, shine: 0x9fb0d8 };
+    fig.grow('body', plumesMesh(hair.coat, { colour: coat }));
+    fig.grow('wingL', plumesMesh(hair.covertsL, { colour: wing }));
+    fig.grow('wingR', plumesMesh(hair.covertsR, { colour: wing }));
+    fig.grow('wingL', plumesMesh(hair.flightL, { colour: wing, flex: 0.004 }));
+    fig.grow('wingR', plumesMesh(hair.flightR, { colour: wing, flex: 0.004 }));
+    fig.grow('tail', plumesMesh(hair.tail, { colour: wing, flex: 0.004 }));
+    fig.grow('body', locksMesh(hair.ruff, { colour: { root: 0xb4ad9f, tip: 0xfbf8f1, shine: 0xffffff }, dense: 6, flex: 0.01 }));
+    fig.grow('rug', locksMesh(hair.rug, { colour: { root: 0x4a2410, tip: 0xb5642a, shine: 0xffd9a0 }, dense: 5, flex: 0.01 }));
+    fig.grow('head', locksMesh(hair.bristles, { colour: { root: 0x120e0c, tip: 0x2c241e, shine: 0x9a9088 }, dense: 1, flex: 0.003 }));
+  }
+
+  fig.bound([0, 0.26, 0], 0.42);
+  let turn = 0, nod = 0, blinkIn = 3, blink = 0;
   return {
-    group: M.group, meshes: M.meshes, height: 0.47, rug,
+    group, meshes, height: 0.47, rug: B.rug, rig, data, materials: M,
     update(dt, t, look, near, pleased = 0) {
       turn += (THREE.MathUtils.clamp(look, -1, 1) * near - turn) * Math.min(1, dt * 3);
-      neck.rotation.y = turn;
       // he looks you up and down; a sale gets a quick greedy nod
       nod += (pleased - nod) * Math.min(1, dt * 6);
-      neck.rotation.x = Math.sin(t * 0.7) * 0.06 + 0.12 * near + Math.sin(t * 16) * 0.12 * nod;
-      head.rotation.z = Math.sin(t * 0.45 + 1) * 0.12 * near;
-      body.scale.setScalar(1 + Math.sin(t * 1.6) * 0.01);
+      const bob = Math.sin(t * 0.7) * 0.06 + 0.12 * near + Math.sin(t * 16) * 0.12 * nod;
+      B.neck1.rotation.set(bob * 0.6, turn * 0.55, 0);
+      B.neck2.rotation.set(bob * 0.4, turn * 0.3, 0);
+      B.head.rotation.set(-bob * 0.25, turn * 0.15, Math.sin(t * 0.45 + 1) * 0.12 * near);
+      B.body.scale.setScalar(1 + Math.sin(t * 1.6) * 0.01);
+      // the beak works when there is money in it; the wings settle; the toupee has a life of its own
+      B.jaw.rotation.x = 0.03 + 0.05 * near * Math.max(0, Math.sin(t * 5.3)) * Math.max(0, Math.sin(t * 0.8)) + 0.22 * nod * Math.abs(Math.sin(t * 16));
+      for (const [name, s] of [['wingL', 1], ['wingR', -1]]) B[name].rotation.z = s * (0.015 * Math.sin(t * 1.1 + s) + 0.1 * nod * Math.abs(Math.sin(t * 8)));
+      B.tail.rotation.x = Math.sin(t * 1.3) * 0.03 - 0.08 * nod;
+      B.rug.rotation.z = Math.sin(t * 0.9) * 0.015 + nod * Math.sin(t * 16) * 0.09;
+      B.rug.rotation.x = nod * Math.sin(t * 16 + 1) * 0.06;
+      blinkIn -= dt;
+      if (blinkIn <= 0) { blink = 0.14; blinkIn = 3 + Math.random() * 6; }
+      blink = Math.max(0, blink - dt);
+      for (const e of eyes) e.shut(blink > 0 ? 1 : 0.38 + 0.12 * near - 0.2 * pleased);
     },
   };
 }
 
 /** His pitch: a stump to stand on, a table with the scales and the wigs, and a sign. Customers stand at +z. */
-export function buildWigTable() {
+export function buildWigTable({ baked = null } = {}) {
   const M = new Model('wig-table');
   const wood = M.mat(0xffffff, { rough: 0.8, map: plankTexture('#5f4630') });
   const bark = M.mat(0x4a3626, { rough: 0.95 });
@@ -120,22 +159,28 @@ export function buildWigTable() {
     dish.position.y = -0.064;
     pans.push(pan);
   }
-  // wigs on stands: a ginger mop, a tall blonde one, and a black quiff on the skull of somebody who haggled
-  const wig = (x, colour, build, stand = null) => {
+  // wigs on stands: a ginger mop, a tall fair one, and a black quiff on the skull of somebody who haggled
+  const strands = baked ? baked.hair : (() => { const h = vultureRecipe().hair; return { wigMop: h.wigMop(), wigTower: h.wigTower(), wigQuiff: h.wigQuiff() }; })();
+  const wig = (x, name, stand = null) => {
     const g = new THREE.Group();
     g.position.set(x, 0.157, 0.2);
     all.add(g);
-    M.rod(g, wood, [0, 0, 0], [0, 0.055, 0], 0.004);
-    if (stand) stand(g); else M.ball(g, wood, 0.022, [0, 0.07, 0], [0.9, 1.05, 0.95]);
-    build(g, M.mat(colour, { rough: 0.95, sheen: 0.6 }));
+    M.rod(g, wood, [0, 0, 0], [0, 0.052, 0], 0.004);
+    M.ball(g, wood, 0.009, [0, 0.003, 0], [1.6, 0.5, 1.6]);
+    if (stand) stand(g); else M.ball(g, wood, 0.0195, WIG_BLOCK.c, [WIG_BLOCK.r[0] / 0.0195 * 0.95, WIG_BLOCK.r[1] / 0.0195 * 0.95, WIG_BLOCK.r[2] / 0.0195 * 0.95]);
+    if (strands && strands[name]) {
+      const locks = locksMesh(strands[name], { colour: WIG_HAIR[name], dense: 5, flex: 0.008 });
+      g.add(locks.mesh);
+      M.meshes.push(locks.mesh);
+    }
     return g;
   };
-  wig(-0.15, 0x8a4a22, (g, m) => { M.ball(g, m, 0.03, [0, 0.082, 0], [1.1, 0.75, 1.1]); for (let i = 0; i < 7; i++) { const a = (i / 7) * 6.283; M.ball(g, m, 0.014, [Math.cos(a) * 0.026, 0.066, Math.sin(a) * 0.026], [1, 1.6, 1]); } });
-  wig(0.115, 0xd9b45a, (g, m) => { M.ball(g, m, 0.026, [0, 0.085, 0]); M.ball(g, m, 0.024, [0, 0.116, -0.004], [0.9, 1.3, 0.9]); M.ball(g, m, 0.017, [0, 0.148, -0.008], [0.9, 1.2, 0.9]); });
-  wig(0.185, 0x141210, (g, m) => { M.ball(g, m, 0.024, [0, 0.086, -0.004], [1, 0.6, 1.1]); M.ball(g, m, 0.017, [0, 0.094, 0.018], [1, 0.9, 1.1]); }, (g) => {
-    M.ball(g, bone, 0.021, [0, 0.068, 0], [0.95, 1, 1.05]);
-    M.ball(g, bone, 0.012, [0, 0.058, 0.017], [1, 0.8, 1]);
-    for (const s of [-1, 1]) M.ball(g, dark, 0.0058, [s * 0.008, 0.071, 0.017]);
+  wig(-0.15, 'wigMop');
+  wig(0.115, 'wigTower');
+  wig(0.185, 'wigQuiff', (g) => {
+    M.ball(g, bone, 0.0205, [0, 0.07, 0], [0.95, 1, 1.05]);
+    M.ball(g, bone, 0.012, [0, 0.059, 0.016], [1, 0.8, 1]);
+    for (const s of [-1, 1]) M.ball(g, dark, 0.0058, [s * 0.008, 0.072, 0.0165]);
   });
   // the sign, on a post beside the table
   M.rod(all, bark, [-0.3, -0.07, 0.1], [-0.3, 0.5, 0.1], 0.011);

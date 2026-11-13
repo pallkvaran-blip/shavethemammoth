@@ -161,16 +161,16 @@ function paintGnome(x, y, z, nx, ny, nz, out) {
   const socket = near(ax, y, z, [EYE[0], EYE[1], EYE[2] + 0.008], 0.0135) * 0.6;
   r *= 1 - 0.2 * socket; g *= 1 - 0.25 * socket; b *= 1 - 0.26 * socket;
   // (seen from any way off, a beard is mostly the shade of what is under it)
-  const beard = clamp01((beardLine(ax) - y) / 0.005) * clamp01((z + 0.02) / 0.008) * clamp01((y - 0.162) / 0.006) * (ax < 0.015 && y > 0.1895 && z > 0.044 ? 0 : 1);
+  const beard = clamp01((beardLine(ax) - y) / 0.009) * clamp01((z + 0.02) / 0.008) * clamp01((y - 0.162) / 0.006) * (ax < 0.015 && y > 0.1895 && z > 0.044 ? 0 : 1);
   const hair = clamp01((0.016 - z) / 0.008) * clamp01((y - 0.196) / 0.008) * clamp01((0.0595 - ax) / 0.002);
-  const white = Math.max(beard, hair) * 0.9;
+  const white = Math.max(beard * (1 - Math.min(1, nose * 1.6)), hair) * 0.9;
   r += (1.15 - r) * white; g += (2.0 - g) * white; b += (3.2 - b) * white;
   out[0] = r; out[1] = g; out[2] = b;
   out[3] = (1 - white) * (nose * 0.6 + cheek * 0.5);            // (where the skin shines, and has the odd blotch)
 }
 
 
-const CELL = { head: 0.0013, hand: 0.0014, jersey: 0.002, jerseyRib: 0.0015, trousers: 0.0022, belt: 0.0014, boots: 0.0015, hat: 0.002, foam: 0.002 };
+const CELL = { head: 0.0015, hand: 0.0015, jersey: 0.0023, jerseyRib: 0.0016, trousers: 0.0026, belt: 0.0016, boots: 0.002, hat: 0.0022, foam: 0.0022 };
 
 /** Where an eyebrow turns about (s = 1 for his left). */
 export const browAt = (s) => [s * 0.023, 0.2575, 0.0565];

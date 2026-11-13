@@ -109,7 +109,7 @@ async function start() {
 
   // the people of the place are sculpted while everything else loads (on threads of their own, where the page allows it;
   // ?nothreads keeps it here)
-  const baking = startBaking(['elf', 'gnome'], { threads: !q.has('nothreads') });
+  const baking = startBaking(['elf', 'gnome', 'vulture'], { threads: !q.has('nothreads') });
 
   // ---- sky & sun ------------------------------------------------------------
   setProgress(0.02, 'Lighting the sky');
@@ -309,13 +309,17 @@ async function start() {
   // ---- the game: money, the traders, what is owned ---------------------------------
   // (dev stills and ?unlock have everything; ?gold=n sets the purse; ?fresh ignores a kept game; ?nosave keeps nothing)
   setProgress(0.97, 'Dressing the locals');
-  const baked = { elf: await baking.elf, gnome: await baking.gnome };
+  const waitedFrom = performance.now();
+  const baked = { elf: await baking.elf, gnome: await baking.gnome, vulture: await baking.vulture };
+  const folkTimes = { ...baking.took, where: Object.values(baking.where).join(','), waited: Math.round(performance.now() - waitedFrom) };
+  const dressFrom = performance.now();
   game = new Game({
     scene, terrain, mammoth, shaving, rig, sound, hint: showHint, storage: !shot && !q.has('nosave'), baked,
     dev: { unlock: shot || q.has('unlock'), gold: q.has('gold') ? num('gold', 0) : null, fresh: shot || q.has('fresh'), noscene: q.has('noscene') },
   });
   // the elf himself: seen from outside before the shaving starts, and whenever he has something new to show off
   hero = new Hero({ scene, camera, rig, shaving, terrain, mammoth, sound, baked: baked.elf });
+  folkTimes.dressed = Math.round(performance.now() - dressFrom);
   game.hero = hero;
   lifter = new Lift({ scene, rig, terrain, sound, hero });
   game.lifter = lifter;
@@ -676,7 +680,7 @@ async function start() {
     }
     if (shot && frames === 2) {
       gl.finish();
-      window.__info = { shorn: +(mammoth.shorn * 100).toFixed(3), clippings: shaving.clippings.count, tris: renderer.info.render.triangles, calls: renderer.info.render.calls, strands: mammoth.strands, hairs: mammoth.hairsDrawn, coatDraws: mammoth.coatDraws, sun: sky.sunColor.toArray().map((v) => +v.toFixed(2)), meter: +meter.toFixed(3), exposure: +renderer.toneMappingExposure.toFixed(3), gpu: gpuName };
+      window.__info = { shorn: +(mammoth.shorn * 100).toFixed(3), clippings: shaving.clippings.count, tris: renderer.info.render.triangles, calls: renderer.info.render.calls, strands: mammoth.strands, hairs: mammoth.hairsDrawn, coatDraws: mammoth.coatDraws, sun: sky.sunColor.toArray().map((v) => +v.toFixed(2)), meter: +meter.toFixed(3), exposure: +renderer.toneMappingExposure.toFixed(3), gpu: gpuName, folk: folkTimes, loaded: Math.round(performance.now()) };
       window.__shotReady = true;
       return;
     }

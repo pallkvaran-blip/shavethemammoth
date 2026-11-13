@@ -199,7 +199,7 @@ function paintSkin(x, y, z, nx, ny, nz, out) {
 }
 
 
-const CELL = { head: 0.0011, belly: 0.0016, jumper: 0.0015, jumperRib: 0.0013, shorts: 0.0016, stockings: 0.0013, boots: 0.0011, mittens: 0.0013, scarf: 0.0014, hat: 0.0016, hatRib: 0.0014, bobble: 0.0016 };
+const CELL = { head: 0.0013, belly: 0.0018, jumper: 0.0017, jumperRib: 0.0014, shorts: 0.0018, stockings: 0.0014, boots: 0.0014, mittens: 0.0014, scarf: 0.0015, hat: 0.0018, hatRib: 0.0015, bobble: 0.002 };
 
 /** Where an eyebrow turns about (s = 1 for his left). */
 export const browAt = (s) => [s * EYE[0], EYE[1] + EYE_R[s > 0 ? 0 : 1] + 0.0012, EYE[2] + 0.0105];

@@ -105,7 +105,7 @@ export class Game {
     gnome.group.translateZ(-0.11);
     gnome.group.updateMatrixWorld(true);
     this.gnome = gnome; this.stall = stall;
-    const [table, vulture] = place('vulture', [buildWigTable, () => buildVulture({ baked: baked.vulture })]);
+    const [table, vulture] = place('vulture', [() => buildWigTable({ baked: baked.vulture }), () => buildVulture({ baked: baked.vulture })]);
     vulture.group.position.y += 0.1;                             // on his stump
     vulture.group.translateZ(-0.05);
     vulture.group.updateMatrixWorld(true);

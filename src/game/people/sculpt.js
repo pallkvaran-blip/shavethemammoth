@@ -196,7 +196,7 @@ function sampleSparse(sculpt, bounds, cell, block = 4) {
  * @param paint      (x, y, z, nx, ny, nz, out) => fills out[0..3] for each point (a colour, or masks; the material decides)
  * @param weightRadius how far a bone's hold reaches beyond its own solids
  */
-export function meshLayer(sculpt, { cell = 0.0015, rig = null, occluder = null, buried = null, paint = null, weightRadius = 0.012, ao = [0.003, 0.008, 0.018, 0.035], thin = 0.006 } = {}) {
+export function meshLayer(sculpt, { cell = 0.0015, rig = null, occluder = null, buried = null, paint = null, weightRadius = 0.012, ao = [0.004, 0.012, 0.03], thin = 0.006 } = {}) {
   const T0 = performance.now();
   const b = sculpt.bounds, pad = cell * 3;
   const bounds = { min: b.min.map((v) => v - pad), max: b.max.map((v) => v + pad) };
@@ -239,7 +239,8 @@ export function meshLayer(sculpt, { cell = 0.0015, rig = null, occluder = null, 
     const x = P[i * 3], y = P[i * 3 + 1], z = P[i * 3 + 2], nx = N[i * 3], ny = N[i * 3 + 1], nz = N[i * 3 + 2];
     // how much of the sky it sees: probes out along the normal, each asking how near anything is
     let dark = 0, scale = 1;
-    for (const h of ao) { dark += Math.max(0, h - occ(x + nx * h, y + ny * h, z + nz * h)) / h * scale; scale *= 0.7; }
+    for (const h of ao) { dark += Math.max(0, h - occ(x + nx * h, y + ny * h, z + nz * h)) / h * scale; scale *= 0.75; }
+    dark *= 1.25;                                    // (three looks do the work of four)
     shade[i * 2] = Math.max(0, 1 - dark * 0.55);
     shade[i * 2 + 1] = Math.min(1, Math.max(0, 1 + sculpt.dist(x - nx * thin, y - ny * thin, z - nz * thin) / thin));
     owner[i] = sculpt.owner(x, y, z);
