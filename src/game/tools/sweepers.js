@@ -3,20 +3,23 @@
 // in front of the elf's feet, where the cut hair lies.
 //
 // The tool's own frame: the grip is at the origin, +x runs along the tool to
-// its working end (the bristles, the nozzle), +y is up. Held, the whole thing
-// is tipped forward and down, and the snow stops it: the working end rests on
-// the ground of its own accord.
+// its working end (the bristles, the nozzle), +y is up. The brooms and the big
+// vacuum rest on the ground: they are held at a slope that puts the working
+// end on the snow a couple of paces ahead, and keep that slope whichever way
+// the elf looks (`level`). The hands and the little vacuum point where the
+// eyes do.
 import * as THREE from 'three';
 import { Kit, skin, canvasTexture, rngFrom, woodTexture, steelTextures } from '../tool.js';
 import { ITEMS } from '../catalog.js';
 
 const DOWN = (-34 * Math.PI) / 180;
+const SLOPE = (-12.6 * Math.PI) / 180;    // the slope of a handle from hands at the hip (8.5 cm up) to a head on the snow 40 cm along it
 
 /** What every sweeper's definition shares. */
-function sweeper(id, kit, { tip, samples, hold, voice, motor = null, animate = null, nearer }) {
+function sweeper(id, kit, { tip, samples, hold, voice, motor = null, animate = null, nearer, level = false }) {
   const item = ITEMS[id];
   return {
-    id, name: item.name, blurb: item.blurb, seed: 71, kit, sweep: item.sweep, noLie: true,
+    id, name: item.name, blurb: item.blurb, seed: 71, kit, sweep: item.sweep, noLie: true, level,
     halfThick: 0, open: 0, tip,
     blade: { from: 0, to: tip, back0: 0, back1: 0, exp: 1, edge: 0.01, point: 0 },
     part: { above: 0.02, below: 0.01 }, pivotClear: 0, cutInner: 0,
@@ -27,9 +30,15 @@ function sweeper(id, kit, { tip, samples, hold, voice, motor = null, animate = n
   };
 }
 
-/** A handle: a turned stick from the grip towards the working end. */
+/**
+ * A handle: a turned stick from the grip towards the working end. It is made
+ * in short lengths. A tool is drawn a little nearer the eye than it is (see
+ * Kit), which is worked out at each corner; one long piece running from behind
+ * the eyes to the snow ahead would have its depth guessed between two corners
+ * that far apart, guessed wrong, and vanish behind the ground.
+ */
 function handle(kit, parent, material, from, to, radius) {
-  const mesh = kit.add(parent, new THREE.CylinderGeometry(radius * 0.92, radius, to - from, 12), material, 'handle');
+  const mesh = kit.add(parent, new THREE.CylinderGeometry(radius * 0.92, radius, to - from, 12, Math.ceil((to - from) / 0.02)), material, 'handle');
   mesh.rotation.z = -Math.PI / 2;
   mesh.position.x = (from + to) / 2;
   return mesh;
@@ -68,9 +77,9 @@ function buildTwigBroom() {
   handle(kit, all, wood, -0.06, 0.27, 0.0055);
   // the bundle: twigs splaying out from the binding
   const rnd = rngFrom(31), pieces = [];
-  for (let i = 0; i < 46; i++) {
-    const a = rnd() * Math.PI * 2, spread = 0.05 * Math.sqrt(rnd()), len = 0.1 + rnd() * 0.05;
-    const twig = new THREE.CylinderGeometry(0.0006, 0.0014, len, 5);
+  for (let i = 0; i < 72; i++) {
+    const a = rnd() * Math.PI * 2, spread = 0.055 * Math.sqrt(rnd()), len = 0.1 + rnd() * 0.06;
+    const twig = new THREE.CylinderGeometry(0.0006, 0.0015, len, 5);
     twig.rotateZ(-Math.PI / 2);
     twig.translate(len / 2, 0, 0);
     twig.rotateY(Math.atan2(Math.sin(a) * spread, len));
@@ -89,8 +98,8 @@ function buildTwigBroom() {
   bind.rotation.z = -Math.PI / 2; bind.position.x = 0.272;
   const samples = [[0.39, 0, 0, 0.02], [0.33, 0, 0, 0.016], [0.2, 0, 0, 0.008], [0.08, 0, 0, 0.008]];
   return sweeper('twig', kit, {
-    tip: 0.39, samples, voice: 'broom', nearer: 0.03,
-    hold: { pos: [0.05, -0.05, -0.05], tilt: DOWN, yaw: (-6 * Math.PI) / 180, roll: 0, sway: 0.8 },
+    tip: 0.39, samples, voice: 'broom', nearer: 0.03, level: true,
+    hold: { pos: [0.07, -0.085, -0.03], tilt: SLOPE, yaw: (-9 * Math.PI) / 180, roll: 0, sway: 0.8 },
     animate: (tool) => {
       // each stroke: out to one side, drawn back across
       const s = tool.swing || 0;
@@ -109,15 +118,15 @@ function buildPushBroom() {
   const all = kit.upper;
   handle(kit, all, wood, -0.07, 0.36, 0.0062);
   const head = new THREE.Group();
-  head.position.x = 0.37; head.rotation.z = 0.5;      // the block lies level when the handle slopes
+  head.position.x = 0.37; head.rotation.z = -SLOPE;   // the block lies level when the handle slopes
   all.add(head);
   kit.add(head, new THREE.BoxGeometry(0.03, 0.02, 0.2), paint, 'block');
   const bristles = kit.add(head, new THREE.BoxGeometry(0.026, 0.045, 0.196), hair, 'bristles');
   bristles.position.y = -0.032;
   const samples = [[0.4, -0.02, 0, 0.02], [0.4, -0.02, 0.075, 0.02], [0.4, -0.02, -0.075, 0.02], [0.26, 0, 0, 0.008], [0.12, 0, 0, 0.008]];
   return sweeper('push', kit, {
-    tip: 0.4, samples, voice: 'broom', nearer: 0.03,
-    hold: { pos: [0.02, -0.045, -0.05], tilt: DOWN, yaw: 0, roll: 0, sway: 0.8 },
+    tip: 0.4, samples, voice: 'broom', nearer: 0.03, level: true,
+    hold: { pos: [0.065, -0.085, -0.03], tilt: SLOPE, yaw: (-8 * Math.PI) / 180, roll: 0, sway: 0.8 },
     animate: (tool) => {
       // pushed away, drawn back
       const s = tool.swing || 0;
@@ -188,15 +197,15 @@ function buildShopVac() {
   kit.add(all, new THREE.TubeGeometry(path, 30, 0.0125, 12, false), hoseMat, 'vac-hose');
   // the floor nozzle: a wide flat mouth
   const mouth = new THREE.Group();
-  mouth.position.x = 0.335; mouth.rotation.z = 0.42;
+  mouth.position.x = 0.335; mouth.rotation.z = -SLOPE;
   all.add(mouth);
   kit.add(mouth, skin([
     { x: -0.012, y: 0.002, ry: 0.012, rz: 0.014, n: 2.4 }, { x: 0.012, y: -0.002, ry: 0.012, rz: 0.05, n: 3.4 }, { x: 0.04, y: -0.008, ry: 0.009, rz: 0.085, n: 4 }, { x: 0.052, y: -0.01, ry: 0.006, rz: 0.086, n: 4 },
   ], 28, { capStart: true }), dark, 'vac-nozzle');
   const samples = [[0.38, -0.02, 0, 0.016], [0.38, -0.02, 0.06, 0.014], [0.38, -0.02, -0.06, 0.014], [0.25, 0, 0, 0.012], [0.12, 0, 0, 0.012], [0, 0, 0, 0.016]];
   return sweeper('shopvac', kit, {
-    tip: 0.385, samples, voice: 'shopvac', nearer: 0.03, motor: { spinUp: 0.5, spinDown: 1.1 },
-    hold: { pos: [0.03, -0.05, -0.06], tilt: DOWN, yaw: (-3 * Math.PI) / 180, roll: 0, sway: 0.9 },
+    tip: 0.385, samples, voice: 'shopvac', nearer: 0.03, motor: { spinUp: 0.5, spinDown: 1.1 }, level: true,
+    hold: { pos: [0.065, -0.085, -0.03], tilt: SLOPE, yaw: (-8 * Math.PI) / 180, roll: 0, sway: 0.9 },
     animate: (tool) => {
       const p = tool.power, w = tool.buzz * Math.PI * 2, shake = p * 0.0007;
       all.position.set(0, Math.sin(w * 31) * shake, Math.sin(w * 27 + 1) * shake);

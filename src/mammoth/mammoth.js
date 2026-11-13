@@ -635,18 +635,20 @@ export class Mammoth {
   /**
    * Give the mammoth a haircut all at once: metres of coat left at each point
    * of the hide (as this.bodyCut holds them), or null to grow it all back.
-   * Each lock takes the shortest cut of its patch of hide.
+   * Each lock takes the shortest cut of its patch of hide; or, if `locks` is
+   * given ({ long, short }: what this.groom[...].iCut held, for a coat of this
+   * same detail), exactly the length it had.
    */
-  setHaircut(cut) {
+  setHaircut(cut, locks = null) {
     const bc = this.bodyCut, shown = this.bodyCutShown;
     for (let v = 0; v < bc.length; v++) { bc[v] = cut ? cut[v] : UNCUT; shown[v] = Math.min(SHOWN_MAX, bc[v]); }
     const I = this.data.body.indices;
     this.cutLength = 0;
     for (const c of this.chunks) {
-      const a = c.arrays, g = this.groom[c.long ? 'long' : 'short'];
+      const a = c.arrays, name = c.long ? 'long' : 'short', g = this.groom[name], own = cut && locks ? locks[name] : null;
       for (let i = 0; i < c.count; i++) {
         const L = a.iA[i * 4], t = a.tri[i] * 3;
-        const left = Math.min(bc[I[t]], bc[I[t + 1]], bc[I[t + 2]]);
+        const left = own ? own[a.orig[i]] : Math.min(bc[I[t]], bc[I[t + 1]], bc[I[t + 2]]);
         const to = left < L ? left : UNCUT;
         a.iCut[i] = to; g.iCut[a.orig[i]] = to;
         if (left < L) this.cutLength += L - left;

@@ -5,14 +5,19 @@ import { ITEMS } from './catalog.js';
 
 const KEY = 'mammoth-save-3';
 
-/** A haircut (metres of coat left at each point of the hide) packed a byte a point: millimetres, 255 for uncut. */
-export function packHaircut(cut) {
+// Lengths of hair are kept a byte each: 255 for never cut, otherwise a step
+// on a scale that is fine for stubble (a fiftieth of a millimetre at the skin)
+// and coarser for long hair (half a centimetre at half a metre).
+const SPAN = 1.2;      // metres: nothing on him is longer
+
+/** Pack lengths of hair (metres; anything of SPAN or more counts as uncut). Returns '' if nothing has been cut. */
+export function packLengths(cut) {
   const bytes = new Uint8Array(cut.length);
   let any = false;
   for (let i = 0; i < cut.length; i++) {
-    const mm = cut[i] * 1000;
-    bytes[i] = mm >= 254.5 ? 255 : Math.max(0, Math.round(mm));
-    if (bytes[i] !== 255) any = true;
+    const v = cut[i];
+    if (v >= SPAN) bytes[i] = 255;
+    else { bytes[i] = Math.min(254, Math.round(Math.sqrt(Math.max(0, v) / SPAN) * 254)); any = true; }
   }
   if (!any) return '';
   let s = '';
@@ -20,13 +25,14 @@ export function packHaircut(cut) {
   return btoa(s);
 }
 
-export function unpackHaircut(text, length, uncut) {
-  if (!text) return null;
+/** The reverse. Returns null if the text is not for a coat of this size (it was made differently then). */
+export function unpackLengths(text, length, uncut) {
+  const cut = new Float32Array(length).fill(uncut);
+  if (!text) return cut;
   let raw;
   try { raw = atob(text); } catch { return null; }
-  if (raw.length !== length) return null;      // the hide was made differently then: start over
-  const cut = new Float32Array(length);
-  for (let i = 0; i < length; i++) { const b = raw.charCodeAt(i); cut[i] = b === 255 ? uncut : b / 1000; }
+  if (raw.length !== length) return null;
+  for (let i = 0; i < length; i++) { const b = raw.charCodeAt(i); if (b !== 255) cut[i] = SPAN * (b / 254) ** 2; }
   return cut;
 }
 
@@ -52,7 +58,8 @@ export class GameState {
     this.worn = [];                        // extras the mammoth has been given to wear
     this.stats = { cut: 0, picked: 0, sold: 0, earned: 0, spent: 0, visits: 0, tonics: 0 };
     this.flags = {};
-    this.haircut = '';
+    this.haircut = '';                     // the hide, point by point (see Game.save)
+    this.locks = null;                     // and lock by lock, for a coat of the same detail
     this.dirty = true;
   }
 
@@ -132,7 +139,7 @@ export class GameState {
   toJSON() {
     return {
       v: 3, gold: this.gold, hair: this.hair, owned: [...this.owned], levels: this.levels, tool: this.tool, sweeper: this.sweeper,
-      climber: this.climber, pack: this.pack, found: this.found, worn: this.worn, stats: this.stats, flags: this.flags, haircut: this.haircut,
+      climber: this.climber, pack: this.pack, found: this.found, worn: this.worn, stats: this.stats, flags: this.flags, haircut: this.haircut, locks: this.locks,
     };
   }
 
@@ -160,6 +167,7 @@ export class GameState {
     this.stats = { ...this.stats, ...(d.stats || {}) };
     this.flags = d.flags && typeof d.flags === 'object' ? d.flags : {};
     this.haircut = typeof d.haircut === 'string' ? d.haircut : '';
+    this.locks = d.locks && typeof d.locks === 'object' && typeof d.locks.long === 'string' && typeof d.locks.short === 'string' ? d.locks : null;
     this.dirty = false;
     return true;
   }

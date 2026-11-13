@@ -324,7 +324,7 @@ async function start() {
     if (elf) {
       if (!shot) sound.start();   // allowed now: this follows a click or a key press
       markView('elf');
-      showHint(`<strong>${shaving.tool.name}.</strong> ${shaving.tool.def.motor ? 'Walk up to the mammoth, lay it flat against the hide, hold it on and push.' : 'Walk up to the mammoth and cut; lay the blades flat against the hide for a close shave.'} <span class="desk"><kbd>Left mouse</kbd> or <kbd>Space</kbd> cuts (hold to keep cutting), <kbd>Q</kbd> swaps to picking the hair up, <kbd>E</kbd> talks, <kbd>W A S D</kbd> walks, <kbd>Esc</kbd> stops.</span>`, 12);
+      showHint(`<strong>${shaving.tool.name}.</strong> ${shaving.tool.def.sweep ? 'Look at the hair on the snow and hold the cut button to gather it.' : shaving.tool.def.motor ? 'Walk up to the mammoth, lay it flat against the hide, hold it on and push.' : 'Walk up to the mammoth and cut; lay the blades flat against the hide for a close shave.'} <span class="desk"><kbd>Left mouse</kbd> or <kbd>Space</kbd> cuts (hold to keep cutting), <kbd>Q</kbd> swaps to picking the hair up, <kbd>E</kbd> talks, <kbd>W A S D</kbd> walks, <kbd>Esc</kbd> stops.</span>`, 12);
     } else {
       markView(-1);
     }
@@ -339,6 +339,22 @@ async function start() {
   }
   $('detail').value = qualityName;
   $('detail').addEventListener('change', (e) => applyQuality(e.target.value));
+  // starting again: asked twice, because it grows his coat back and takes everything bought
+  const again = $('new-game');
+  if (again) {
+    let sure = 0;
+    const calm = () => { clearTimeout(sure); sure = 0; again.classList.remove('sure'); again.textContent = 'New game'; };
+    again.addEventListener('click', () => {
+      if (!sure) {
+        again.classList.add('sure'); again.textContent = 'Sure? Everything goes';
+        sure = setTimeout(calm, 4000);
+        return;
+      }
+      calm();
+      game.restart();
+      showHint('<strong>A new game.</strong> His coat is back, your gold is gone, and you have the small bad scissors.', 7);
+    });
+  }
   const sunInput = $('sun');
   sunInput.value = String(elevation);
   let sunPending = null;
@@ -398,7 +414,13 @@ async function start() {
     say(-1);
     document.body.classList.add('told');
     window.removeEventListener('keydown', skipLegend, true);
-    if (!shot) setTimeout(() => showHint('Choose a tool, then press <strong>Start shaving</strong>. <span class="desk">Or drag to look around; <kbd>H</kbd> hides these controls, <kbd>M</kbd> mutes the sound.</span>', 9), tellLegend ? 1500 : 5200);
+    if (!shot) {
+      const s = game.state, back = game.resumed && (s.stats.picked > 0 || s.gold > 0);
+      const first = back
+        ? `<strong>Welcome back.</strong> ${s.gold} gold, and he is ${(mammoth.shorn * 100).toFixed(mammoth.shorn < 0.1 ? 1 : 0)}% shorn. Press <strong>Start shaving</strong> to carry on.`
+        : 'All you have is a pair of <strong>small bad scissors</strong>. Press <strong>Start shaving</strong> to climb down and use them.';
+      setTimeout(() => showHint(`${first} <span class="desk">Or drag to look around; <kbd>H</kbd> hides these controls, <kbd>M</kbd> mutes the sound.</span>`, 9), tellLegend ? 1500 : 5200);
+    }
   };
   legend.onSkip = () => {
     if (waiting) { const open = waiting; waiting = null; open(); }                  // the scene was ready and only waiting for the first line

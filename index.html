@@ -137,6 +137,12 @@
   }
   .settings select option { background: var(--night); color: var(--ink); }
   .settings input[type="range"] { width: 7rem; accent-color: var(--amber); }
+  .settings button {
+    font: inherit; font-size: 0.8rem; letter-spacing: 0.03em; color: var(--ink-dim); background: transparent;
+    border: 1px solid var(--line); border-radius: 7px; padding: 4px 10px; cursor: pointer;
+  }
+  .settings button:hover { color: var(--ink); border-color: var(--ink-dim); }
+  .settings button.sure { color: var(--night); background: var(--warn); border-color: var(--warn); }
   #hint {
     pointer-events: none; align-self: center; text-align: center; font-size: 0.82rem; color: var(--ink); letter-spacing: 0.03em;
     background: var(--veil-strong); padding: 7px 14px; border-radius: 999px; margin-bottom: 10px; max-width: 100%;
@@ -180,6 +186,8 @@
     padding-top: max(14px, env(safe-area-inset-top, 0px)); padding-bottom: max(14px, env(safe-area-inset-bottom, 0px));
     padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
   }
+  /* with room to spare, the list keeps to one side and whoever is selling can be seen beside it */
+  @media (min-width: 60rem) { #dialog { justify-items: start; padding-left: max(4vw, env(safe-area-inset-left, 0px)); } }
   .sheet {
     width: min(35rem, 100%); max-height: 100%; overflow-y: auto; overscroll-behavior: contain; box-sizing: border-box;
     background: var(--veil-strong); backdrop-filter: blur(14px) saturate(1.2); -webkit-backdrop-filter: blur(14px) saturate(1.2);
@@ -282,6 +290,7 @@
             <option value="ultra">Ultra</option>
           </select>
         </label>
+        <button type="button" id="new-game" title="Give him his coat back and start again with nothing">New game</button>
       </div>
     </div>
     <div class="shave">

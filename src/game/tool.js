@@ -562,6 +562,11 @@ export class Tool {
       .multiply(_qa.setFromAxisAngle(AHEAD, h.roll || 0))
       .multiply(BASE);
     this._freeP.set(h.pos[0] + this.sway.x + bobX, h.pos[1] + this.sway.y + bobY + breath, h.pos[2] - this.kick * 0.004);
+    if (def.level) {
+      // a broom rests on the ground whichever way the eyes are turned: it keeps its own level, not theirs
+      _qa.setFromAxisAngle(AX, -camera.rotation.x);
+      this._freeP.applyQuaternion(_qa); this._freeQ.premultiply(_qa);
+    }
 
     // ---- laid flat against the hide --------------------------------------------------
     // Pressed into the coat, the tool is turned to lie along the skin, as a

@@ -4,7 +4,7 @@
 // Gnorman's stall. This file holds that together: who stands where, what the
 // player owns, the two shops, and what is kept between visits.
 import * as THREE from 'three';
-import { GameState, packHaircut, unpackHaircut } from './state.js';
+import { GameState, packLengths, unpackLengths } from './state.js';
 import { ITEMS, SECTIONS, HAIR_PRICE, inSection } from './catalog.js';
 import { TOOL_ORDER } from './shaving.js';
 import { buildGnome, buildStall } from './people/gnome.js';
@@ -120,9 +120,18 @@ export class Game {
     this.state.on((what) => this.onState(what));
 
     // ---- the haircut, as it was left ----
+    // Kept twice over: lock by lock, which is exact but only fits a coat grown
+    // at the same detail; and point by point of the hide, which fits any coat
+    // but is a little generous at the edges of what was cut.
     if (this.state.haircut) {
-      const cut = unpackHaircut(this.state.haircut, mammoth.bodyCut.length, UNCUT);
-      if (cut) mammoth.setHaircut(cut);
+      const cut = unpackLengths(this.state.haircut, mammoth.bodyCut.length, UNCUT);
+      const kept = this.state.locks, g = mammoth.groom;
+      let locks = null;
+      if (kept && kept.n === mammoth.strands) {
+        locks = { long: unpackLengths(kept.long, g.long.iCut.length, UNCUT), short: unpackLengths(kept.short, g.short.iCut.length, UNCUT) };
+        if (!locks.long || !locks.short) locks = null;
+      }
+      if (cut) mammoth.setHaircut(cut, locks);
     }
 
     this.buildDialog();
@@ -248,7 +257,10 @@ export class Game {
     this.said = pick(SAYS[who].hello);
     if (who === 'vulture' && this.state.hair < 1) this.said = pick(SAYS.vulture.empty);
     this.state.stats.visits++;
-    this.rig.hold(true);
+    // turn to them (a little to one side on a wide screen, where the list of wares has the other)
+    const at = this.people[who], p = this.rig.pos, far = Math.hypot(at.x - p.x, at.z - p.z);
+    const wide = window.innerWidth >= 960;
+    this.rig.hold(true, { yaw: Math.atan2(-(at.x - p.x), -(at.z - p.z)) + (wide ? 0.42 : 0), pitch: Math.atan2(at.y + (who === 'gnome' ? 0.3 : 0.5) - p.y, far) });
     this.shaving.squeeze(false);
     d.hidden = false;
     d.dataset.who = who;
@@ -360,15 +372,37 @@ export class Game {
       if (who) prompt.innerHTML = `<kbd class="desk">E</kbd> Talk to ${who === 'gnome' ? 'Gnorman' : 'Mortimer'}`;
     }
 
+    this.guide(dt, elf);
+
     // keep the haircut: it is the one thing that cannot be bought back (well, it can, for 150 gold)
     this.saveIn -= dt;
     if (this.saveIn <= 0) { this.saveIn = 5; this.save(false); }
   }
 
+  /** A word of advice, once each, when it is first needed: how the hair turns into gold and the gold into tools. */
+  guide(dt, elf) {
+    this.tipIn = (this.tipIn ?? 3) - dt;
+    if (!elf || this.dialog || this.tipIn > 0) return;
+    this.tipIn = 1;
+    const s = this.state, told = s.flags.tips || (s.flags.tips = {}), sweeping = !!this.shaving.tool.def.sweep;
+    const tell = (id, html, seconds = 10) => { told[id] = true; s.dirty = true; this.tipIn = seconds + 4; this.hint(html, seconds); };
+    if (!told.pickup && !sweeping && s.stats.picked < 1 && this.shaving.clippings.lying > 2.5) {
+      tell('pickup', '<strong>That hair is worth gold.</strong> <span class="desk">Press <kbd>Q</kbd> to</span><span class="nomouse">Tap the hands button to</span> put the scissors away, look at the hair on the snow, and hold the cut button to gather it.');
+    } else if (!told.sell && s.stats.sold < 1 && s.hair >= Math.min(40, s.capacity * 0.6)) {
+      tell('sell', '<strong>Mortimer the vulture buys hair.</strong> He is under the sign with his name on it, a few paces from the mammoth. Walk up to him<span class="desk"> and press <kbd>E</kbd></span>.');
+    } else if (!told.shop && s.stats.spent < 1 && s.gold >= 15) {
+      tell('shop', '<strong>Gnorman sells better tools</strong> at the striped stall, and something to carry more hair in. You can afford a thing or two.');
+    } else if (!told.reach && !s.climber && !s.pack && s.stats.sold > 700) {
+      tell('reach', '<strong>Running out of mammoth you can reach?</strong> Gnorman has ladders. And worse ideas.');
+    }
+  }
+
   save(now) {
     if (this.mammoth.cutLength !== this.lastCut) {
       this.lastCut = this.mammoth.cutLength;
-      this.state.haircut = packHaircut(this.mammoth.bodyCut);
+      this.state.haircut = packLengths(this.mammoth.bodyCut);
+      const g = this.mammoth.groom;
+      this.state.locks = this.state.haircut ? { n: this.mammoth.strands, long: packLengths(g.long.iCut), short: packLengths(g.short.iCut) } : null;
       this.state.dirty = true;
     }
     if (now || this.state.dirty) this.state.save();

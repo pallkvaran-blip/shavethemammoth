@@ -19,7 +19,7 @@ const step = async (name, fn, wait = 2500) => {
   await page.waitForTimeout(wait);
   console.log(`ok: ${name}`);
 };
-await page.goto(base + '?q=low&strands=20000&adapt=5&stats&sync', { waitUntil: 'load' });
+await page.goto(base + '?q=low&strands=20000&adapt=5&stats&sync&unlock&nosave&debug', { waitUntil: 'load' });
 await page.waitForFunction(() => document.body.classList.contains('ready'), null, { timeout: 240000 });
 // the legend is told over the opening shot; the controls come up when it ends
 const lines = await page.$$eval('#legend p', (ps) => ps.map((p) => p.textContent));
@@ -46,7 +46,23 @@ await step('key 4 (electric shears)', () => page.keyboard.press('Digit4'), 3000)
 await step('run them', async () => { await page.keyboard.down('Space'); await page.waitForTimeout(2500); await page.keyboard.up('Space'); }, 1500);
 await step('key 5 (beard shaver)', () => page.keyboard.press('Digit5'), 3000);
 await step('run it', async () => { await page.keyboard.down('Space'); await page.waitForTimeout(2500); await page.keyboard.up('Space'); }, 1500);
-await step('leave elf view', () => page.keyboard.press('KeyE'), 3000);
+await step('Q (the best thing owned for picking hair up)', () => page.keyboard.press('KeyQ'), 3000);
+await step('run it', async () => { await page.keyboard.down('Space'); await page.waitForTimeout(2500); await page.keyboard.up('Space'); }, 1500);
+await step('Q (back to cutting)', () => page.keyboard.press('KeyQ'), 3000);
+// the traders: walk up to each (placed there, to save a long slow walk) and talk
+for (const [who, name] of [['gnome', 'Gnorman'], ['vulture', 'Mortimer']]) {
+  await page.evaluate((w) => { const { rig, game } = window.__game, at = game.people[w]; rig.pos.x = at.front[0]; rig.pos.z = at.front[1]; rig.yaw = Math.atan2(-(at.x - rig.pos.x), -(at.z - rig.pos.z)); rig.pitch = 0.15; }, who);
+  await page.waitForFunction(() => !document.getElementById('prompt').hidden, null, { timeout: 120000 });
+  await step(`E talks to ${name}`, () => page.keyboard.press('KeyE'), 3000);
+  const open = await page.evaluate(() => ({ who: window.__game.game.dialog, rows: document.querySelectorAll('#dialog li').length, text: document.querySelector('#dialog h2')?.textContent }));
+  console.log(`  dialog: ${open.text} (${open.rows} things for sale)`);
+  if (open.who !== who) errors.push(`E did not open ${name}'s dialog`);
+  if (who === 'gnome') await page.screenshot({ path: 'shots/smoke_shop.png', timeout: 300000 });
+  await step('E again leaves', () => page.keyboard.press('KeyE'), 2000);
+}
+await step('leave elf view', () => page.keyboard.press('Escape'), 3000);
+const left = await page.evaluate(() => window.__game.rig.mode);
+if (left === 'elf') errors.push('Escape did not leave the elf view');
 await step('hide controls', () => page.keyboard.press('KeyH'), 800);
 await step('show controls', () => page.keyboard.press('KeyH'), 800);
 const stats = await page.$eval('#stats', (el) => el.textContent);

@@ -115,8 +115,9 @@ export class CameraRig {
    * Carrying on asks for the pointer back; that only works from a click or a
    * key press, which is how a conversation ends.
    */
-  hold(on) {
+  hold(on, aim = null) {
     this.busy = on;
+    this.aim = on ? aim : null;      // { yaw, pitch }: where to turn the eyes while standing there
     this.keys.clear();
     this._squeeze(false);
     if (this.mode !== 'elf') return;
@@ -205,6 +206,11 @@ export class CameraRig {
           const d = Math.hypot(dx, dz), r = foot.r + this.reach;
           if (d < r && d > 1e-4) { this.pos.x = foot.c[0] + (dx / d) * r; this.pos.z = foot.c[2] + (dz / d) * r; }
         }
+      }
+      if (this.aim) {
+        // turning to face whoever is being spoken to
+        const k = Math.min(1, dt * 5), turn = Math.atan2(Math.sin(this.aim.yaw - this.yaw), Math.cos(this.aim.yaw - this.yaw));
+        this.yaw += turn * k; this.pitch += (this.aim.pitch - this.pitch) * k;
       }
       // and round the stalls
       for (const o of this.obstacles) {

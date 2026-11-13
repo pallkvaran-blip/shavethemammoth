@@ -268,7 +268,8 @@ export class Shaving {
 
   /** One stroke of a broom, or one grab: everything round where it is aimed goes in the sack. */
   _sweep(sh) {
-    const p = this._aim(sh, this._end), s = sh.def.sweep;
+    // (a broom takes what is under its head; hands take what the eyes are on)
+    const p = sh.def.level ? sh.end(this._end) : this._aim(sh, this._end), s = sh.def.sweep;
     const got = this.clippings.gather(p.x, p.y, p.z, s.radius, { room: this.room() });
     if (got > 0) this.onHair(got);
     if (this.clippings.missed) this.onFull();
@@ -278,11 +279,14 @@ export class Shaving {
   _suck(sh) {
     const s = sh.def.sweep, more = this.reachMore;
     if (sh.power > 0.5) {
-      const p = this._aim(sh, this._end);
-      this.clippings.gather(p.x, p.y, p.z, s.radius * more, { pull: s.pull * more, room: this.room() });
-      const full = this.clippings.missed;
+      let full = false;
+      if (!sh.def.level) {
+        const p = this._aim(sh, this._end);
+        this.clippings.gather(p.x, p.y, p.z, s.radius * more, { pull: s.pull * more, room: this.room() });
+        full = this.clippings.missed;
+      }
       sh.end(this._end);
-      this.clippings.gather(this._end.x, this._end.y, this._end.z, s.radius * more * 0.6, { pull: s.pull * more, room: this.room() });
+      this.clippings.gather(this._end.x, this._end.y, this._end.z, s.radius * more * (sh.def.level ? 1 : 0.6), { pull: s.pull * more, room: this.room() });
       if (full || this.clippings.missed) this.onFull();
     }
     this.clippings.sink.copy(sh.end(this._end));

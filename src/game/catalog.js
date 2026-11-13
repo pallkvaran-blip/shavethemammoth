@@ -1,10 +1,16 @@
 // Everything Gnorman sells, what it costs and what it does. Prices are in gold;
 // hair is weighed in grams, and Mortimer pays HAIR_PRICE a gram for it.
 //
-// The whole coat is about 84 kg, which is 21,000 gold. One pocketful (100 g,
-// a few minutes with the bad scissors) buys the shears; what can be reached
-// from the snow is worth about a thousand gold, enough for brooms, a sack and
-// the first ladders. After that each purchase opens up more mammoth.
+// How the prices were set. The whole coat is about 70 kg (17,500 gold). Of
+// that, 2 kg grows where it can be reached from the snow, another 5 kg within
+// reach of the milk crate, 22 kg more from the step ladder, 29 kg from the
+// painter's ladder, and the last 12 kg from the top of the fire ladder or the
+// air. A patient elf takes about half a gram a second with the bad scissors,
+// 3 to 5 with the shears, 5 to 10 with the garden clippers, and as much as the
+// hands can sweep with the electric ones. So: a pocketful (100 g, three
+// minutes of bad scissors) buys the shears and a broom; what grows near the
+// ground pays for the first ladders and the clippers; and after that each
+// purchase opens up more mammoth than it cost.
 
 /** Gold for a gram of hair. */
 export const HAIR_PRICE = 0.25;
@@ -21,14 +27,14 @@ export const SECTIONS = [
 export const ITEMS = {
   // ---- sharp things (their workings are in src/game/tools/) ----
   scissors: { kind: 'cutter', name: 'Small bad scissors', price: 0, blurb: 'Yours already. I would not take them back.' },
-  sheep: { kind: 'cutter', name: 'Shears', price: 25, blurb: 'Sprung steel. Three thousand years on sheep and not one thank-you note.' },
+  sheep: { kind: 'cutter', name: 'Shears', price: 15, blurb: 'Sprung steel. Three thousand years on sheep and not one thank-you note.' },
   garden: { kind: 'cutter', name: 'Garden clippers', price: 120, blurb: 'For hedges. A mammoth is a hedge with opinions.' },
   shaver: { kind: 'cutter', name: 'Beard shaver', price: 300, blurb: 'Takes him down to the skin, where the reading matter is. One careful owner. He is no longer with us.' },
   electric: { kind: 'cutter', name: 'Electric shears', price: 600, blurb: 'A strip as wide as your head with every pass. Batteries included; his consent is not.' },
 
   // ---- picking it up ----
   hands: { kind: 'sweeper', name: 'Bare hands', price: 0, blurb: 'You came with these.', sweep: { radius: 0.17, ahead: 0.22, every: 0.45 } },
-  twig: { kind: 'sweeper', name: 'Twig broom', price: 15, blurb: 'A stick with ambitions. Sweeps a patch the size of a dinner plate.', sweep: { radius: 0.26, ahead: 0.3, every: 0.5 } },
+  twig: { kind: 'sweeper', name: 'Twig broom', price: 10, blurb: 'A stick with ambitions. Sweeps a patch the size of a dinner plate.', sweep: { radius: 0.26, ahead: 0.3, every: 0.5 } },
   push: { kind: 'sweeper', name: 'Push broom', price: 80, blurb: 'Half a metre of bristle. The widow who sold it to me said he died doing what he loved: sweeping.', sweep: { radius: 0.46, ahead: 0.42, every: 0.55 } },
   handvac: { kind: 'sweeper', name: "Lil' Sucker hand vacuum", price: 350, blurb: 'It sucks, and that is the nicest thing anyone has said about it. Hold it down and wave it about.', sweep: { radius: 0.55, ahead: 0.5, pull: 3.2 } },
   shopvac: { kind: 'sweeper', name: 'Hoovermax 9000 "Widowmaker"', price: 1000, blurb: 'Lifts hair from two paces. Do not point it at anything you are fond of.', sweep: { radius: 1.25, ahead: 0.95, pull: 5 } },
@@ -48,7 +54,7 @@ export const ITEMS = {
   sack: {
     kind: 'upgrade', name: 'Somewhere to put it', blurb: 'Your pockets hold a hundred grams. That is a moustache.',
     levels: [
-      { name: 'Sack', price: 35, blurb: 'Holds 350 g. Smells of the last thing that was in it.' },
+      { name: 'Sack', price: 30, blurb: 'Holds 350 g. Smells of the last thing that was in it.' },
       { name: 'Wheelbarrow', price: 180, blurb: 'Holds 1.2 kg. Squeaks, but so do you.' },
       { name: 'Bottomless sack', price: 600, blurb: 'Holds 5 kg. Do not look inside. It looks back.' },
     ],
