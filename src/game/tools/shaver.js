@@ -143,8 +143,8 @@ export function buildBeardShaver() {
     hold: { pos: [0.032, -0.064, -0.108], tilt: (14 * Math.PI) / 180, yaw: (-12 * Math.PI) / 180, roll: (12 * Math.PI) / 180, sway: 0.7 },
     lie: { tip: 0.0014, pivot: 0.0014 },         // the blades ride flat on the skin
     reach: 0.12,
-    // quick to start; sixteen locks of full-length hair a second (at High detail) is all it can manage, though stubble costs it a tenth of that
-    motor: { spinUp: 0.06, spinDown: 0.18, rate: 16, long: 0.03, light: 0.1 },
+    // quick to start; eighteen locks of full-length hair a second (at High detail: its own width at about eight centimetres a second) is all it can manage, though stubble costs it a tenth of that
+    motor: { spinUp: 0.06, spinDown: 0.18, rate: 18, long: 0.03, light: 0.1 },
     mouth: { from: 0.0465, to: 0.0546, half: HALF + 0.0004, above: 0.008, below: 0.008 },
     cut: { below: 0, min: 0.0004, chance: 1, ragged: 0 },
     voice: 'shaver',

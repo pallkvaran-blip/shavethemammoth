@@ -121,9 +121,9 @@ function enamelTexture() {
       c.addColorStop(1, 'rgba(0,0,0,0)');
       g.fillStyle = c; g.fillRect(x - r, y - r, r * 2, r * 2);
     }
-    for (let i = 0; i < 46; i++) {    // chips down to the aluminium
-      const x = rnd() * w, y = rnd() * h, r = 1 + rnd() * 3.5;
-      g.fillStyle = `rgba(${178 + rnd() * 30},${182 + rnd() * 30},${188 + rnd() * 30},${0.5 + rnd() * 0.4})`;
+    for (let i = 0; i < 16; i++) {    // chips down to the aluminium
+      const x = rnd() * w, y = rnd() * h, r = 1 + rnd() * 3;
+      g.fillStyle = `rgba(${150 + rnd() * 30},${154 + rnd() * 30},${160 + rnd() * 30},${0.4 + rnd() * 0.35})`;
       g.beginPath(); g.ellipse(x, y, r, r * (0.4 + rnd() * 0.6), rnd() * 3, 0, Math.PI * 2); g.fill();
     }
   }, true);
@@ -206,8 +206,8 @@ export function buildElectricShears() {
     hold: { pos: [0.02, -0.086, -0.128], tilt: 0, yaw: (-5 * Math.PI) / 180, roll: (5 * Math.PI) / 180, sway: 1 },
     lie: { tip: 0.0026, pivot: 0.0026 },         // the sole of the comb rides flat, this far off the skin
     reach: 0.19,
-    // up to speed in a tenth of a second; 150 locks of full-length hair a second (at High detail) before it bogs down
-    motor: { spinUp: 0.09, spinDown: 0.28, rate: 150, long: 0.03, light: 0.12 },
+    // up to speed in a tenth of a second; 260 locks of full-length hair a second (at High detail: the comb's width at about half a metre a second) before it bogs down
+    motor: { spinUp: 0.09, spinDown: 0.28, rate: 260, long: 0.03, light: 0.12 },
     // hair is taken as its roots pass between the teeth, just short of their points
     mouth: { from: 0.081, to: 0.097, half: HALF[2], above: 0.008, below: 0.008 },
     cut: { below: 0, min: 0.003, chance: 1, ragged: 0 },
