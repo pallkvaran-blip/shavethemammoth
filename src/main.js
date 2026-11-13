@@ -535,6 +535,15 @@ async function start() {
   }
   // dev: ?bald (or ?bald=<metres left>) takes the whole coat off at once, to see what is under it
   if (q.has('bald')) mammoth.setHaircut(new Float32Array(mammoth.bodyCut.length).fill(num('bald', 0.0005) || 0.0005));
+  // dev: ?shave=x,y,z,r[,metres left] takes the coat off within r of a point (several, separated by semicolons)
+  if (q.has('shave')) {
+    const P = mammoth.data.body.positions, cut = Float32Array.from(mammoth.bodyCut);
+    for (const spec of q.get('shave').split(';')) {
+      const [x, y, z, r, left = 0.0005] = spec.split(',').map(Number);
+      for (let v = 0; v < cut.length; v++) if (Math.hypot(P[v * 3] - x, P[v * 3 + 1] - y, P[v * 3 + 2] - z) < r) cut[v] = Math.min(cut[v], left);
+    }
+    mammoth.setHaircut(cut);
+  }
   if (q.has('open')) shaving.tool.setAngle(shaving.tool.def.open * num('open', 1));
   // dev: ?scene=<tool>&st=<seconds> shows the scene for getting that tool, stopped at that moment
   if (q.has('scene') && rig.mode === 'elf' && hero.celebrate(q.get('scene'))) { rig.update(0); hero.jump(num('st', 2.2)); rig.update(0); camera.updateMatrixWorld(true); }

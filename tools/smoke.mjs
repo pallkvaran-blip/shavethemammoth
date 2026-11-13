@@ -46,6 +46,20 @@ await step('key 4 (electric shears)', () => page.keyboard.press('Digit4'), 3000)
 await step('run them', async () => { await page.keyboard.down('Space'); await page.waitForTimeout(2500); await page.keyboard.up('Space'); }, 1500);
 await step('key 5 (beard shaver)', () => page.keyboard.press('Digit5'), 3000);
 await step('run it', async () => { await page.keyboard.down('Space'); await page.waitForTimeout(2500); await page.keyboard.up('Space'); }, 1500);
+// up the ladder and down it; then the pack
+await step('R (up the ladder)', async () => { await page.keyboard.down('KeyR'); await page.waitForTimeout(4000); await page.keyboard.up('KeyR'); }, 1000);
+const up = await page.evaluate(() => ({ height: +window.__game.rig.height.toFixed(2), ladder: !!window.__game.rig.ladder }));
+console.log(`  on the ladder: ${up.ladder}, ${up.height} m up`);
+if (!up.ladder || up.height <= 0) errors.push('R did not climb the ladder');
+await page.screenshot({ path: 'shots/smoke_ladder.png', timeout: 300000 });
+await step('F (down again)', async () => { await page.keyboard.down('KeyF'); await page.waitForTimeout(9000); await page.keyboard.up('KeyF'); }, 1000);
+await step('T (the pack instead)', () => page.keyboard.press('KeyT'), 2000);
+await step('R (burn)', async () => { await page.keyboard.down('KeyR'); await page.waitForTimeout(5000); await page.keyboard.up('KeyR'); }, 500);
+const air = await page.evaluate(() => ({ height: +window.__game.rig.height.toFixed(2), lift: window.__game.rig.lift && window.__game.rig.lift.id }));
+console.log(`  in the air on the ${air.lift}: ${air.height} m up`);
+if (!(air.height > 0)) errors.push('R did not burn the pack');
+await page.screenshot({ path: 'shots/smoke_air.png', timeout: 300000 });
+await step('F (down)', async () => { await page.keyboard.down('KeyF'); await page.waitForTimeout(8000); await page.keyboard.up('KeyF'); }, 2000);
 await step('Q (the best thing owned for picking hair up)', () => page.keyboard.press('KeyQ'), 3000);
 await step('run it', async () => { await page.keyboard.down('Space'); await page.waitForTimeout(2500); await page.keyboard.up('Space'); }, 1500);
 await step('Q (back to cutting)', () => page.keyboard.press('KeyQ'), 3000);

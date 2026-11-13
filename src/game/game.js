@@ -71,7 +71,8 @@ export class Game {
     this.state = new GameState({ storage });
     this.resumed = !dev.fresh && this.state.load();
     if (dev.unlock) {
-      for (const id of Object.keys(ITEMS)) if (!ITEMS[id].levels && !ITEMS[id].again) this.state.owned.add(id);
+      for (const id of Object.keys(ITEMS)) if (!ITEMS[id].levels && !ITEMS[id].again && !ITEMS[id].wear && !ITEMS[id].flag) this.state.owned.add(id);
+      Object.assign(this.state, { climber: 'fire', pack: 'jet', lift: 'ladder' });
       this.scenes = false;
     }
     if (dev.gold != null) this.state.gold = dev.gold;
