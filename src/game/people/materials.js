@@ -71,10 +71,17 @@ vec3 bumped(vec3 n, float h) {
   vec3 sp = -vViewPosition;
   vec3 dpx = dFdx(sp), dpy = dFdy(sp);
   // (no steeper than a slope of one in one: a height that jumps between two pixels is an edge, not a cliff)
-  float hx = clamp(dFdx(h), -length(dpx), length(dpx)), hy = clamp(dFdy(h), -length(dpy), length(dpy));
+  float hx = clamp(dFdx(h), -0.7 * length(dpx), 0.7 * length(dpx)), hy = clamp(dFdy(h), -0.7 * length(dpy), 0.7 * length(dpy));
   vec3 r1 = cross(dpy, n), r2 = cross(n, dpx);
   float det = dot(dpx, r1);
-  return normalize(abs(det) * n - sign(det) * (hx * r1 + hy * r2));
+  vec3 b = abs(det) * n - sign(det) * (hx * r1 + hy * r2);
+  float bl = length(b);
+  if (bl < 1e-12) return n;
+  b /= bl;
+  // (and never so far that it faces away from whoever is looking: nobody sees the far side of a bump)
+  vec3 v = normalize(vViewPosition);
+  float away = dot(b, v);
+  return away < 0.02 ? normalize(b + v * (0.02 - away)) : b;
 }
 
 // ---- knitting ----
@@ -107,6 +114,16 @@ vec3 ribbing(vec2 p, float w) {
   vec3 s = stocking(p);
   return vec3(mix(0.12, 0.45 + 0.55 * s.x, ridge), s.y, s.z);
 }
+`;
+
+// Wool, felt, cloth: not hard surfaces. Light gets in among the fibres and comes out round the corner, so the edge of
+// the shadow on them is soft however rough the stitches are.
+const SOFT = /* glsl */ `
+  {
+    float ndl = dot(normalize(vWNormal), uSunDir);
+    float wrapped = clamp((ndl + 0.4) / 1.4, 0.0, 1.0);
+    reflectedLight.directDiffuse += material.diffuseColor * uSunColor * max(0.0, wrapped - max(ndl, 0.0)) * sv * 0.5;
+  }
 `;
 
 // What every sculpted material does once the light is in: creases hold shadow.
@@ -198,7 +215,8 @@ const KINDS = {
       diffuseColor.rgb = wool;
     `,
     surface: /* glsl */ `roughnessFactor = 0.92;`,
-    normal: /* glsl */ `normal = bumped(normal, knitH * uFolkA.x * 0.32);`,
+    normal: /* glsl */ `normal = bumped(normal, knitH * uFolkA.x * 0.26);`,
+    light: SOFT,
   },
   // ---- felt and other pressed wool: uFolkA = (fibre size m, depth, unused, unused) ----
   felt: {
@@ -211,6 +229,7 @@ const KINDS = {
     `,
     surface: /* glsl */ `roughnessFactor = 0.96;`,
     normal: /* glsl */ `normal = bumped(normal, feltH);`,
+    light: SOFT,
   },
   // ---- woven cloth: uFolkA = (thread pitch m, depth, wale (0 = plain weave, else threads to a cord, for corduroy), unused) ----
   cloth: {
@@ -230,6 +249,7 @@ const KINDS = {
     `,
     surface: /* glsl */ `roughnessFactor = 0.88;`,
     normal: /* glsl */ `normal = bumped(normal, weaveH * uFolkA.x * uFolkA.y);`,
+    light: SOFT,
   },
   // ---- leather: uFolkA = (grain size m, depth, wear on the edges 0..1, unused) ----
   leather: {

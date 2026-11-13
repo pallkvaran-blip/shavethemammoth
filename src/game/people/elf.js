@@ -30,7 +30,8 @@ const ARM = (48 * Math.PI) / 180;
 const SH = [0.04, 0.119, 0], UPPER = 0.043, FORE = 0.04, HAND = 0.011;
 const armPoint = (s, d) => [s * (SH[0] + Math.sin(ARM) * d), SH[1] - Math.cos(ARM) * d, 0];
 const EYE = [0.0172, 0.1845, 0.0302], EYE_R = [0.012, 0.0106];       // (his left eye is the bigger)
-const HAT = [[0, 0.197, -0.007], [0.005, 0.245, -0.017], [0.028, 0.281, -0.023], [0.062, 0.297, -0.027]];
+// (the hat flops over to his right: his left hand is the one that holds things up, and they are not to be hidden by it)
+const HAT = [[0, 0.197, -0.007], [-0.005, 0.245, -0.017], [-0.028, 0.281, -0.023], [-0.062, 0.297, -0.027]];
 const CURL = (() => {
   // the toe of a boot: up, over and back on itself
   const pts = [];
@@ -203,6 +204,9 @@ function paintSkin(x, y, z, nx, ny, nz, out) {
   const dim = 1 - 0.22 * socket;
   r *= dim; g *= dim * (1 - 0.05 * socket); b *= dim * (1 - 0.06 * socket);
   r = r * (1 - mouth) + 0.2 * mouth; g = g * (1 - mouth) + 0.045 * mouth; b = b * (1 - mouth) + 0.045 * mouth;
+  // under his hair the skin is the colour of his hair (seen from any way off, hair is mostly the shade under it)
+  const scalp = clamp01((y - 0.163) / 0.012) * clamp01((0.019 - z) / 0.01) * clamp01((0.0495 - ax) / 0.004);
+  r *= 1 - 0.58 * scalp; g *= 1 - 0.83 * scalp; b *= 1 - 0.95 * scalp;
   out[0] = r; out[1] = g; out[2] = b;
   // freckles across the nose and the cheeks, and the tops of his ears
   out[3] = Math.min(1, near(ax, y, z, [0.02, 0.168, 0.036], 0.03) + near(x, y, z, [0, 0.172, 0.05], 0.024) + ear * 0.5) * (1 - mouth) * (1 - nose * 0.6);
@@ -302,7 +306,7 @@ export function buildElf({ bare = false } = {}) {
       return clamp01((y - 0.16) / 0.014) * (z < 0 ? 1 : 0.85);
     }, 11);
     const hair = growLocks(scalp, {
-      seed: 3, segments: 7, width: 0.00042, colour: ginger, clump: 0.55, clumps: 260, frizz: 0.0018, curl: [0.0012, 380],
+      seed: 3, segments: 7, width: 0.00042, colour: ginger, clump: 0.55, clumps: 260, frizz: 0.0018, curl: [0.0012, 380], dense: 5,
       body: (x, y, z) => Math.min(L.head.dist(x, y, z), L.hat.dist(x, y, z) + 0.0012, L.hatRib.dist(x, y, z) + 0.0008, L.scarf.dist(x, y, z), L.jumper.dist(x, y, z)),
       shape: (p, n, rnd) => {
         if (p[2] > 0.03) return { length: 0.007 + rnd() * 0.008, dir: [0.9 + rnd() * 0.5, -0.25 - rnd() * 0.3, 0.55], droop: 0.5, stiff: 0.6 };   // the tuft: swept to one side
@@ -339,7 +343,7 @@ export function buildElf({ bare = false } = {}) {
     // the bobble: yarn ends standing out in every direction
     const tuft = scatter(data.bobble, 2600, () => 1, 31);
     const bobble = growLocks(tuft, {
-      seed: 9, segments: 4, width: 0.0006, colour: { root: 0xa89a7c, tip: 0xfaf1dc, shine: 0xffffff }, clump: 0.35, clumps: 300, frizz: 0.0016,
+      seed: 9, segments: 4, width: 0.0006, colour: { root: 0xa89a7c, tip: 0xfaf1dc, shine: 0xffffff }, clump: 0.35, clumps: 300, frizz: 0.0016, dense: 5,
       shape: (p, n, rnd) => ({ length: 0.007 + rnd() * 0.004, dir: [n[0], n[1], n[2]], droop: 0.15, stiff: 0.8 }),
     });
     bobble.mesh.position.sub(rig.rest.hat3);
@@ -401,8 +405,8 @@ export function buildElf({ bare = false } = {}) {
       B[name].rotation.y = s * (0.3 * sad);
     }
     B.hat1.rotation.z = 0.05 * Math.sin(t * 1.9) + shake * 0.03;
-    B.hat2.rotation.z = 0.12 * Math.sin(t * 2.3 + 1) - 0.3 * sad + shake * 0.06;
-    B.hat3.rotation.z = 0.2 * Math.sin(t * 2.9 + 2) - 0.3 * sad + shake * 0.1;
+    B.hat2.rotation.z = 0.12 * Math.sin(t * 2.3 + 1) + 0.3 * sad + shake * 0.06;
+    B.hat3.rotation.z = 0.2 * Math.sin(t * 2.9 + 2) + 0.3 * sad + shake * 0.1;
     // the face: the corners of the mouth go up for a grin and down for the other thing; the jaw drops under a weight
     const grin = 0.35 + 0.65 * proud * lift - 1.5 * sad - 1.1 * strain;
     for (const [name, s] of [['cornerL', 1], ['cornerR', -1]]) {

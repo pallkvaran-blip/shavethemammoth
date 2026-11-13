@@ -15,6 +15,7 @@ attribute vec3 aNrm;
 attribute vec2 aSeed;        // one number for the strand; how deep among the others it lies
 uniform float uWidth;
 uniform float uFlex;
+uniform float uDense;
 uniform float uPxScale;
 varying vec2 vUV;
 varying vec3 vTan;
@@ -35,9 +36,11 @@ void main() {
     w *= 1.6;
     float cover = 1.0;
   #else
-    // a hair finer than a pixel is drawn a pixel wide and that much fainter
+    // a hair finer than a pixel is drawn a pixel wide and that much fainter. (Fainter, but not in proportion: where
+    // hairs lie several deep, what shows between the near ones is more hair, and a head of it stays a solid thing
+    // however far off it is.)
     float least = 1.15 * far / uPxScale;
-    float cover = clamp(w / least, 0.0, 1.0);
+    float cover = 1.0 - pow(1.0 - clamp(w / least, 0.0, 1.0), uDense);
     w = max(w, least);
   #endif
   pw += side * (uv.x - 0.5) * w;
@@ -126,8 +129,9 @@ function rng(seed) {
  * @param opts.curl     [radius in metres, turns per metre]
  * @param opts.body     (x, y, z) => distance: what the hair may not pass through
  * @param opts.flex     how far the ends move in the wind (0 for none)
+ * @param opts.dense    about how many strands deep it lies (so that it does not thin to nothing with distance)
  */
-export function growLocks(roots, { shape, seed = 1, segments = 6, width = 0.0005, colour = {}, clump = 0.4, clumps = 100, frizz = 0.001, curl = null, body = null, flex = 0.02, sigma = 70, gloss = 1 }) {
+export function growLocks(roots, { shape, seed = 1, segments = 6, width = 0.0005, colour = {}, clump = 0.4, clumps = 100, frizz = 0.001, curl = null, body = null, flex = 0.02, sigma = 70, gloss = 1, dense = 3 }) {
   const rnd = rng(seed), n = roots.length, S = segments;
   const paths = new Float32Array(n * (S + 1) * 3);
   const meta = new Float32Array(n * 2);
@@ -243,7 +247,7 @@ export function growLocks(roots, { shape, seed = 1, segments = 6, width = 0.0005
   geo.setIndex(new THREE.BufferAttribute(index, 1));
 
   const own = {
-    uWidth: { value: width }, uFlex: { value: flex }, uSigma: { value: sigma }, uGloss: { value: gloss },
+    uWidth: { value: width }, uFlex: { value: flex }, uSigma: { value: sigma }, uGloss: { value: gloss }, uDense: { value: dense },
     uRoot: { value: new THREE.Color(colour.root ?? 0x241408) }, uTip: { value: new THREE.Color(colour.tip ?? 0x8a5a2c) }, uShine: { value: new THREE.Color(colour.shine ?? 0xffffff) },
   };
   const material = new THREE.ShaderMaterial({ vertexShader: VERT, fragmentShader: FRAG, uniforms: { ...U, ...own }, side: THREE.DoubleSide, alphaToCoverage: true, defines: { SHADOW_TAPS: 4 } });
