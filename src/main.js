@@ -320,7 +320,8 @@ async function start() {
   antics.hush = () => (game.tipIn ?? 0) > 4;
   antics.onBald = () => { if (rig.mode === 'elf') rig.leaveElf(false); goView(1); game.finale(); };
   { const heard = rig.onLift; rig.onLift = (what) => { heard(what); if (what === 'thud') antics.feat('thud'); }; }
-  // dev: ?wear=partyhat,shades dresses him; ?pink dyes him
+  // dev: ?finale shows the end; ?wear=partyhat,shades dresses him; ?pink dyes him
+  if (q.has('finale')) setTimeout(() => game.finale(), 0);
   if (q.has('wear')) { game.state.worn.push(...q.get('wear').split(',')); antics.dress(); }
   if (q.has('pink')) { game.state.flags.pink = true; antics.dye(); }
   if (!q.has('tool')) shaving.setTool(game.state.tool);
@@ -371,6 +372,8 @@ async function start() {
     rig.height = num('up', 1); rig.vy = 0;
     if (!q.has('burn')) rig.keys.delete('KeyR');
     rig.update(1 / 600);
+    // (burning: a second of it, held at that height, so that a still shows what comes out of the pack)
+    if (q.has('burn')) for (let i = 0; i < 30; i++) { rig.update(1 / 30); camera.updateMatrixWorld(true); hero.update(1 / 30); lifter.update(1 / 30); rig.height = num('up', 1); rig.vy = 0; }
   }
   $('detail').value = qualityName;
   $('detail').addEventListener('change', (e) => applyQuality(e.target.value));

@@ -372,6 +372,21 @@ export class Game {
     this.dialog = who;
     this.said = pick(SAYS[who].hello);
     if (who === 'vulture' && this.state.hair < 1) this.said = pick(SAYS.vulture.empty);
+    // they have eyes: now and then they remark on the state he is in
+    const s = this.state, shorn = this.mammoth.shorn, notes = [];
+    if (who === 'gnome') {
+      if (s.flags.pink) notes.push('PINK! You made him PINK. I have never loved him more.');
+      if (s.found.includes('thong')) notes.push('You have seen the thong, then. We do not speak of the thong.');
+      if (s.worn.includes('partyhat')) notes.push('He looks so happy in the hat. You cannot tell, but I can. Nine years.');
+      if (shorn > 0.9) notes.push('There is hardly any of him left to be a fan of. I shall be a fan of what there is.');
+      else if (shorn > 0.4) notes.push('He is half the mammoth he was. I have had to let out my scrapbook.');
+      if (s.found.length >= 10) notes.push('The tattoos! I knew about four. I was present for one.');
+    } else if (s.hair >= 1) {
+      if (s.flags.pink) notes.push('Pink. How... commercial. I will take all of it.');
+      if (shorn > 0.5) notes.push('He is looking thin on top. And on the sides. I could do something for him. At a price.');
+      if (s.worn.includes('shades')) notes.push('Sunglasses. On a mammoth. I have buried men for less.');
+    }
+    if (notes.length && Math.random() < 0.6) this.said = pick(notes);
     this.state.stats.visits++;
     this.face(who);
     this.shaving.squeeze(false);

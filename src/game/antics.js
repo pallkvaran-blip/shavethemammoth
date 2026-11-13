@@ -167,6 +167,7 @@ export class Antics {
   update(dt, { elf, busy }) {
     const s = this.state, rig = this.rig;
     this.quiet = Math.max(0, this.quiet - dt);
+    if (rig.rattle > 0) rig.rattle = Math.max(0, rig.rattle - dt * 1.6);      // (a jolt dies away, whatever else is going on)
     // ---- gas, once started, takes a moment ----
     if (this.gas > 0) {
       this.gas -= dt;
@@ -210,7 +211,6 @@ export class Antics {
         this.say(pick(SAYS.sneeze), 6);
       }
     }
-    if (rig.rattle > 0) rig.rattle = Math.max(0, rig.rattle - dt * 1.6);
 
     // ---- how far he has got ----
     const shorn = this.mammoth.shorn, told = s.flags.told || (s.flags.told = {});
