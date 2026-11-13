@@ -10,7 +10,7 @@
 // wigs on stands (one stand is the skull of a previous customer). Built facing
 // +z, at the origin.
 import * as THREE from 'three';
-import { Model, signTexture, plankTexture } from './model.js';
+import { Model, signTexture, plankTexture, GOTHIC } from './model.js';
 import { buildFigure } from './figure.js';
 import { bakeFigure } from './bake.js';
 import { folkMaterial } from './materials.js';
@@ -148,7 +148,7 @@ export function buildWigTable({ baked = null } = {}) {
   const brass = M.mat(0xc9a13f, { rough: 0.3, metal: 1 });
   const bone = M.mat(0xe6dfcc, { rough: 0.6 });
   const dark = M.mat(0x0a0807, { rough: 0.5 });
-  const board = M.mat(0xffffff, { rough: 0.75, map: signTexture([{ text: "MORTIMER'S", size: 60, style: 'bold' }, { text: 'fine toupees', size: 34, style: 'italic' }, { text: 'hair bought by the gram', size: 24 }], { ground: '#1d1a17', ink: '#d9c9a0' }) });
+  const board = M.mat(0xffffff, { rough: 0.75, map: signTexture([{ text: 'Mortimer’s', size: 78, style: '700', font: GOTHIC }, { text: 'fine toupees', size: 31, style: 'italic 500' }, { text: 'hair bought by the gram', size: 23, style: '500' }], { ground: '#1d1a17', ink: '#d9c9a0' }) });
   const all = M.group;
 
   // the stump he stands on, behind the table

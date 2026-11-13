@@ -60,7 +60,10 @@ export class Model {
 }
 
 /** A painted sign: lines of lettering on a board. Returns a texture. */
-export function signTexture(lines, { w = 512, h = 160, ground = '#3b2a1c', ink = '#f1e2c2', font = 'Georgia, serif', border = true } = {}) {
+/** The hands things are lettered in (the same as the game's own words are set in: see index.html), for drawing on a canvas. */
+export const GOTHIC = '"Grenze Gotisch", "Palatino Linotype", Georgia, serif', HAND = '"Grenze", "Palatino Linotype", Georgia, serif';
+
+export function signTexture(lines, { w = 512, h = 160, ground = '#3b2a1c', ink = '#f1e2c2', font = HAND, border = true } = {}) {
   return canvasTexture(w, h, (g) => {
     g.fillStyle = ground; g.fillRect(0, 0, w, h);
     // the grain of the board
@@ -70,7 +73,7 @@ export function signTexture(lines, { w = 512, h = 160, ground = '#3b2a1c', ink =
     const total = lines.reduce((s, l) => s + l.size * 1.15, 0);
     let y = (h - total) / 2;
     for (const l of lines) {
-      g.font = `${l.style || ''} ${l.size}px ${font}`;
+      g.font = `${l.style || ''} ${l.size}px ${l.font || font}`;
       g.fillText(l.text, w / 2, y + l.size * 0.575, w - 28);
       y += l.size * 1.15;
     }

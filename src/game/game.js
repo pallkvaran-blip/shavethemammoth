@@ -449,7 +449,7 @@ export class Game {
             if (next) { name = next.name; blurb = next.blurb; }
             else { name = item.levels[at - 1].name; blurb = 'You have the best there is. I checked. I looked everywhere.'; }
           }
-          if (Number.isFinite(p)) action = `<button type="button" data-buy="${id}" ${p > s.gold ? 'class="dear"' : ''}>${p} gold</button>`;
+          if (Number.isFinite(p)) action = `<button type="button" data-buy="${id}" ${p > s.gold ? 'class="dear" title="More than you have"' : ''}>${p} <small>gold</small></button>`;
           else if (['sweeper', 'ladder', 'pack'].includes(item.kind)) {
             const inUse = s.sweeper === id || (s.climber === id && s.lift !== 'pack') || (s.pack === id && s.lift === 'pack');
             action = inUse ? '<span class="have">In use</span>' : `<button type="button" class="use" data-use="${id}">Use this</button>`;
@@ -461,6 +461,7 @@ export class Game {
     }
     html += `<footer><span class="purse">${s.gold} gold</span><button type="button" data-act="close">Leave <kbd class="desk">E</kbd></button></footer>`;
     const sheet = d.querySelector('.sheet'), top = sheet.scrollTop;
+    sheet.dataset.who = who;                        // (each of them has a list of his own cut)
     sheet.innerHTML = html;
     sheet.scrollTop = top;
   }

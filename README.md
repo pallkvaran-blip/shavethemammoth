@@ -38,7 +38,9 @@ are bigger than he is:
 | --- | --- |
 | ![A fat gnome with a white beard to his belt, a fan on his hat and a foam hand, lit by the lamp of his striped stall](docs/gnorman.jpg) | ![A vulture in a ruff of white down, a monocle and a ginger toupee, behind a table of wigs and a pair of scales](docs/mortimer.jpg) |
 
-![Gnorman's list of wares, with prices in gold](docs/shop.jpg)
+| Gnorman's list | Mortimer's scales |
+| --- | --- |
+| ![Gnorman's list of wares on a patch of felt under the scalloped edge of his awning, each price on a paper tag](docs/shop.jpg) | ![Mortimer's offer for the hair in your pockets, under a black valance](docs/scales.jpg) |
 
 ### How they are made
 
@@ -244,6 +246,7 @@ Settings > System > Display > Graphics.
 | Antics | `src/game/antics.js` | What he does while he is being shaved, what he can be made to wear, the remarks at each milestone, and the end |
 | Picture | `src/gfx/post.js` | HDR rendering, bloom, light shafts, a film-style tone curve that keeps colour in the highlights, vignette and grain |
 | Opening | `index.html`, `src/main.js` | The legend: its first line shows on the dark while the scene is being made, the others over the opening camera move, high in the sky where they can be read. The controls come up when it ends |
+| What is laid over the scene | `index.html` | The game is about wool, so its furniture is haberdashery: patches of dark felt sewn on with cream thread, the chosen item on a woven label, prices on paper swing tags, gold as brass, keys to press as brass buttons, and a loading bar that is two rows of knitting worked a stitch at a time with the needle still in. Each trader's list hangs under his own valance (Gnorman's striped awning, something blacker for Mortimer). Three hands of lettering, all from the same family tree: Jacquard 24, a blackletter drawn for the loom, for the words worked in cross-stitch (the name of the game, the name over a shop, what he just got); Grenze Gotisch for the legend and anything said with a straight face; Grenze for everything else. The signs in the scene are painted in the same hands, so `main.js` waits for the lettering before anything is drawn with it |
 
 ## Developer notes
 
