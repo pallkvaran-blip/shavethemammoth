@@ -98,11 +98,11 @@ export function buildWigTable() {
   const all = M.group;
 
   // the stump he stands on, behind the table
-  const stump = M.add(all, new THREE.CylinderGeometry(0.075, 0.09, 0.1, 14), bark, 'stump');
-  stump.position.set(0, 0.05, -0.05);
+  const stump = M.add(all, new THREE.CylinderGeometry(0.075, 0.095, 0.16, 14), bark, 'stump');
+  stump.position.set(0, 0.02, -0.05);
   // the table
   M.box(all, wood, [0.44, 0.014, 0.2], [0, 0.15, 0.2]);
-  for (const [x, z] of [[-0.2, 0.12], [0.2, 0.12], [-0.2, 0.28], [0.2, 0.28]]) M.rod(all, wood, [x, 0, z], [x, 0.145, z], 0.009);
+  for (const [x, z] of [[-0.2, 0.12], [0.2, 0.12], [-0.2, 0.28], [0.2, 0.28]]) M.rod(all, wood, [x, -0.06, z], [x, 0.145, z], 0.009);
   // the scales: a post, a beam that tips, two pans
   M.rod(all, brass, [0, 0.157, 0.2], [0, 0.26, 0.2], 0.006, 0.004);
   M.ball(all, brass, 0.014, [0, 0.16, 0.2], [1.6, 0.5, 1.6]);
@@ -138,7 +138,7 @@ export function buildWigTable() {
     for (const s of [-1, 1]) M.ball(g, dark, 0.0058, [s * 0.008, 0.071, 0.017]);
   });
   // the sign, on a post beside the table
-  M.rod(all, bark, [-0.3, 0, 0.1], [-0.3, 0.5, 0.1], 0.011);
+  M.rod(all, bark, [-0.3, -0.07, 0.1], [-0.3, 0.5, 0.1], 0.011);
   const sign = M.box(all, board, [0.4, 0.15, 0.012], [-0.3, 0.52, 0.11]);
   sign.rotation.y = 0.25;
 

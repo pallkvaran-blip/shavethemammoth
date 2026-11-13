@@ -185,6 +185,7 @@ export class Shaving {
       this.lowered = Math.max(0, this.lowered - dt / BRING_UP);
     }
     const sh = this.tool, voice = sh.def.voice;
+    this.camera = camera;
     sh.away = ease(this.lowered);
     this._env(camera);
     sh.place(dt, camera, feel, this.world);
@@ -251,22 +252,40 @@ export class Shaving {
   /** Grams of hair in a length of lock (fewer, thicker locks at lower detail weigh the same in all). */
   grams(metres) { return metres * 240000 / this.mammoth.strands; }
 
-  /** One stroke of a broom, or one grab: everything within reach of its working end goes in the sack. */
+  /**
+   * Where a sweeper is aimed: the patch of snow the elf is looking at, no
+   * further off than the tool reaches (`ahead`). Looking level or up, that is
+   * the snow that far in front of its feet.
+   */
+  _aim(sh, out) {
+    const e = this.camera.matrixWorld.elements, ahead = sh.def.sweep.ahead * (sh.def.motor ? this.reachMore : 1);
+    const fx = -e[8], fy = -e[9], fz = -e[10], flat = Math.hypot(fx, fz) || 1;
+    const high = e[13] - this.terrain.height(e[12], e[14]);
+    const d = fy < -0.05 ? Math.min(ahead, (high / -fy) * flat) : ahead;
+    const x = e[12] + (fx / flat) * d, z = e[14] + (fz / flat) * d;
+    return out.set(x, this.terrain.height(x, z) + 0.01, z);
+  }
+
+  /** One stroke of a broom, or one grab: everything round where it is aimed goes in the sack. */
   _sweep(sh) {
-    const p = sh.end(this._end), s = sh.def.sweep;
+    const p = this._aim(sh, this._end), s = sh.def.sweep;
     const got = this.clippings.gather(p.x, p.y, p.z, s.radius, { room: this.room() });
     if (got > 0) this.onHair(got);
     if (this.clippings.missed) this.onFull();
   }
 
-  /** A vacuum, running: hair within reach of the nozzle is drawn up it. */
+  /** A vacuum, running: hair round where it is aimed, and round the nozzle itself, is drawn up it. */
   _suck(sh) {
-    const p = sh.end(this._end), s = sh.def.sweep;
-    this.clippings.sink.copy(p);
+    const s = sh.def.sweep, more = this.reachMore;
     if (sh.power > 0.5) {
-      this.clippings.gather(p.x, p.y, p.z, s.radius * this.reachMore, { pull: s.pull * this.reachMore, room: this.room() });
-      if (this.clippings.missed) this.onFull();
+      const p = this._aim(sh, this._end);
+      this.clippings.gather(p.x, p.y, p.z, s.radius * more, { pull: s.pull * more, room: this.room() });
+      const full = this.clippings.missed;
+      sh.end(this._end);
+      this.clippings.gather(this._end.x, this._end.y, this._end.z, s.radius * more * 0.6, { pull: s.pull * more, room: this.room() });
+      if (full || this.clippings.missed) this.onFull();
     }
+    this.clippings.sink.copy(sh.end(this._end));
     this.sound.motor(sh.def.voice, sh.power, Math.min(1, this.clippings.inFlight / 20), 0);
   }
 

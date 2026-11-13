@@ -76,17 +76,17 @@ export function buildGnome() {
   }
   // the beard: down over the jersey to the belt
   const beard = M.add(head, new THREE.ConeGeometry(0.058, 0.15, 18), white, 'beard');
-  beard.rotation.x = Math.PI; beard.position.set(0, -0.062, 0.036); beard.scale.set(1, 1, 0.6);
+  beard.rotation.x = Math.PI - 0.3; beard.position.set(0, -0.058, 0.074); beard.scale.set(1.05, 1, 0.55);
   // the hat, and the fan on top of it
   const hat = new THREE.Group();
   hat.position.set(0, 0.07, -0.004); hat.rotation.x = -0.14;
   head.add(hat);
-  const cone = M.add(hat, new THREE.ConeGeometry(0.06, 0.17, 20), red, 'hat');
-  cone.position.y = 0.085;
+  const cone = M.add(hat, new THREE.ConeGeometry(0.06, 0.14, 20), red, 'hat');
+  cone.position.y = 0.07;
   const brim = M.add(hat, new THREE.TorusGeometry(0.059, 0.008, 8, 24), red, 'hat-brim');
   brim.rotation.x = Math.PI / 2; brim.position.y = 0.004;
   const fan = new THREE.Group();
-  fan.position.y = 0.175;
+  fan.position.y = 0.145;
   hat.add(fan);
   M.ball(fan, brass, 0.008, [0, 0, 0]);
   M.rod(fan, brass, [0, -0.012, 0], [0, 0.002, 0], 0.003);
@@ -148,13 +148,13 @@ export function buildStall() {
   const all = M.group;
 
   // the counter, and the box behind it that he stands on
-  M.box(all, wood, [0.62, 0.15, 0.2], [0, 0.075, 0.1]);
+  M.box(all, wood, [0.62, 0.21, 0.2], [0, 0.045, 0.1]);
   M.box(all, wood, [0.68, 0.012, 0.25], [0, 0.156, 0.1]);
-  M.box(all, post, [0.2, 0.06, 0.16], [0, 0.03, -0.11]);
+  M.box(all, post, [0.2, 0.12, 0.16], [0, 0, -0.11]);
   const list = M.box(all, rules, [0.19, 0.14, 0.004], [-0.17, 0.08, 0.203]);
   list.rotation.z = 0.04;
   // four posts and the awning over them, lower at the front, with a valance
-  for (const [x, z] of [[-0.33, 0.21], [0.33, 0.21], [-0.33, -0.25], [0.33, -0.25]]) M.rod(all, post, [x, 0, z], [x, z > 0 ? 0.5 : 0.6, z], 0.011);
+  for (const [x, z] of [[-0.33, 0.21], [0.33, 0.21], [-0.33, -0.25], [0.33, -0.25]]) M.rod(all, post, [x, -0.07, z], [x, z > 0 ? 0.5 : 0.6, z], 0.011);
   const awning = M.box(all, cloth, [0.78, 0.005, 0.6], [0, 0.565, -0.03]);
   awning.rotation.x = 0.2;
   const valance = M.box(all, cloth, [0.78, 0.05, 0.004], [0, 0.48, 0.262]);
@@ -175,13 +175,13 @@ export function buildStall() {
   const ladder = new THREE.Group();
   ladder.position.set(0.42, 0, 0.05); ladder.rotation.z = 0.2;
   all.add(ladder);
-  for (const z of [-0.05, 0.05]) M.rod(ladder, post, [0, 0, z], [0, 0.6, z], 0.008);
+  for (const z of [-0.05, 0.05]) M.rod(ladder, post, [0, -0.06, z], [0, 0.6, z], 0.008);
   for (let y = 0.07; y < 0.6; y += 0.085) M.rod(ladder, post, [0, y, -0.05], [0, y, 0.05], 0.006);
   const broom = new THREE.Group();
   broom.position.set(-0.43, 0, 0.1); broom.rotation.z = -0.16;
   all.add(broom);
   M.rod(broom, post, [0, 0.05, 0], [0, 0.46, 0], 0.006);
-  M.box(broom, iron, [0.03, 0.05, 0.14], [0, 0.03, 0]);
+  M.box(broom, iron, [0.03, 0.09, 0.14], [0, 0.01, 0]);
 
   return { group: M.group, meshes: M.meshes, lamp, radius: 0.46 };
 }
