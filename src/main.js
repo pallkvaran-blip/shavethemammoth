@@ -304,7 +304,7 @@ async function start() {
     gap: screenGap || 1 / 60,          // seconds from one redrawing of the screen to the next, as measured
     bins: new Float32Array(256), seen: 0,
     relax: 1,                          // aiming for every frame of the screen's (1), every other (2), ...
-    acc: 0, n: 0, long1: 0, long2: 0, settle: 2.5,   // the stretch being averaged (and its two longest gaps)
+    acc: 0, n: 0, lost: 0, stumbles: 0, settle: 2.5,   // the stretch being averaged (and the stumbles in it: how long, how many)
     easy: 0, wait: 5, backoff: 5, raisedAt: -1e9, failedWhen: -1e9, failedAt: Infinity, floorMiss: 0, clock: 0,
     fps: 0, script: 0,
   };
@@ -318,7 +318,7 @@ async function start() {
     if (to === adaptLevel) return;
     const sharp = ADAPT[to].scale !== ADAPT[adaptLevel].scale;
     adaptLevel = to;
-    pace.settle = 0.5; pace.acc = 0; pace.n = 0; pace.long1 = pace.long2 = 0;
+    pace.settle = 0.5; pace.acc = 0; pace.n = 0; pace.lost = pace.stumbles = 0;
     if (sharp) resize();
   };
   /** The gap between two frames (ms): the shortest that keeps turning up is how often the screen is redrawn. */
@@ -342,12 +342,14 @@ async function start() {
     if (pace.settle > 0) { pace.settle -= Math.min(gap, 1); return; }   // (on a machine far too slow, a few frames are enough to know it)
     const g = Math.min(gap, 1.5);
     pace.acc += g; pace.n++;
-    if (g > pace.long1) { pace.long2 = pace.long1; pace.long1 = g; } else if (g > pace.long2) pace.long2 = g;
+    if (g > aimFor() * 2.5) { pace.lost += g; pace.stumbles++; }
     if (pace.acc < 0.7) return;
-    // The usual gap over the stretch, its two longest left out: the odd stumble (the browser clearing up after itself,
-    // something else on the machine) says nothing about how much detail the graphics card can carry.
-    const span = pace.acc, avg = pace.n > 8 ? (span - pace.long1 - pace.long2) / (pace.n - 2) : span / pace.n;
-    pace.fps = pace.n / span; pace.acc = 0; pace.n = 0; pace.long1 = pace.long2 = 0;
+    // The usual gap over the stretch. A few gaps far longer than the rest are stumbles (the browser clearing up after
+    // itself, something else on the machine) and say nothing about how much detail the graphics card can carry, so
+    // they are left out; if a good part of the frames are that long, they are not stumbles but the pace.
+    const span = pace.acc, few = pace.stumbles <= Math.max(2, pace.n * 0.2) && pace.stumbles < pace.n;
+    const avg = few ? (span - pace.lost) / (pace.n - pace.stumbles) : span / pace.n;
+    pace.fps = pace.n / span; pace.acc = 0; pace.n = 0; pace.lost = pace.stumbles = 0;
     const ratio = avg / aimFor();
     if (ratio > 1.08) {
       pace.easy = 0;
@@ -385,7 +387,7 @@ async function start() {
     }
   };
   // coming back to the tab: do not mistake the pause for a slow frame
-  document.addEventListener('visibilitychange', () => { pace.settle = 1.5; pace.acc = 0; pace.n = 0; pace.long1 = pace.long2 = 0; if (document.visibilityState !== 'visible') { levels[rig.mode === 'elf' ? 'elf' : 'orbit'] = adaptLevel; keepLevels(); } });
+  document.addEventListener('visibilitychange', () => { pace.settle = 1.5; pace.acc = 0; pace.n = 0; pace.lost = pace.stumbles = 0; if (document.visibilityState !== 'visible') { levels[rig.mode === 'elf' ? 'elf' : 'orbit'] = adaptLevel; keepLevels(); } });
   // How long the graphics card takes over a frame, where the browser will say. It is shown with the other numbers
   // (the P key), and taken as a hint that there is room for more detail; nothing depends on it.
   const timer = (() => {
@@ -429,7 +431,7 @@ async function start() {
     grass.setShare(Q.grass);
     // (a setting chosen by hand starts from all of itself, and is turned down again from there if it must be)
     adaptLevel = levels.orbit = levels.elf = 0;
-    Object.assign(pace, { relax: 1, acc: 0, n: 0, long1: 0, long2: 0, settle: 1.5, easy: 0, wait: 5, backoff: 5, failedAt: Infinity, floorMiss: 0 });
+    Object.assign(pace, { relax: 1, acc: 0, n: 0, lost: 0, stumbles: 0, settle: 1.5, easy: 0, wait: 5, backoff: 5, failedAt: Infinity, floorMiss: 0 });
     nearStale = true;
     keepLevels();
     resize();
@@ -684,7 +686,7 @@ async function start() {
     }
     const open = () => {
       document.body.classList.add('ready');
-      pace.settle = 1.5; pace.acc = 0; pace.n = 0; pace.long1 = pace.long2 = 0;
+      pace.settle = 1.5; pace.acc = 0; pace.n = 0; pace.lost = pace.stumbles = 0;
       const tell = tellLegend && !legend.skipped;
       if (intro) rig.setView(startView, tell ? 11 : 6.5);
       if (!tell) { endLegend(); return; }

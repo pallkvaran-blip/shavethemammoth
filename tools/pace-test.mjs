@@ -26,7 +26,7 @@ async function machine(name, { screen = 1000 / 60, cost, seconds = 40, query = '
   await page.addInitScript(({ screen, cost }) => {
     const P = WebGL2RenderingContext.prototype;
     for (const n of ['drawElements', 'drawArrays', 'drawElementsInstanced', 'drawArraysInstanced', 'drawRangeElements', 'finish', 'readPixels']) P[n] = function () {};
-    const costOf = new Function('level', 'view', 'return ' + cost);
+    const costOf = new Function('level', 'view', 'frame', 'return ' + cost);
     const sim = (window.__sim = { t: performance.now(), view: 1, log: [], frames: 0, on: false, slow: 0 });
     // (frames are run one after another as fast as the page can go, not at the screen's pace: the time they are told is pretended anyway)
     const queue = [], channel = new MessageChannel();
@@ -35,7 +35,7 @@ async function machine(name, { screen = 1000 / 60, cost, seconds = 40, query = '
     window.requestAnimationFrame = (cb) => raf(() => {
       const g = window.__game, level = g ? g.level : 0;
       // (before the scene is there, the page is idle: a frame at every redrawing of the screen)
-      const took = sim.on ? costOf(level, sim.view) : 1;
+      const took = sim.on ? costOf(level, sim.view, sim.frames) : 1;
       const gap = Math.max(1, Math.ceil(took / screen - 1e-6)) * screen;
       sim.t += gap;
       if (sim.on) { sim.frames++; if (gap > screen * 1.01) sim.slow++; const last = sim.log[sim.log.length - 1]; if (!last || last[1] !== level) sim.log.push([+(sim.clock || 0).toFixed(1), level]); sim.clock = (sim.clock || 0) + gap / 1000; }
@@ -95,9 +95,14 @@ const low = Math.max(...r.log.filter(([t]) => t > 12 && t < 50).map(([, l]) => l
 check('a heavier view brings the detail down', low >= 4, `down to ${low}`);
 check('and a lighter one brings it back', r.level <= 1, `ends at ${r.level}`);
 
-// 6. A stumble now and then (a long frame every second or so) is not taken for a slow machine.
-r = await machine('stumbles', { cost: `(Math.random() < 0.015 ? 120 : 9) * ${REL}`, seconds: 40 });
-check('an odd long frame costs no detail', r.level === 0, `ends at ${r.level} after ${r.changes} changes`);
+// 6. A stumble now and then is not taken for a slow machine: a long frame every second or so, and for a while a
+//    burst of them four to the second.
+r = await machine('stumbles', { cost: `((frame % 61 === 0 || (frame > 900 && frame < 1100 && frame % 14 === 0)) ? 120 : 9) * ${REL}`, seconds: 40 });
+check('an odd long frame costs no detail', r.level === 0 && r.changes === 0, `ends at ${r.level} after ${r.changes} changes`);
+
+// 7. But a machine on which every frame is that long is slow, not stumbling.
+r = await machine('slow all the time', { cost: `60 * ${REL}`, seconds: 20 });
+check('frames that are all long are not taken for stumbles', r.level >= 4, `ends at ${r.level}`);
 
 console.log(failed ? `${failed} FAILED` : 'all passed');
 process.exit(failed ? 1 : 0);
