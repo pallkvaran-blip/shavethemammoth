@@ -71,6 +71,12 @@ for it; where a page does not allow threads it is done between frames instead.
 | --- | --- |
 | ![A barcode on a hind leg: BEST BEFORE END OF ICE AGE](docs/tattoo.jpg) | ![The mammoth shaved, from behind and above: a pink thong, and several regrettable tattoos](docs/thong.jpg) |
 
+## He has views
+
+| From outside | From where you are |
+| --- | --- |
+| ![The mammoth in profile, with a speech bubble: I wish I was an elephant. Nobody shaves an elephant.](docs/he-says.jpg) | ![A foreleg shaved to show the word LEFT, and a speech bubble from above: Gosh, this is embarrassing.](docs/embarrassing.jpg) |
+
 ## Getting up there, and other purchases
 
 | Up a ladder | Picking it up | Sundries |
@@ -172,6 +178,15 @@ read.
 on anyone who loiters in front of his trunk. When he is bald the shaving stops and the
 legend is told to its end; you can leave him as he is or grow it all back and go again.
 
+**And he says so.** Every now and then he speaks, in a bubble by his head (or, from
+down at his feet, at the top of the screen with its tail pointing up at him). He has
+something to say about the first cut, about each thing found on him (he would rather
+they had not been), about whatever you have just bought to use on him, about how far it
+has gone, about his hair being sold, about elves standing under him, on him or behind
+him, and, left to himself, about once a minute, about the whole business. He keeps
+quiet while a shop is open or a scene is playing and says it afterwards. What he says
+is signed "the mammoth" until you find out what he is called.
+
 ### Shaving
 
 Walk up to the mammoth. Held away from it, a tool points ahead with its blades
@@ -254,6 +269,7 @@ Settings > System > Display > Graphics.
 | Getting up | `src/controls.js`, `src/game/lift.js` | The elf has a height above the snow. A ladder is stood up under him and climbed (it is drawn only as high as his feet, so it is never between him and the hair); a pack burns what is in its tank. `lift.js` is what is seen and heard of it: the ladders, the packs on his back, what comes out of them, the gauge |
 | Under the coat | `src/mammoth/tattoos.js`, `bodyMaterial.js`, `src/game/finds.js` | Twenty-two tattoos drawn in code on one sheet of ink, each projected onto the hide where it belongs (found by walking in from outside until the skin is met); and a thong, which is a formula. The skin's shader shows both only where the hair is off. Bare hide is a pavement of cracked plates, as an elephant's is |
 | Antics | `src/game/antics.js` | What he does while he is being shaved, what he can be made to wear, the remarks at each milestone, and the end |
+| What he says | `src/game/says.js` | His lines, and when he says them: the rest of the game tells him what has happened, and he answers when there is a moment, never twice in a few seconds and never over a shop or a scene. The bubble is a label in the page, put each frame where his mouth is on the screen; when that is out of the picture it keeps to the middle of the nearest edge and points. His voice is a few low syllables from `audio.js` |
 | Picture | `src/gfx/post.js` | HDR rendering, bloom, light shafts, a film-style tone curve that keeps colour in the highlights, vignette and grain |
 | Opening | `index.html`, `src/main.js` | The legend: its first line shows on the dark while the scene is being made, the others over the opening camera move, high in the sky where they can be read. The controls come up when it ends |
 | What is laid over the scene | `index.html` | The game is about wool, so its furniture is haberdashery: patches of dark felt sewn on with cream thread, the chosen item on a woven label, prices on paper swing tags, gold as brass, keys to press as brass buttons, and a loading bar that is two rows of knitting worked a stitch at a time with the needle still in. Each trader's list hangs under his own valance (Gnorman's striped awning, something blacker for Mortimer). Three hands of lettering, all from the same family tree: Jacquard 24, a blackletter drawn for the loom, for the words worked in cross-stitch (the name of the game, the name over a shop, what he just got); Grenze Gotisch for the legend and anything said with a straight face; Grenze for everything else. The signs in the scene are painted in the same hands, so `main.js` waits for the lettering before anything is drawn with it |
@@ -282,7 +298,8 @@ Settings > System > Display > Graphics.
   `scene=<tool>` with `st=<seconds>` (the scene for getting that tool, stopped at that moment),
   `lift=<ladder or pack>` with `up=<metres>` (start that far off the snow on it), `bald` (the
   whole coat off at once), `shave=x,y,z,r` (the coat off within r of a point; several separated
-  by semicolons), `wear=partyhat,shades` and `pink`.
+  by semicolons), `wear=partyhat,shades`, `pink`, and `says=<words>` (he is saying that, and
+  goes on saying it; with `hud` on a still, which otherwise leaves out everything laid over the scene).
 - `tools/loop-test.mjs` plays the whole game through on the live page: the first scene, cutting,
   picking up by hand, selling, buying, the scene for a new tool, every broom and vacuum, a full
   sack, a ladder, the packs, landing on his back, everything under the coat, the ending, and

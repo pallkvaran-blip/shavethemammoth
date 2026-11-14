@@ -132,6 +132,11 @@ console.log(`bad scissors, a minute round the foreleg: ${round(v.g)} g cut in ${
 check(v.g > 8, 'a minute with the bad scissors cuts a fair handful');
 check(Math.abs(v.lying - v.g) < 0.02 * v.g + 0.05, 'every gram cut is lying about to be picked up');
 const cutFirst = v.g;
+// ...and the mammoth has something to say about being cut
+v = await T(`return { said: game.says.history.slice(), flag: !!(st.flags.said && st.flags.said.cut), who: game.says.name }`);
+console.log(`  the mammoth, cut for the first time: "${v.said[0]}"${v.said.length > 1 ? `; and since: "${v.said.slice(1).join('" / "')}"` : ''}`);
+check(v.flag && v.said.length >= 1 && v.said[0].length > 8, 'the first cut gets a remark out of the mammoth');
+check(v.who === 'The mammoth', 'who is, so far, only "the mammoth"');
 
 // ---- pick up, by hand (the Q key) ----
 await page.keyboard.press('KeyQ');
@@ -153,9 +158,21 @@ await page.click('#dialog [data-act="sell"]');
 v = await T(`return { gold: st.gold, hair: st.hair, sold: st.stats.sold }`);
 console.log(`  sold ${round(carried)} g for ${v.gold} gold`);
 check(v.gold === Math.floor(carried * 0.25 + 1e-6) && v.hair === 0, 'he pays a quarter of a gold a gram, rounded down in his favour, and the pockets are empty');
+// (the mammoth saw that; but he says nothing while the shop is open)
+v = await T(`T.frame(150); const el = document.getElementById('says'); return { now: game.says.now && game.says.now.line, waiting: game.says.queue.length, up: !el.hidden && el.classList.contains('show') }`);
+check(v.now === null && !v.up && v.waiting >= 1, 'the mammoth has a view on the sale, and keeps it to himself while the shop is open');
 await page.keyboard.press('KeyE');
 v = await T(`return { dialog: game.dialog, busy: rig.busy, mode: rig.mode }`);
 check(v.dialog === null && !v.busy && v.mode === 'elf', 'E again leaves him, still in the elf\'s shoes');
+v = await T(`
+  let n = 0; while (!game.says.now && n < 900) { T.frame(); n++; }
+  const el = document.getElementById('says'), r = el.querySelector('.note').getBoundingClientRect();
+  return { n, line: game.says.now && game.says.now.line, text: el.querySelector('.line').textContent, who: el.querySelector('.who').textContent, hidden: el.hidden, tail: el.dataset.tail,
+    inside: r.width > 40 && r.left >= 0 && r.top >= 0 && r.right <= innerWidth && r.bottom <= innerHeight };
+`);
+console.log(`  outside again, ${round(v.n / 60)} s later, the mammoth: "${v.line}" (signed "${v.who}", tail pointing ${v.tail})`);
+check(!!v.line && v.text === v.line && !v.hidden, 'once the shop is shut he says it, in a bubble');
+check(v.inside && /^(up|down|left|right)$/.test(v.tail), 'which is wholly on the screen, and points at him');
 
 // ---- buy from Gnorman ----
 await T(`T.goTo('gnome')`);
@@ -182,6 +199,8 @@ check(!v.playing && v.dialog === 'gnome' && v.dialogSeen && v.busy, 'when it is 
 check(v.owns && v.hand === 'sheep', 'buying the shears puts them in hand');
 check(/sheep:/.test(v.shown) && v.two === true, 'and key 2 and their button now work');
 await page.keyboard.press('KeyE');
+v = await T(`let n = 0; while (!game.says.history.some((l) => /sheep/.test(l)) && n < 60 * 25) { T.frame(); n++; } return { said: game.says.history.slice(-2) }`);
+check(v.said.some((l) => /not a sheep/.test(l)), `and the mammoth has seen what was bought: "${v.said[v.said.length - 1]}"`);
 
 // ---- every broom and vacuum picks hair up; nothing holds more than it holds ----
 await T(`st.earn(4000); game.buy('garden'); T.frame(40)`);
@@ -295,6 +314,17 @@ check(v.out > 1.2 && v.floating && v.held > 2, 'stepping off the side, the pack 
 check(v.off && v.took < 6, 'and F lets him down to the snow');
 
 // ---- what is under the coat is found when the hair over it is gone ----
+// (one of them first, on its own: the heart for his mum)
+v = await T(`
+  const spot = game.finds.spots.find((sp) => sp.id === 'mum'), cut = Float32Array.from(mammoth.bodyCut), was = st.found.length;
+  for (const p of spot.at) cut[p] = 0.0005;
+  mammoth.setHaircut(cut);
+  let n = 0; while (!game.says.history.includes('Gosh, this is embarrassing.') && n < 60 * 30) { T.frame(); n++; }
+  return { was, found: st.found.slice(), hint: document.getElementById('hint').textContent.trim().slice(0, 60), said: game.says.history.slice(-1)[0], n };
+`);
+console.log(`  one tattoo uncovered: "${v.hint}..."; the mammoth: "${v.said}"`);
+check(v.found.length === v.was + 1 && v.found.includes('mum'), 'shaving the hide over one tattoo finds that one');
+check(v.was > 0 || v.said === 'Gosh, this is embarrassing.', 'and the first thing found on him embarrasses him');
 v = await T(`
   const gold = st.gold, was = st.found.length, total = game.finds.total;
   mammoth.setHaircut(new Float32Array(mammoth.bodyCut.length).fill(0.0005));
@@ -307,6 +337,8 @@ console.log(`under the coat: ${v.found} of ${v.total} found, ${v.paid} gold paid
 check(v.one === v.was + 1, 'with the hair gone, the next find is announced (one at a time)');
 check(v.found === v.total && v.thong, 'and in time all of them are, the thong among them');
 check(v.paid === 30 * (v.total - v.was - 1) + 120, 'each pays what Gnorman promised');
+v = await T(`return { who: game.says.name, said: game.says.history.length }`);
+check(v.who === 'Kevin', 'and with the label on his forehead read, what he says is signed "Kevin"');
 
 // ---- and with nothing left to find and nothing left to cut, the legend is told to the end ----
 v = await T(`

@@ -341,6 +341,34 @@ export class Sound {
   // ---- the mammoth himself ----
 
   /** A long low sound from somewhere inside him. */
+  /** The mammoth says something: a few low syllables, as from a very large chest a long way up. */
+  mutter(syllables = 3) {
+    if (!this.ctx) return;
+    const ctx = this.ctx;
+    const mouth = ctx.createBiquadFilter(); mouth.type = 'lowpass'; mouth.Q.value = 3;
+    const out = ctx.createGain(); out.gain.value = 0.42;
+    mouth.connect(out); out.connect(this.master);
+    let t = ctx.currentTime + 0.03;
+    mouth.frequency.setValueAtTime(300, t);
+    for (let i = 0; i < syllables; i++) {
+      const long = 0.11 + Math.random() * 0.1, f = 58 + Math.random() * 26;
+      const o = ctx.createOscillator(); o.type = 'sawtooth';
+      o.frequency.setValueAtTime(f, t);
+      o.frequency.exponentialRampToValueAtTime(f * (0.82 + Math.random() * 0.3), t + long);
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.16, t + 0.03);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + long + 0.06);
+      o.connect(g); g.connect(mouth);
+      // (the vowel: the mouth opening, and closing again)
+      mouth.frequency.setValueAtTime(250 + Math.random() * 120, t);
+      mouth.frequency.linearRampToValueAtTime(420 + Math.random() * 260, t + long * 0.5);
+      mouth.frequency.linearRampToValueAtTime(240, t + long + 0.05);
+      o.start(t); o.stop(t + long + 0.1);
+      t += long + 0.05 + Math.random() * 0.05;
+    }
+  }
+
   rumble() {
     if (!this.ctx) return;
     const f = 42 + Math.random() * 14;

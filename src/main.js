@@ -516,11 +516,12 @@ async function start() {
   game.applyUpgrades();
   antics = new Antics({ mammoth, rig, sound, hint: showHint, state: game.state, puffs: lifter.puffs, terrain, shaving });
   game.antics = antics;
+  antics.says = game.says;
   // bald: the shaving stops, the camera goes round to his best side, and the legend is told to the end
   antics.ready = () => game.finds.pending() === 0;
   antics.hush = () => (game.tipIn ?? 0) > 4;
   antics.onBald = () => { if (rig.mode === 'elf') rig.leaveElf(false); goView(1); game.finale(); };
-  { const heard = rig.onLift; rig.onLift = (what) => { heard(what); if (what === 'thud') antics.feat('thud'); }; }
+  { const heard = rig.onLift; rig.onLift = (what) => { heard(what); if (what === 'thud') { antics.feat('thud'); if (Math.random() < 0.6) game.says.heard('thud'); } }; }
   // dev: ?finale shows the end; ?wear=partyhat,shades dresses him; ?pink dyes him
   if (q.has('finale')) setTimeout(() => game.finale(), 0);
   if (q.has('wear')) { game.state.worn.push(...q.get('wear').split(',')); antics.dress(); }
@@ -700,6 +701,7 @@ async function start() {
   };
 
   if (q.has('debug')) window.__game = { shaving, mammoth, rig, sound, camera, renderer, PUT_AWAY, game, hero, lifter, antics, U, state: game.state, folkTimes, scene, sky, terrain, grass, rocks, post, shadowNear, shadowElf, shadowFar, nearCasters, pace, levels, get level() { return adaptLevel; }, dev: {} };   // dev: poke at the game from the console
+  if (q.has('says')) game.says.pin(q.get('says'));                                 // dev: he is saying this, and goes on saying it
   if (q.has('nopush')) shaving.noPush = true;                                      // dev: hair ignores the blades
   if (q.has('away')) shaving.pinned = num('away', 0);                              // dev: hold the tool part way put away (0 to 1)
   if (q.has('noclippings')) shaving.clippings.mesh.visible = false;
