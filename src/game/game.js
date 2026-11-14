@@ -6,13 +6,14 @@
 import * as THREE from 'three';
 import { U } from '../gfx/globals.js';
 import { GameState, packLengths, unpackLengths } from './state.js';
-import { ITEMS, SECTIONS, HAIR_PRICE, inSection } from './catalog.js';
+import { ITEMS, SECTIONS, HAIR_PRICE, MOST_HELP, inSection } from './catalog.js';
 import { TOOL_ORDER } from './shaving.js';
 import { buildGnome, buildStall } from './people/gnome.js';
 import { buildVulture, buildWigTable } from './people/vulture.js';
 import { UNCUT } from '../mammoth/groom.js';
 import { Finds } from './finds.js';
 import { Says } from './says.js';
+import { Helpers } from './helpers.js';
 
 const $ = (id) => document.getElementById(id);
 const pick = (list) => list[Math.floor(Math.random() * list.length)];
@@ -153,6 +154,10 @@ export class Game {
     // and what he has to say about it, and about everything else
     this.says = new Says({ mammoth, rig, state: this.state, sound, shaving });
     this.finds.onFind = (spot) => this.says.heard('find', spot.id);
+    // the hired help: any already on the payroll are on him and at work
+    { const g = this.people.gnome; this.helpers = new Helpers({ scene, mammoth, terrain, shaving, sound, baked: baked.lemming, door: { x: g.front[0] - Math.cos(g.turn) * 0.3, z: g.front[1] + Math.sin(g.turn) * 0.3 } }); }
+    if (dev.helpers != null) this.state.helpers = Math.max(0, Math.min(MOST_HELP, dev.helpers | 0));
+    this.helpers.settle(this.state.helpers);
 
     this.buildDialog();
     this.refresh();
@@ -206,6 +211,10 @@ export class Game {
       if (id === 'pinkdye' && this.antics) { this.antics.dye(); this.tell = '<strong>He is pink.</strong> All of him. He has not looked yet.'; }
       if (item.kind === 'cutter') { this.state.tool = id; this.shaving.take(id); this.celebrate(id); }
       if (item.kind === 'sweeper' && this.shaving.tool.def.sweep) this.shaving.setTool(id);
+      if (item.hire) {
+        this.helpers.hire(this.state.helpers - this.helpers.count);
+        this.tell = `<strong>${item.name}.</strong> ${item.hire > 1 ? 'They' : 'It'} will find ${item.hire > 1 ? 'their' : 'its'} own way up him and gnaw off whatever is left, wherever it is. What ${item.hire > 1 ? 'they cut' : 'it cuts'} falls on the snow for you to pick up.`;
+      }
       if (item.kind === 'ladder') this.tell = `<strong>${item.name}.</strong> <span class="desk">Press <kbd>R</kbd> to stand it up where you are and climb; <kbd>F</kbd> comes down, <kbd>A</kbd> and <kbd>D</kbd> walk it sideways.</span><span class="nomouse">Hold Up to stand it where you are and climb.</span> He is taller than it is.`;
       if (item.kind === 'pack') this.tell = `<strong>${item.name}.</strong> <span class="desk">Hold <kbd>R</kbd> or the right mouse button to burn.</span><span class="nomouse">Hold Up to burn.</span> It fills up again on the ground. You can land on him.${this.state.climber ? ' <span class="desk"><kbd>T</kbd> swaps back to the ladder.</span>' : ''}`;
     }
@@ -446,7 +455,7 @@ export class Game {
       for (const sec of SECTIONS) {
         const ids = inSection(sec.id).filter((id) => s.available(id));
         if (!ids.length) continue;
-        html += `<section><h3>${sec.title}</h3><p class="note">${sec.note}</p><ul>`;
+        html += `<section><h3>${sec.title}</h3><p class="note">${sec.note}${sec.id === 'help' && s.helpers ? ` You have ${s.helpers} on him now.` : ''}</p><ul>`;
         for (const id of ids) {
           const item = ITEMS[id];
           let name = item.name, blurb = item.blurb, action;
@@ -457,6 +466,7 @@ export class Game {
             else { name = item.levels[at - 1].name; blurb = 'You have the best there is. I checked. I looked everywhere.'; }
           }
           if (Number.isFinite(p)) action = `<button type="button" data-buy="${id}" ${p > s.gold ? 'class="dear" title="More than you have"' : ''}>${p} <small>gold</small></button>`;
+          else if (item.hire) action = '<span class="have">No room</span>';
           else if (['sweeper', 'ladder', 'pack'].includes(item.kind)) {
             const inUse = s.sweeper === id || (s.climber === id && s.lift !== 'pack') || (s.pack === id && s.lift === 'pack');
             action = inUse ? '<span class="have">In use</span>' : `<button type="button" class="use" data-use="${id}">Use this</button>`;
@@ -525,6 +535,7 @@ export class Game {
 
     this.finds.update(dt, !elf || !!this.dialog || playing);
     if (this.antics) this.antics.update(dt, { elf, busy: !!this.dialog || playing });
+    this.helpers.update(dt, this.rig.camera);
     // (he holds his tongue while a shop is open, a scene is playing or the ending is up, and until the legend has been told)
     const cl = document.body.classList, finale = $('finale');
     this.says.update(dt, { elf, busy: !!this.dialog || playing || !!(finale && !finale.hidden), seen: cl.contains('told') && !cl.contains('bare') });
@@ -550,6 +561,8 @@ export class Game {
       tell('shop', '<strong>Gnorman sells better tools</strong> at the striped stall, and something to carry more hair in. You can afford a thing or two.');
     } else if (!told.reach && !s.climber && !s.pack && s.stats.sold > 700) {
       tell('reach', '<strong>Running out of mammoth you can reach?</strong> Gnorman has ladders. And worse ideas.');
+    } else if (!told.help && !s.helpers && this.mammoth.shorn > 0.6 && this.mammoth.shorn < 0.97) {
+      tell('help', '<strong>Hard to find what is left of it?</strong> Gnorman hires out lemmings. They climb, they gnaw, and they find the bits you missed.');
     }
   }
 
@@ -568,6 +581,7 @@ export class Game {
   restart() {
     this.state.wipe();
     this.mammoth.setHaircut(null);
+    this.helpers.dismiss();
     this.says.heard('newgame');
     this.shaving.setTool('scissors');
     this.applyUpgrades();

@@ -160,7 +160,7 @@ async function start() {
 
   // the people of the place are sculpted while everything else loads (on threads of their own, where the page allows it;
   // ?nothreads keeps it here)
-  const baking = startBaking(['elf', 'gnome', 'vulture'], { threads: !q.has('nothreads') });
+  const baking = startBaking(['elf', 'gnome', 'vulture', 'lemming'], { threads: !q.has('nothreads') });
 
   // ---- sky & sun ------------------------------------------------------------
   setProgress(0.02, 'Lighting the sky');
@@ -494,12 +494,12 @@ async function start() {
   // (dev stills and ?unlock have everything; ?gold=n sets the purse; ?fresh ignores a kept game; ?nosave keeps nothing)
   setProgress(0.97, 'Dressing the locals');
   const waitedFrom = performance.now();
-  const baked = { elf: await baking.elf, gnome: await baking.gnome, vulture: await baking.vulture };
+  const baked = { elf: await baking.elf, gnome: await baking.gnome, vulture: await baking.vulture, lemming: await baking.lemming };
   const folkTimes = { ...baking.took, where: Object.values(baking.where).join(','), waited: Math.round(performance.now() - waitedFrom) };
   const dressFrom = performance.now();
   game = new Game({
     scene, terrain, mammoth, shaving, rig, sound, hint: showHint, storage: !shot && !q.has('nosave'), baked,
-    dev: { unlock: shot || q.has('unlock'), gold: q.has('gold') ? num('gold', 0) : null, fresh: shot || q.has('fresh'), noscene: q.has('noscene') },
+    dev: { unlock: shot || q.has('unlock'), gold: q.has('gold') ? num('gold', 0) : null, fresh: shot || q.has('fresh'), noscene: q.has('noscene'), helpers: q.has('helpers') ? num('helpers', 0) : null },
   });
   // the elf himself: seen from outside before the shaving starts, and whenever he has something new to show off
   hero = new Hero({ scene, camera, rig, shaving, terrain, mammoth, sound, baked: baked.elf });
@@ -761,9 +761,13 @@ async function start() {
   if (q.has('scene') && rig.mode === 'elf' && hero.celebrate(q.get('scene'))) { rig.update(0); hero.jump(num('st', 2.2)); rig.update(0); camera.updateMatrixWorld(true); }
   if (shot && rig.mode === 'elf') shaving.lowered = num('away', 0);   // dev stills: the tool is already up
   if (q.has('look')) { const l = q.get('look').split(',').map(Number); rig.yaw = l[0]; rig.pitch = l[1]; }   // dev: where to look after the snips
+  // dev: ?hire=n lets so many lemmings out of the stall at the start (and ?warm=frames, below, gives them time to get somewhere)
+  if (q.has('hire')) game.helpers.hire(num('hire', 0));
   for (let i = 0, n = num('warm', 0); i < n; i++) {
     U.uTime.value += 1 / 30; mammoth.update(1 / 30); breathe(1 / 30);
     mammoth.sampler.begin(mammoth.furMats.uniforms.uBreath.value);
+    camera.updateMatrixWorld(true);
+    game.helpers.update(1 / 30, camera);
     shaving.clippings.update(1 / 30);
   }
 

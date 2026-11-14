@@ -80,6 +80,9 @@ const BOUGHT = {
   soda: 'Is that fizzy pop? Strapped to an elf?',
   blower: 'It is very loud. I have enormous ears, you know.',
   jet: 'Elves were never meant to fly. Nor mammoths, but nobody tried.',
+  lemming: 'Something is climbing my leg. It has very cold feet.',
+  lemmings: 'There are more of them. They appear to be organised.',
+  plague: 'I am infested. With staff.',
   sack: 'A bigger sack. Planning to take a lot of me, then.',
   suck: 'More suck. Wonderful.',
   tank: 'More fuel. More of you, up here, with me.',
@@ -153,6 +156,9 @@ const IDLE_WHEN = [
   [(c) => c.found > 0, 'I was young. It was the Pleistocene.'],
   [(c) => c.found > 2, 'Stop reading me.'],
   [(c) => c.found > 4, 'In my day a mammoth kept his hide to himself.'],
+  [(c) => c.help > 0, 'They tickle. All of them. All the time.'],
+  [(c) => c.help > 5, 'One of them is in my ear. Hello? Yes. Out.'],
+  [(c) => c.help > 20, 'I have more lemmings than hair. This was not the plan.'],
 ];
 
 // ---- saying it --------------------------------------------------------------
@@ -313,7 +319,7 @@ export class Says {
     const c = {
       tool: tool ? tool.id : '', motor: !!(tool && tool.def.motor), sweeping: !!(tool && tool.def.sweep), full: s.hair > 0 && s.room <= 0,
       pink: !!s.flags.pink, hat: s.worn.includes('partyhat'), shades: s.worn.includes('shades'),
-      shorn: this.mammoth.shorn, minutes: this.minutes, named: s.found.includes('hello'), found: s.found.length,
+      shorn: this.mammoth.shorn, minutes: this.minutes, named: s.found.includes('hello'), found: s.found.length, help: s.helpers || 0,
     };
     const fits = IDLE_WHEN.filter(([when, line]) => when(c) && !this.spoken.includes(line)).map((e) => e[1]);
     let from = IDLE.filter((line) => !this.spoken.includes(line));

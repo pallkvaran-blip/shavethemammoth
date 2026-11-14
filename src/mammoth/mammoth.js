@@ -226,6 +226,27 @@ function makeNailTexture() {
 
 const SHOWN_MAX = 0.12;
 
+// A cut changes one number in each of a few long arrays held by the graphics card. Sending the whole array again
+// for every cut (a megabyte, for the coat's own) is what made cutting cost anything, so a cut notes which number
+// changed and only that is sent: unless there are too many to be worth listing, when all of it goes after all.
+const MOST_NOTES = 96;
+function watched(attribute) {
+  attribute.onUpload(() => { attribute.userData.whole = false; });
+  attribute.userData = { whole: false };
+  return attribute;
+}
+function note(attribute, index) {
+  const u = attribute.userData;
+  if (!u) { attribute.clearUpdateRanges(); return; }
+  if (u.whole) return;
+  if (attribute.updateRanges.length >= MOST_NOTES) { attribute.clearUpdateRanges(); u.whole = true; } else attribute.addUpdateRange(index, 1);
+}
+/** All of an array has changed (a haircut given at once). */
+function noteAll(attribute) {
+  attribute.clearUpdateRanges();
+  if (attribute.userData) attribute.userData.whole = true;
+}
+
 export class Mammoth {
   static async create({ strands = 240000, cell = 0.025, a2c = true } = {}, progress = () => {}) {
     const m = new Mammoth();
@@ -277,7 +298,7 @@ export class Mammoth {
     m.bodyCut = new Float32Array(data.body.positions.length / 3).fill(UNCUT);
     // the copy the hide is shaded from stops at 12 cm, so that the edge of a shorn patch falls between vertices, not on them
     m.bodyCutShown = new Float32Array(m.bodyCut.length).fill(SHOWN_MAX);
-    m.body.geometry.setAttribute('aCut', new THREE.BufferAttribute(m.bodyCutShown, 1));
+    m.body.geometry.setAttribute('aCut', watched(new THREE.BufferAttribute(m.bodyCutShown, 1)));
     m.sampler = new StrandSampler({ volume: data.volume, skeleton: rig.skeleton });
     m.collider = new BodyCollider({ sdf: data.sdf, anat, rig });
     // what is under the coat: found on the hide as he stands at rest, and given to the skin to show where it is shorn
@@ -380,6 +401,7 @@ export class Mammoth {
       mesh.userData.group = name;
       mesh.userData.nearOnly = true;
       mesh.layers.set(LAYER_SHADOW_NEAR);
+      groom[name].cutAttribute = watched(mesh.geometry.attributes.iCut);
       mesh.name = 'fur-shadow-' + name;
       this.furMeshes.push(mesh);
       if (scene) scene.add(mesh);
@@ -401,6 +423,7 @@ export class Mammoth {
         };
         // The patch as the elf's shadow map draws it. Only the patches that can throw a shadow near the elf go into
         // that map: three.js leaves out those whose ball (measured from where the mesh is put) misses it.
+        watched(chunk.attributes.iCut);
         const cast = new THREE.Mesh(makeFurGeometry(chunk.attributes, c.count, SHADOW_SEGMENTS[name]), this.furMats.depth);
         cast.geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(), c.radius);
         cast.position.copy(chunk.centre).add(this.group.position);
@@ -432,8 +455,44 @@ export class Mammoth {
         }
       }
     }
+    this._followers();
     if (this.body) this.casters = [this.body, ...this.furMeshes, ...this.rigid];
     if (this._detail) this.setFurDetail(this._detail, this._shadowDetail);
+  }
+
+  /**
+   * How short the coat is over a point of the hide is known from the locks rooted beside it; but a thin coat (the
+   * lower settings) leaves points with no lock beside them at all, and those would go on looking unshorn among bare
+   * skin. Each such point takes its haircut from the nearest point that has locks: this works out which.
+   */
+  _followers() {
+    const I = this.data.body.indices, n = this.data.body.positions.length / 3;
+    if (!this._beside) {
+      // which points of the hide share a face with which
+      const start = new Int32Array(n + 1);
+      for (let t = 0; t < I.length; t++) start[I[t] + 1] += 2;
+      for (let v = 0; v < n; v++) start[v + 1] += start[v];
+      const list = new Int32Array(start[n]), fill = start.slice(0, n);
+      for (let t = 0; t < I.length; t += 3) for (let k = 0; k < 3; k++) { const v = I[t + k]; list[fill[v]++] = I[t + (k + 1) % 3]; list[fill[v]++] = I[t + (k + 2) % 3]; }
+      this._beside = { start, list };
+    }
+    const B = this._beside, lead = new Int32Array(n).fill(-1), queue = new Int32Array(n);
+    let head = 0, tail = 0;
+    for (const c of this.chunks) {
+      const tri = c.arrays.tri;
+      for (let i = 0; i < c.count; i++) for (let k = 0; k < 3; k++) { const v = I[tri[i] * 3 + k]; if (lead[v] < 0) { lead[v] = v; queue[tail++] = v; } }
+    }
+    if (tail === n || tail === 0) { this.follow = null; return; }
+    while (head < tail) {
+      const v = queue[head++];
+      for (let e = B.start[v]; e < B.start[v + 1]; e++) { const u = B.list[e]; if (lead[u] < 0) { lead[u] = lead[v]; queue[tail++] = u; } }
+    }
+    const start = new Int32Array(n + 1);
+    for (let v = 0; v < n; v++) if (lead[v] >= 0 && lead[v] !== v) start[lead[v] + 1]++;
+    for (let v = 0; v < n; v++) start[v + 1] += start[v];
+    const list = new Int32Array(start[n]), fill = start.slice(0, n);
+    for (let v = 0; v < n; v++) if (lead[v] >= 0 && lead[v] !== v) list[fill[lead[v]]++] = v;
+    this.follow = { start, list };
   }
 
   // ---- shearing ---------------------------------------------------------------
@@ -625,15 +684,20 @@ export class Mammoth {
     const before = Math.min(a.iA[i * 4], a.iCut[i]);
     if (len >= before) return 0;
     a.iCut[i] = len;
-    if (chunk.batch) chunk.batch.arrays.iCut[chunk.batch.slot[i]] = len;
+    note(chunk.attributes.iCut, i);
+    if (chunk.batch) { const j = chunk.batch.slot[i]; chunk.batch.arrays.iCut[j] = len; note(chunk.batch.attributes.iCut, j); }
     this.dirtyChunks.add(chunk);
     const g = this.groom[chunk.long ? 'long' : 'short'];
     g.iCut[a.orig[i]] = len;
     g.cutDirty = true;
-    const I = this.data.body.indices, bc = this.bodyCut, t = a.tri[i] * 3;
+    if (g.cutAttribute) note(g.cutAttribute, a.orig[i]);
+    const I = this.data.body.indices, bc = this.bodyCut, t = a.tri[i] * 3, shown = this.body.geometry.attributes.aCut, F = this.follow;
     for (let k = 0; k < 3; k++) {
       const v = I[t + k];
-      if (len < bc[v]) { bc[v] = len; this.bodyCutShown[v] = Math.min(SHOWN_MAX, len); }
+      if (len >= bc[v]) continue;
+      bc[v] = len; this.bodyCutShown[v] = Math.min(SHOWN_MAX, len); note(shown, v);
+      // (and the points beside it that have no locks of their own)
+      if (F) for (let e = F.start[v]; e < F.start[v + 1]; e++) { const u = F.list[e]; if (len < bc[u]) { bc[u] = len; this.bodyCutShown[u] = Math.min(SHOWN_MAX, len); note(shown, u); } }
     }
     this.bodyCutDirty = true;
     this.cutLength += before - len;
@@ -664,8 +728,11 @@ export class Mammoth {
    * same detail), exactly the length it had.
    */
   setHaircut(cut, locks = null) {
-    const bc = this.bodyCut, shown = this.bodyCutShown;
-    for (let v = 0; v < bc.length; v++) { bc[v] = cut ? cut[v] : UNCUT; shown[v] = Math.min(SHOWN_MAX, bc[v]); }
+    const bc = this.bodyCut, shown = this.bodyCutShown, F = this.follow;
+    for (let v = 0; v < bc.length; v++) bc[v] = cut ? cut[v] : UNCUT;
+    // (points with no lock beside them are no longer than the point they follow)
+    if (F && cut) for (let v = 0; v < bc.length; v++) for (let e = F.start[v]; e < F.start[v + 1]; e++) { const u = F.list[e]; if (bc[v] < bc[u]) bc[u] = bc[v]; }
+    for (let v = 0; v < bc.length; v++) shown[v] = Math.min(SHOWN_MAX, bc[v]);
     const I = this.data.body.indices;
     this.cutLength = 0;
     for (const c of this.chunks) {
@@ -679,9 +746,12 @@ export class Mammoth {
         if (left < L) this.cutLength += L - left;
       }
       this.dirtyChunks.add(c);
+      noteAll(c.attributes.iCut);
+      if (c.batch) noteAll(c.batch.attributes.iCut);
     }
-    for (const name of ['long', 'short']) this.groom[name].cutDirty = true;
+    for (const name of ['long', 'short']) { this.groom[name].cutDirty = true; if (this.groom[name].cutAttribute) noteAll(this.groom[name].cutAttribute); }
     this.bodyCutDirty = true;
+    noteAll(this.body.geometry.attributes.aCut);
     this.flushCuts();
   }
 
@@ -709,6 +779,7 @@ export class Mammoth {
     order.forEach((i, j) => { slot[i] = j; rank[j] = i; widths[j] = a.iA[i * 4 + 1]; });
     const attributes = makeStrandAttributes(arrays, BATCH);
     attributes.iRank = new THREE.InstancedBufferAttribute(rank, 1, false, BATCH);
+    watched(attributes.iCut);
     return (chunk.batch = { arrays, attributes, slot, widths });
   }
 

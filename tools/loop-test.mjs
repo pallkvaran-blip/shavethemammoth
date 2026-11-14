@@ -313,6 +313,39 @@ check(v.cutUp > 5, 'and the hair up there can be cut');
 check(v.out > 1.2 && v.floating && v.held > 2, 'stepping off the side, the pack holds him up');
 check(v.off && v.took < 6, 'and F lets him down to the snow');
 
+// ---- the hired help: lemmings, which climb him and gnaw off what is left ----
+await T(`T.goTo('gnome')`);
+await page.keyboard.press('KeyE');
+v = await T(`st.earn(Math.max(0, 600 - st.gold)); game.fillDialog(); return { sections: [...document.querySelectorAll('#dialog h3')].map((h) => h.textContent), offered: !!document.querySelector('#dialog [data-buy="lemming"]'), gold: st.gold }`);
+check(v.sections.includes('Hired help') && v.offered, 'the stall hires out help');
+const purse = v.gold;
+await page.click('#dialog [data-buy="lemming"]');
+v = await T(`const sec = document.querySelector('#dialog [data-buy="lemming"]').closest('section'); return { gold: st.gold, n: st.helpers, at: game.helpers.count, row: document.querySelector('#dialog [data-buy="lemming"]').closest('li').innerText.replace(/\\n+/g, ' | '), note: sec.querySelector('.note').textContent }`);
+console.log(`  hired: ${v.row} ("${v.note}")`);
+check(v.gold === purse - 60 && v.n === 1 && v.at === 1 && /You have 1 on him/.test(v.note), 'a lemming costs 60 gold, and the stall keeps count');
+await page.click('#dialog [data-buy="lemmings"]');
+await page.keyboard.press('KeyE');
+v = await T(`
+  const H = game.helpers, lying0 = C.lying + C.carry, cut0 = mammoth.cutLength, hint = document.getElementById('hint').textContent.trim().slice(0, 60);
+  T.frame(60 * 3);
+  const running = [...H.mode.slice(0, H.count)].filter((m) => m === 0).length;
+  let n = 0; while (H.working < 5 && n < 60 * 60) { T.frame(); n++; }
+  const arrived = n / 60 + 3;
+  T.frame(60 * 30);
+  const cut = s.grams(mammoth.cutLength - cut0);
+  H.dismiss();          // (sent home for now, so that the rest of this goes as it would without them)
+  return { count: st.helpers, running, arrived, cut, lying: C.lying + C.carry - lying0, hint, said: game.says.history.slice(-3) };
+`);
+console.log(`  seven lemmings: ${v.running} still on the snow after three seconds; at work after ${round(v.arrived)} s; ${round(v.cut)} g gnawed off in the next half minute, ${round(v.lying)} g of it lying about. The game: "${v.hint}..."; the mammoth: "${v.said.join('" / "')}"`);
+check(v.count === 7, 'half a dozen more makes seven');
+check(v.running >= 4, 'they set off across the snow from the stall, one behind another');
+check(v.arrived < 45, 'and climb him, and set to work');
+check(v.cut > 20 && v.cut < 600, 'steadily: short hair by the lock, long hair by the gram');
+check(Math.abs(v.lying - v.cut) < 0.03 * v.cut + 0.5, 'and every gram they gnaw off falls for the elf to pick up');
+check(v.said.some((l) => /cold feet|organised/.test(l)), 'the mammoth has noticed them');
+v = await T(`st.helpers = 235; const r = { six: st.price('lemmings'), one: st.price('lemming') }; st.helpers = 7; return r`);
+check(v.six === Infinity && v.one === 60, 'there is room on him for 240 and no more');
+
 // ---- what is under the coat is found when the hair over it is gone ----
 // (one of them first, on its own: the heart for his mum)
 v = await T(`
@@ -354,19 +387,39 @@ check(v.hidden && v.shorn > 0.98, 'he can be left as he is');
 await page.click('#view-elf');
 await T(`T.frame(30)`);
 
+// ---- what was left behind is found by the help: three patches grown back, somewhere on him ----
+v = await T(`
+  const H = game.helpers;
+  H.settle(st.helpers);
+  const M = H.map, cut = Float32Array.from(mammoth.bodyCut), sites = [100, Math.floor(M.S / 2), M.S - 50];
+  for (let p = 0; p < cut.length; p++) if (sites.includes(M.siteOf[p])) cut[p] = 9;
+  mammoth.setHaircut(cut);
+  // (the longest lock rooted on any of the three)
+  const longest = () => { let m = 0; for (const site of sites) for (let k = M.first[site]; k < M.first[site + 1]; k++) { const a = M.chunks[M.lockChunk[k]].arrays, i = M.lockAt[k]; m = Math.max(m, Math.min(a.iA[i * 4], a.iCut[i])); } return m; };
+  const before = longest(), shorn0 = mammoth.shorn;
+  T.frame(90);
+  const noticed = !H.idle;
+  let n = 0; while (!(H.idle && H.pending.length === 0) && n < 60 * 400) { T.frame(); n++; }
+  return { helpers: H.count, before, after: longest(), noticed, took: n / 60 + 1.5, idle: H.idle, shorn0, shorn: mammoth.shorn };
+`);
+console.log(`  three patches left on him (shorn ${(v.shorn0 * 100).toFixed(2)}%): ${v.helpers} lemmings had them off in ${round(v.took)} s (shorn ${(v.shorn * 100).toFixed(2)}%)`);
+check(v.helpers === 7 && v.before > 0.03 && v.noticed, `patches of hair left on him (up to ${round(v.before * 100)} cm long) are noticed by the help`);
+check(v.idle && v.after < 0.005 && v.took < 380, `and found, wherever they are, and gnawed down to ${round(v.after * 1000)} mm`);
+check(v.shorn > 0.985, 'which leaves him bald enough for the legend');
+
 // ---- it is all still there after the page is loaded again ----
 const kept = await T(`
   game.choose('sheep'); T.frame(40);
   game.save(true);
   const raw = localStorage.getItem('mammoth-save-3');
-  return { gold: st.gold, hair: st.hair, owned: [...st.owned].sort().join(','), sack: st.level('sack'), sweeper: st.sweeper, tool: st.tool, shorn: mammoth.shorn, found: st.found.length, lift: st.lift, bytes: raw ? raw.length : 0 };
+  return { gold: st.gold, hair: st.hair, owned: [...st.owned].sort().join(','), sack: st.level('sack'), sweeper: st.sweeper, tool: st.tool, shorn: mammoth.shorn, found: st.found.length, lift: st.lift, helpers: st.helpers, bytes: raw ? raw.length : 0 };
 `);
 console.log(`kept: ${kept.gold} gold, ${round(kept.hair)} g, [${kept.owned}], shorn ${(kept.shorn * 100).toFixed(3)}% (${kept.bytes} bytes in the browser's storage)`);
 check(kept.bytes > 100, 'the game is written to the browser\'s storage');
 await load('');
 v = await page.evaluate(() => {
   const { shaving: s, mammoth, game } = window.__game, st = game.state;
-  return { resumed: game.resumed, gold: st.gold, hair: st.hair, owned: [...st.owned].sort().join(','), sack: st.level('sack'), sweeper: st.sweeper, tool: st.tool, hand: s.tool.id, shorn: mammoth.shorn, found: st.found.length, lift: st.lift, rigLift: window.__game.rig.lift && window.__game.rig.lift.id };
+  return { resumed: game.resumed, gold: st.gold, hair: st.hair, owned: [...st.owned].sort().join(','), sack: st.level('sack'), sweeper: st.sweeper, tool: st.tool, hand: s.tool.id, shorn: mammoth.shorn, found: st.found.length, lift: st.lift, rigLift: window.__game.rig.lift && window.__game.rig.lift.id, helpers: st.helpers, onHim: game.helpers.count };
 });
 check(await page.evaluate(() => !window.__game.hero.playing), 'no scene is played for scissors he has already been given');
 console.log(`after loading the page again: ${v.gold} gold, ${round(v.hair)} g, [${v.owned}], shorn ${(v.shorn * 100).toFixed(3)}%, in hand: ${v.hand}`);
@@ -374,15 +427,17 @@ check(v.resumed === true, 'the kept game is taken up again');
 check(v.gold === kept.gold && Math.abs(v.hair - kept.hair) < 1e-6 && v.owned === kept.owned && v.sack === kept.sack && v.sweeper === kept.sweeper, 'gold, hair and everything bought are as they were');
 check(v.hand === kept.tool, 'the tool last used is in hand');
 check(v.found === kept.found && v.lift === 'pack' && v.rigLift === 'jet', 'what was found stays found, and the jet pack is still on his back');
+check(v.helpers === kept.helpers && v.onHim === kept.helpers && kept.helpers === 7, `and the ${v.helpers} lemmings are still on the payroll, and on him`);
 check(Math.abs(v.shorn - kept.shorn) < 0.02 * kept.shorn + 1e-5, 'and so is the haircut');
 
 // ---- and a new game can be started over it ----
 v = await page.evaluate(() => {
   const { shaving: s, mammoth, game } = window.__game, st = game.state;
   game.restart();
-  return { gold: st.gold, owned: [...st.owned].sort().join(','), shorn: mammoth.shorn, hand: s.next || s.tool.id, raw: localStorage.getItem('mammoth-save-3') };
+  return { gold: st.gold, owned: [...st.owned].sort().join(','), shorn: mammoth.shorn, hand: s.next || s.tool.id, raw: localStorage.getItem('mammoth-save-3'), helpers: st.helpers + game.helpers.count };
 });
 check(v.gold === 0 && v.owned === 'hands,scissors' && v.shorn === 0 && v.hand === 'scissors', 'starting again gives back the coat and takes everything else');
+check(v.helpers === 0, 'the hired help included');
 
 console.log(errors.length ? 'ERRORS:\n' + errors.join('\n') : 'no script errors');
 await browser.close();
