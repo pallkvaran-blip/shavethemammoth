@@ -258,6 +258,15 @@ export class Sound {
     }
   }
 
+  /** A gold coin strikes something, or another coin. `how`: 0..1, how hard. */
+  clink(how = 1) {
+    if (!this.ctx) return;
+    const f = 2900 + Math.random() * 1700, g = 0.012 + 0.03 * Math.min(1, how);
+    this._tone({ freq: f, gain: g, decay: 0.12 + Math.random() * 0.1 });
+    this._tone({ freq: f * 1.72, gain: g * 0.55, decay: 0.07 });
+    this._tone({ freq: f * 2.61, gain: g * 0.3, decay: 0.04 });
+  }
+
   /** A word from one of the traders (nobody here speaks anything you would know), or a flat "no". */
   blip(who = 'gnome') {
     if (!this.ctx) return;
@@ -338,6 +347,99 @@ export class Sound {
     m.hairGain.gain.setTargetAtTime(power * Math.min(0.16, 0.02 * Math.sqrt(cutting)), t, 0.04);
   }
 
+  // ---- the novelties ----
+
+  /** Something small and hard drawn across something large: a scratch, a rub, a tickle (`how` hard, 0..1). */
+  scritch(how = 1) {
+    if (!this.ctx) return;
+    const f = 1500 + Math.random() * 1400;
+    this._noise({ type: 'bandpass', freq: f, freqTo: f * (0.6 + Math.random() * 0.9), q: 2.2, gain: 0.02 + 0.05 * how, attack: 0.006, hold: 0.03, decay: 0.05 });
+  }
+
+  /** Spray leaving a can, for about so many seconds; `tone`: how fine a hiss. */
+  hiss(seconds = 0.12, tone = 4000) {
+    if (!this.ctx) return;
+    this._noise({ type: 'highpass', freq: tone, q: 0.6, gain: 0.03, attack: 0.012, hold: seconds, decay: 0.05 });
+  }
+
+  /** A plunger pushed home on something wet. */
+  shlup() {
+    if (!this.ctx) return;
+    this._tone({ freq: 150, freqTo: 62, gain: 0.16, decay: 0.16, type: 'sine' });
+    this._noise({ type: 'lowpass', freq: 520, freqTo: 180, q: 1.4, gain: 0.08, attack: 0.01, hold: 0.04, decay: 0.09 });
+    this._tone({ freq: 70, freqTo: 190, gain: 0.1, decay: 0.12, type: 'sine', when: 0.2 });
+  }
+
+  /** Something that was stuck comes unstuck, all at once. */
+  cork() {
+    if (!this.ctx) return;
+    this._tone({ freq: 620, freqTo: 140, gain: 0.3, decay: 0.09, type: 'sine' });
+    this._noise({ type: 'bandpass', freq: 900, q: 0.8, gain: 0.16, attack: 0.001, hold: 0.008, decay: 0.05 });
+  }
+
+  /** A kiss, blown from a height. */
+  kiss() {
+    if (!this.ctx) return;
+    this._noise({ type: 'bandpass', freq: 2600, freqTo: 5200, q: 3, gain: 0.07, attack: 0.02, hold: 0.03, decay: 0.03 });
+    this._tone({ freq: 900, freqTo: 2400, gain: 0.03, decay: 0.07, type: 'sine', when: 0.01 });
+    this._tone({ freq: 96, freqTo: 70, gain: 0.12, decay: 0.3, type: 'sawtooth', when: 0.1 });
+  }
+
+  /** He believes, for the moment, that he is a hen. A very large one. */
+  cluck() {
+    if (!this.ctx) return;
+    [0, 0.2, 0.36, 0.5, 0.74].forEach((when, i) => {
+      const f = (i === 4 ? 230 : 150) + Math.random() * 30;
+      this._tone({ freq: f, freqTo: f * (i === 4 ? 1.9 : 1.35), gain: 0.14, decay: i === 4 ? 0.3 : 0.08, type: 'sawtooth', when, wobble: i === 4 ? 30 : 0 });
+    });
+  }
+
+  /** A till: a bell, and the drawer. */
+  chaching() {
+    if (!this.ctx) return;
+    for (const [f, g, d] of [[2093, 0.07, 0.9], [4186, 0.03, 0.6], [6280, 0.015, 0.4]]) this._tone({ freq: f, gain: g, decay: d });
+    this._noise({ type: 'bandpass', freq: 3200, q: 1, gain: 0.05, attack: 0.002, hold: 0.02, decay: 0.08, when: 0.09 });
+    this._tone({ freq: 2637, gain: 0.05, decay: 0.7, when: 0.11 });
+  }
+
+  /** A needle, thrown. */
+  whoosh() {
+    if (!this.ctx) return;
+    this._noise({ type: 'bandpass', freq: 1800, freqTo: 5200, q: 1.6, gain: 0.075, attack: 0.02, hold: 0.02, decay: 0.07 });
+  }
+
+  /** A watch: one tick of it. */
+  tick() {
+    if (!this.ctx) return;
+    this._noise({ type: 'highpass', freq: 5200, q: 0.8, gain: 0.03, attack: 0.001, hold: 0.002, decay: 0.012 });
+    this._tone({ freq: 2400, gain: 0.012, decay: 0.03 });
+  }
+
+  /** A card turned over. */
+  flick() {
+    if (!this.ctx) return;
+    this._noise({ type: 'bandpass', freq: 2400, freqTo: 900, q: 0.9, gain: 0.06, attack: 0.002, hold: 0.012, decay: 0.05 });
+  }
+
+  // ---- the cave men ----
+
+  /** A good many throats at once, a long way off and getting nearer. */
+  warcry() {
+    if (!this.ctx) return;
+    for (let i = 0; i < 5; i++) {
+      const f = 150 + Math.random() * 140, when = Math.random() * 0.5, long = 0.5 + Math.random() * 0.5;
+      this._tone({ freq: f, freqTo: f * (1.25 + Math.random() * 0.5), gain: 0.085, decay: long, type: 'sawtooth', when, wobble: 9 + Math.random() * 12 });
+      this._noise({ type: 'bandpass', freq: 900 + Math.random() * 700, q: 1.6, gain: 0.05, attack: 0.05, hold: long * 0.5, decay: long * 0.5, when });
+    }
+  }
+
+  /** A bare foot coming down hard on packed snow (`how` hard, 0..1). */
+  thump(how = 1) {
+    if (!this.ctx || how < 0.03) return;
+    this._tone({ freq: 74 + Math.random() * 16, freqTo: 42, gain: 0.2 * how, decay: 0.11, type: 'sine' });
+    this._noise({ type: 'lowpass', freq: 420, q: 0.7, gain: 0.06 * how, attack: 0.002, hold: 0.012, decay: 0.07 });
+  }
+
   // ---- the hired help ----
 
   /** One of them has an opinion: very small, very high, and soon over. */
@@ -353,16 +455,17 @@ export class Sound {
   // ---- the mammoth himself ----
 
   /** The mammoth says something: a few low syllables, as from a very large chest a long way up. */
-  mutter(syllables = 3) {
+  mutter(syllables = 3, pitch = 1) {
     if (!this.ctx) return;
     const ctx = this.ctx;
     const mouth = ctx.createBiquadFilter(); mouth.type = 'lowpass'; mouth.Q.value = 3;
-    const out = ctx.createGain(); out.gain.value = 0.42;
+    // (`pitch`: how much higher than him: a cave man is two or three times, and not nearly so loud)
+    const out = ctx.createGain(); out.gain.value = pitch > 1 ? 0.3 : 0.42;
     mouth.connect(out); out.connect(this.master);
     let t = ctx.currentTime + 0.03;
     mouth.frequency.setValueAtTime(300, t);
     for (let i = 0; i < syllables; i++) {
-      const long = 0.11 + Math.random() * 0.1, f = 58 + Math.random() * 26;
+      const long = 0.11 + Math.random() * 0.1, f = (58 + Math.random() * 26) * pitch;
       const o = ctx.createOscillator(); o.type = 'sawtooth';
       o.frequency.setValueAtTime(f, t);
       o.frequency.exponentialRampToValueAtTime(f * (0.82 + Math.random() * 0.3), t + long);

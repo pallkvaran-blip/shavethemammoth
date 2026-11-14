@@ -23,6 +23,17 @@
 // an hour over a whole mammoth, and a few minutes over what an elf has left
 // of one; two hundred and forty, eight minutes over all of him.
 
+// The novelties. Each is used once, on one part of him, and pays about three
+// times what it cost, in gold that has to be picked up from wherever it came
+// out of him; all ten together are worth about 1,300 gold more than they cost
+// (a fourteenth of the coat). The spray is the odd one: what it pays is the
+// hair it takes off, which has still to be picked up and sold. Measured: 0.4
+// kilos held still (half its price), about two up and down a leg, and four
+// to six swept along his flank or under his belly, which is five minutes'
+// work with good clippers. A new coat (the tonic) puts all of them back on sale.
+//
+// The cave men are what they are.
+
 /** Gold for a gram of hair. */
 export const HAIR_PRICE = 0.25;
 /** As many helpers as he has room for. */
@@ -34,6 +45,7 @@ export const SECTIONS = [
   { id: 'ladder', title: 'Getting up there', note: 'He is taller than he looks, and he looks tall.' },
   { id: 'pack', title: 'Getting up there, with fire', note: 'No refunds. No next of kin, either, by the look of you.' },
   { id: 'help', title: 'Hired help', note: 'They work for crumbs. The crumbs are extra.' },
+  { id: 'gag', title: 'Remedies and novelties', note: 'Each works once, on him. What he does about it is between the two of you.' },
   { id: 'upgrade', title: 'Improvements', note: 'The same, but more.' },
   { id: 'extra', title: 'Sundries', note: 'Things nobody needs. Priced accordingly.' },
 ];
@@ -68,6 +80,21 @@ export const ITEMS = {
   lemming: { kind: 'help', name: 'A lemming', price: 60, again: true, hire: 1, blurb: 'Climbs. Gnaws. Finds the bits you missed. Has no idea what a mammoth is and is not going to be told.' },
   lemmings: { kind: 'help', name: 'Half a dozen lemmings', price: 320, again: true, hire: 6, blurb: 'They work better in company. They do everything better in company. That is the trouble with lemmings.' },
   plague: { kind: 'help', name: 'A plague of lemmings', price: 1400, again: true, hire: 30, blurb: 'Thirty. I counted twice and got thirty once. He will be bald by supper and you will not have lifted a finger.' },
+  // (what comes of these is in src/game/raid.js. It is not what Gnorman says.)
+  cavemen: { kind: 'help', name: 'Cave men', price: 150, again: true, raid: true, blurb: 'Four of them, with spears. Professional hunters. They will have him down and skinned by teatime. No refunds.' },
+
+  // ---- remedies and novelties (what they do is in src/game/gags.js, how they look in tools/novelties.js): each is held like
+  //      a tool and used once, where `use` says; `pays` is the gold that comes out of him ----
+  feather: { kind: 'gag', name: 'Tickling feather', price: 25, pays: 80, use: 'Tickle one of his legs with it.', blurb: 'From a bird that will not be needing it. He is ticklish about the legs. Everybody is ticklish somewhere.' },
+  nosespray: { kind: 'gag', name: 'Trunk-Eze nose spray', price: 35, pays: 110, use: 'Squirt it up the end of his trunk.', blurb: 'One squirt clears a nose two metres long. Stand to one side. I cannot stress the side enough.' },
+  scratcher: { kind: 'gag', name: 'Telescopic belly scratcher', price: 45, pays: 140, use: 'Stand under him, look up, and scratch his belly.', blurb: 'A little wooden hand on a very long stick. He cannot reach his own belly. Ten thousand years of itch.' },
+  varnish: { kind: 'gag', name: 'Toenail varnish, Harlot Red', price: 50, pays: 130, use: 'Paint the toenails of any of his feet.', blurb: 'One coat, eighteen nails. He has never once seen his own feet. Tell him they look lovely.' },
+  tarot: { kind: 'gag', name: 'Tarot cards', price: 60, pays: 170, use: 'Stand in front of him, where he can see you, and deal.', blurb: 'A full deck, bar the ones I lost. Read him his future. Do not tell him how you know.' },
+  plunger: { kind: 'gag', name: 'Trunk plunger', price: 70, pays: 190, use: 'Put it on the end of his trunk and pump.', blurb: 'For blockages. It is the longest nose in the world and nobody has ever looked up it.' },
+  needles: { kind: 'gag', name: 'Acupuncture needles', price: 100, pays: 280, use: 'Throw all five into him. Anywhere will do.', blurb: 'Five. Ancient eastern medicine, from a man to the east of here. Stick them in anywhere; that is how it works.' },
+  polish: { kind: 'gag', name: 'Tusk shiner', price: 120, pays: 320, use: 'Buff one of his tusks with it.', blurb: 'A ball of lambswool on a stick, and a tin of something. Brings ivory up like a new tooth.' },
+  watch: { kind: 'gag', name: 'Hypnotist’s watch', price: 160, pays: 440, use: 'Stand in front of him and swing it where he can see.', blurb: 'Swing it before his eyes and suggest something. I take no responsibility for what you suggest.' },
+  depil: { kind: 'gag', name: 'Coat-Off hair remover', price: 200, use: 'Spray it on his coat and keep it moving. What falls off is yours to pick up.', blurb: 'One can. Whatever it touches falls out in handfuls. Do not get it on your eyebrows. I did.' },
 
   // ---- improvements ----
   sack: {

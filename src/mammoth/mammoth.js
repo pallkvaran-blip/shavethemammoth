@@ -355,6 +355,7 @@ export class Mammoth {
       map: nailTex.map, bumpMap: nailTex.bump, bumpScale: 0.3, vertexColors: true,
       roughness: 0.6, metalness: 0, clearcoat: 0.16, clearcoatRoughness: 0.5, envMapIntensity: 0.6,
     }), { key: 'nail' });
+    m.horn = nailMat;
     for (const foot of anat.feet) {
       const nails = new THREE.Mesh(buildNailGeometry(foot, data.sdf), nailMat);
       nails.name = 'nails';
@@ -363,6 +364,11 @@ export class Mammoth {
 
     m.casters = [m.body, ...m.furMeshes, ...m.rigid];
     m.time = 0;
+    // What he does when something is done to him (see game/gags.js and game/raid.js), laid over what he does anyway.
+    // Each is 0 when he is left alone: tail (lifted, 1 = right up), wag (how hard it goes from side to side), ears
+    // (held out), flap (flapped), nod (radians, + is up), turn (radians, + is towards his left, which is -z), trunk
+    // (lifted forward, 1 = held out), curl (its end rolled up), shudder (all of him that can), droop (head and ears down).
+    m.pose = { tail: 0, wag: 0, ears: 0, flap: 0, nod: 0, turn: 0, trunk: 0, curl: 0, shudder: 0, droop: 0 };
     progress(1, 'Growing the coat');
     return m;
   }
@@ -943,6 +949,31 @@ export class Mammoth {
     b('tail0').rotation.x = 0.22 * Math.sin(t * 0.9) + 0.1 * Math.sin(t * 2.3);
     b('tail1').rotation.x = 0.3 * Math.sin(t * 0.9 - 0.7);
     b('tail0').rotation.z = 0.05 * Math.sin(t * 0.5);
+
+    // ---- and whatever he has been given cause to do ----
+    const P = this.pose;
+    if (P.nod || P.turn || P.droop || P.shudder) {
+      const sh = P.shudder * Math.sin(t * 43);
+      head.rotation.z += P.nod * 0.7 - P.droop * 0.22 + 0.012 * sh;
+      neck.rotation.z += P.nod * 0.3 - P.droop * 0.08;
+      head.rotation.y += P.turn * 0.65; neck.rotation.y += P.turn * 0.35;
+      head.rotation.x += 0.02 * P.shudder * Math.sin(t * 37 + 1);
+    }
+    if (P.trunk || P.curl || P.shudder) {
+      for (let i = 0; i < 8; i++) {
+        const bone = b('trunk' + i), k = i / 7;
+        // lifted: the top of it swings forward, and the rest straightens out behind
+        bone.rotation.z += P.trunk * (0.2 - 0.1 * k) - P.curl * (0.05 + 0.5 * k * k) + 0.02 * P.shudder * Math.sin(t * 39 - i);
+      }
+    }
+    if (P.ears || P.flap || P.droop || P.shudder) {
+      const out = 0.75 * P.ears + 0.6 * P.flap * (0.5 + 0.5 * Math.sin(t * 17)) - 0.25 * P.droop + 0.15 * P.shudder * Math.sin(t * 31);
+      b('ear_R').rotation.y -= out; b('ear_L').rotation.y += out;
+    }
+    if (P.tail || P.wag) {
+      b('tail0').rotation.z -= 1.35 * P.tail; b('tail1').rotation.z -= 0.55 * P.tail;
+      b('tail0').rotation.x += 0.55 * P.wag * Math.sin(t * 11); b('tail1').rotation.x += 0.5 * P.wag * Math.sin(t * 11 - 0.9);
+    }
 
     // How fast his quickest parts are moving (metres a second, about: the edge of an ear in a flick, the end of the
     // tail). A shadow map drawn only every other frame must not be a frame late for something moving quickly.

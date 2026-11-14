@@ -95,6 +95,25 @@ await page.evaluate(() => {
     }
     return game.state.hair - before;
   };
+  /** Walk over whatever gold is lying about until there is none (or patience runs out). Returns the gold gained. */
+  T.pickGold = () => {
+    const K = game.coins, before = game.state.gold;
+    for (let tries = 0; tries < 400 && (K.n > 0 || K.due.length); tries++) {
+      let best = -1, bd = 1e9;
+      for (let i = 0; i < K.n; i++) {
+        if (K.what[i] !== 1) continue;
+        const d = (K.pos[i * 3] - rig.pos.x) ** 2 + (K.pos[i * 3 + 2] - rig.pos.z) ** 2;
+        if (d < bd) { bd = d; best = i; }
+      }
+      if (best < 0) { T.frame(20); continue; }
+      rig.pos.x = K.pos[best * 3] + 0.12; rig.pos.z = K.pos[best * 3 + 2]; rig.height = 0;
+      T.frame(22);
+    }
+    T.frame(30);
+    return game.state.gold - before;
+  };
+  /** Let whatever a novelty has set going run its course (what he says, the look from outside, the gold coming to rest). */
+  T.settle = (seconds = 12) => { let n = 0; while ((game.gags.acts.length || game.gags.shot || game.coins.due.length) && n < 60 * seconds) { T.frame(); n++; } T.frame(150); return n / 60; };
   T.goTo = (who) => {
     const at = game.people[who];
     rig.pos.x = at.front[0]; rig.pos.z = at.front[1];
@@ -107,17 +126,11 @@ await page.evaluate(() => {
 const T = (body, arg) => page.evaluate(new Function('arg', `const T = window.__t, { shaving: s, mammoth, rig, camera, game, hero, lifter } = window.__game, st = game.state, C = s.clippings; ${body}`), arg);
 const round = (v) => Math.round(v * 10) / 10;
 
-// ---- a new game opens on the elf being given his scissors ----
-let v = await T(`T.frame(60); return { id: hero.playing && hero.playing.id, t: hero.playing && hero.playing.t, cine: document.body.classList.contains('cine'), what: document.querySelector('#got .what').textContent, quip: document.querySelector('#got .quip').textContent, shown: document.getElementById('got').classList.contains('show'), showing: s.showing && s.showing.id, cam: !!rig.cine, far: rig.cine ? Math.hypot(camera.position.x - rig.pos.x, camera.position.z - rig.pos.z) : 0 }`);
-console.log(`the first scene: "You got the ${v.what}" / "${v.quip}"; a second in, the camera is ${round(v.far * 100)} cm from him`);
-check(v.id === 'scissors' && v.cine && v.cam && v.showing === 'scissors' && v.shown, 'climbing down for the first time plays the scene for the small bad scissors');
-check(v.far > 0.3, 'seen from outside the elf');
-await page.keyboard.press('KeyW');      // any key gets on with it
-v = await T(`const skipped = hero.playing && hero.playing.skipped; T.frame(60); return { skipped, playing: !!hero.playing, cine: document.body.classList.contains('cine'), cam: !!rig.cine, showing: s.showing, hand: T.inHand(), visible: s.tool.group.visible, got: !!(st.flags.got && st.flags.got.scissors), banner: document.getElementById('got').hidden, fov: camera.fov }`);
-check(v.skipped === true, 'a key cuts it short');
-check(!v.playing && !v.cine && !v.cam && v.showing === null && v.banner, 'afterwards the bars, the banner and the outside camera are gone');
-check(v.hand === 'scissors' && v.visible && v.fov === 62, 'and he is looking out of his own eyes again, scissors in hand');
-check(v.got, 'the game remembers he has had his moment');
+// ---- a new game opens on the elf with his scissors in hand, and nothing is made of them: that is for what he buys ----
+let v = await T(`T.frame(60); return { playing: !!hero.playing, cine: document.body.classList.contains('cine'), cam: !!rig.cine, shown: document.getElementById('got').classList.contains('show'), banner: document.getElementById('got').hidden, showing: s.showing, hand: T.inHand(), visible: s.tool.group.visible, fov: camera.fov, busy: rig.busy, hint: document.getElementById('hint').textContent }`);
+check(!v.playing && !v.cine && !v.cam && v.showing === null && v.banner && !v.shown, 'climbing down for the first time plays no scene for the scissors he starts with');
+check(v.hand === 'scissors' && v.visible && v.fov === 62 && !v.busy, 'he is looking out of his own eyes, scissors in hand, free to walk');
+check(/Small bad scissors/.test(v.hint) && /cut/.test(v.hint), `and is told what they are for ("${v.hint.slice(0, 60)}...")`);
 
 // ---- a new game ----
 v = await T(`return { owned: [...st.owned].sort().join(','), gold: st.gold, hair: st.hair, cap: st.capacity, hand: T.inHand(), shown: T.shown(), two: game.chooseNumber(1), mode: rig.mode }`);
@@ -134,6 +147,7 @@ check(Math.abs(v.lying - v.g) < 0.02 * v.g + 0.05, 'every gram cut is lying abou
 const cutFirst = v.g;
 // ...and the mammoth has something to say about being cut
 v = await T(`return { said: game.says.history.slice(), flag: !!(st.flags.said && st.flags.said.cut), who: game.says.name }`);
+let embarrassed = v.said.includes('Gosh, this is embarrassing.');
 console.log(`  the mammoth, cut for the first time: "${v.said[0]}"${v.said.length > 1 ? `; and since: "${v.said.slice(1).join('" / "')}"` : ''}`);
 check(v.flag && v.said.length >= 1 && v.said[0].length > 8, 'the first cut gets a remark out of the mammoth');
 check(v.who === 'The mammoth', 'who is, so far, only "the mammoth"');
@@ -205,7 +219,17 @@ v = await T(`let n = 0; while (!game.says.history.some((l) => /sheep/.test(l)) &
 check(v.said.some((l) => /not a sheep/.test(l)), `and the mammoth has seen what was bought: "${v.said[v.said.length - 1]}"`);
 
 // ---- every broom and vacuum picks hair up; nothing holds more than it holds ----
-await T(`st.earn(4000); game.buy('garden'); T.frame(40)`);
+// (the clippers are bought out on the snow: they have their scene all the same, and any key gets on with it)
+v = await T(`st.earn(4000); game.buy('garden'); T.frame(60); return { id: hero.playing && hero.playing.id, cine: document.body.classList.contains('cine'), what: document.querySelector('#got .what').textContent, quip: document.querySelector('#got .quip').textContent, shown: document.getElementById('got').classList.contains('show'), showing: s.showing && s.showing.id, cam: !!rig.cine, far: rig.cine ? Math.hypot(camera.position.x - rig.pos.x, camera.position.z - rig.pos.z) : 0 }`);
+console.log(`the clippers' scene: "You got the ${v.what}" / "${v.quip}"; a second in, the camera is ${round(v.far * 100)} cm from him`);
+check(v.id === 'garden' && v.cine && v.cam && v.showing === 'garden' && v.shown, 'buying the garden clippers plays their scene');
+check(v.far > 0.3, 'seen from outside the elf');
+await page.keyboard.press('KeyW');      // any key gets on with it
+v = await T(`const skipped = hero.playing && hero.playing.skipped; T.frame(60); return { skipped, playing: !!hero.playing, cine: document.body.classList.contains('cine'), cam: !!rig.cine, showing: s.showing, hand: T.inHand(), visible: s.tool.group.visible, got: !!(st.flags.got && st.flags.got.garden), none: !(st.flags.got && st.flags.got.scissors), banner: document.getElementById('got').hidden, fov: camera.fov }`);
+check(v.skipped === true, 'a key cuts it short');
+check(!v.playing && !v.cine && !v.cam && v.showing === null && v.banner, 'afterwards the bars, the banner and the outside camera are gone');
+check(v.hand === 'garden' && v.visible && v.fov === 62, 'and he is looking out of his own eyes again, clippers in hand');
+check(v.got && v.none, 'the game remembers which tools have had their moment (the scissors never did)');
 for (const [id, name] of [['twig', 'twig broom'], ['push', 'push broom'], ['handvac', 'hand vacuum'], ['shopvac', 'shop vacuum']]) {
   v = await T(`
     const lying0 = C.lying;
@@ -324,7 +348,7 @@ const purse = v.gold;
 await page.click('#dialog [data-buy="lemming"]');
 v = await T(`const sec = document.querySelector('#dialog [data-buy="lemming"]').closest('section'); return { gold: st.gold, n: st.helpers, at: game.helpers.count, row: document.querySelector('#dialog [data-buy="lemming"]').closest('li').innerText.replace(/\\n+/g, ' | '), note: sec.querySelector('.note').textContent }`);
 console.log(`  hired: ${v.row} ("${v.note}")`);
-check(v.gold === purse - 60 && v.n === 1 && v.at === 1 && /You have 1 on him/.test(v.note), 'a lemming costs 60 gold, and the stall keeps count');
+check(v.gold === purse - 60 && v.n === 1 && v.at === 1 && /You have 1 lemming on him/.test(v.note), 'a lemming costs 60 gold, and the stall keeps count');
 await page.click('#dialog [data-buy="lemmings"]');
 await page.keyboard.press('KeyE');
 v = await T(`
@@ -348,6 +372,124 @@ check(v.said.some((l) => /cold feet|organised/.test(l)), 'the mammoth has notice
 v = await T(`st.helpers = 235; const r = { six: st.price('lemmings'), one: st.price('lemming') }; st.helpers = 7; return r`);
 check(v.six === Infinity && v.one === 60, 'there is room on him for 240 and no more');
 
+// ---- remedies and novelties: each works once, on one part of him, and gold comes out of another ----
+await T(`T.goTo('gnome')`);
+await page.keyboard.press('KeyE');
+v = await T(`st.earn(Math.max(0, 1600 - st.gold)); game.fillDialog(); const sec = [...document.querySelectorAll('#dialog section')].find((x) => /Remedies/.test(x.querySelector('h3').textContent)); return { n: sec ? sec.querySelectorAll('[data-buy]').length : 0, gold: st.gold }`);
+check(v.n === 10, 'the stall has ten remedies and novelties');
+const purse2 = v.gold;
+await page.click('#dialog [data-buy="scratcher"]');
+v = await T(`T.frame(20); const row = document.querySelector('#dialog [data-use="scratcher"]'); return { gold: st.gold, owns: st.owns('scratcher'), hand: T.inHand(), row: row && row.textContent, shown: T.shown() }`);
+check(v.gold === purse2 - 45 && v.owns && v.hand === 'scratcher' && /Take it out/.test(v.row || ''), 'a belly scratcher costs 45 gold and is in hand at once');
+check(/gag:Telescopic belly scratcher/.test(v.shown), 'and has a button among the tools');
+await page.keyboard.press('KeyE');
+v = await T(`
+  const G = game.gags, tool = s.tools.scratcher, label = () => document.querySelector('#aim span').textContent;
+  // pointed at a leg it is no use
+  rig.pos.x = 1.6; rig.pos.z = 1.15; rig.yaw = 0.8; rig.pitch = 0.25; T.frame(30);
+  const label0 = label(), on0 = G.on;
+  s.squeeze(true); T.frame(120); s.squeeze(false);
+  const idle = G.progress;
+  // under his belly, looking up, it reaches him
+  rig.pos.x = -0.15; rig.pos.z = 0.02; rig.yaw = 0.3; rig.pitch = 1.4; T.frame(50);
+  const label1 = label(), on1 = G.on, long = tool.length, gold0 = st.gold;
+  s.squeeze(true);
+  let n = 0; while (st.owns('scratcher') && n < 60 * 12) { T.frame(); n++; }
+  s.squeeze(false);
+  let m = 0; while (!G.shot && m < 60 * 4) { T.frame(); m++; }
+  const shot = !!G.shot, cine = !!rig.cine, bars = document.body.classList.contains('cine'), tail = mammoth.pose.tail;
+  const took = T.settle();
+  return { label0, on0, idle, label1, on1, long, secs: n / 60, shot, cine, bars, tail, took, after: { cine: !!rig.cine, bars: document.body.classList.contains('cine'), fov: camera.fov, hand: T.inHand() },
+    lying: game.coins.lying, owed: st.owed, coins: game.coins.n, gold0, gold: st.gold, used: st.used.slice(), said: game.says.history.slice(-3) };
+`);
+console.log(`  belly scratcher: at a leg "${v.label0}"; under his belly "${v.label1}", the pole ${round(v.long * 100)} cm long; ${round(v.secs)} s of scratching; then ${v.coins} coins (${v.lying} gold) behind him; he said "${v.said.join('" / "')}"`);
+check(!v.on0 && v.idle === 0 && /belly/.test(v.label0), 'pointed at a leg, the belly scratcher does nothing, and says where it is for');
+check(v.on1 && v.long > 0.7 && /scratch/.test(v.label1), 'under his belly it reaches up to him');
+check(v.secs > 3 && v.secs < 6, 'and four seconds of it is enough');
+check(v.shot && v.cine && v.bars && v.tail > 0.3, 'the game steps outside the elf to watch what comes of it');
+check(!v.after.cine && !v.after.bars && v.after.fov === 62 && v.after.hand !== 'scratcher', 'and comes back to him, with the tool he had before in hand');
+check(v.lying === 140 && v.owed === 140 && v.coins >= 10 && v.gold === v.gold0, '140 gold is lying behind him, and none of it is in the purse yet');
+check(v.used.includes('scratcher') && v.said.some((l) => /itch|pardon/.test(l)), 'the scratcher is used up, and he has said what he thinks');
+v = await T(`const got = T.pickGold(); return { got, owed: st.owed, left: game.coins.n }`);
+check(v.got === 140 && v.owed === 0 && v.left === 0, 'walking over the gold picks all of it up');
+// the needles are thrown one at a time, and stay in him
+v = await T(`
+  st.buy('needles'); game.choose('needles'); T.frame(40);
+  rig.pos.x = 2.3; rig.pos.z = 1.75; rig.yaw = 0.76; rig.pitch = 0.35; T.frame(30);
+  const G = game.gags, on = G.on, purse = st.gold;
+  for (let k = 0; k < 5; k++) { s.squeeze(true); T.frame(8); s.squeeze(false); T.frame(26); }
+  const stuck = G.stuck.length, seen = G.needles.filter((n) => n.visible).length;
+  T.settle();
+  // (it comes down all round him, and some of it at the elf's feet: that is his as soon as it lands)
+  T.pickGold();
+  return { on, stuck, seen, got: st.gold - purse, used: st.used.includes('needles'), said: game.says.history.slice(-2) };
+`);
+check(v.on && v.stuck === 5 && v.seen === 5, 'five presses throw five needles, and they stay in him');
+check(v.got === 280 && v.used, `and his back is better, to the tune of ${v.got} gold ("${v.said.join('" / "')}")`);
+// the spray takes the hair off whatever it is pointed at
+v = await T(`
+  st.buy('depil'); game.choose('depil'); T.frame(40);
+  rig.pos.x = -0.75; rig.pos.z = 1.2; rig.yaw = Math.atan2(-(-1.22 - rig.pos.x), -(0.54 - rig.pos.z)); rig.pitch = 0.45; T.frame(30);
+  const cut0 = mammoth.cutLength, lying0 = C.lying + C.carry, on = game.gags.on;
+  s.squeeze(true);
+  let n = 0; while (st.owns('depil') && n < 60 * 8) { rig.yaw += 0.004 * Math.sin(n * 0.05); T.frame(); n++; }
+  s.squeeze(false); T.frame(240);
+  return { on, secs: n / 60, grams: s.grams(mammoth.cutLength - cut0), fell: C.lying + C.carry - lying0, used: st.used.includes('depil'), hand: T.inHand() };
+`);
+console.log(`  the spray: empty in ${round(v.secs)} s; ${round(v.grams)} g of hair came off, ${round(v.fell)} g of it lying about`);
+check(v.on && v.secs > 3.5 && v.secs < 6, 'a can of hair remover lasts four and a half seconds');
+check(v.grams > 250 && Math.abs(v.fell - v.grams) < 0.05 * v.grams + 1, 'and takes off several hundred grams of hair, which falls to be picked up');
+check(v.used && v.hand !== 'depil', 'the empty can is put away');
+// the others, each made to work: every one pays what it says, and two of them leave their mark on him
+v = await T(`
+  const out = {}, G = game.gags;
+  for (const id of ['feather', 'nosespray', 'varnish', 'tarot', 'plunger', 'polish', 'watch']) {
+    st.buy(id);
+    const purse = st.gold;
+    G.finish(id);
+    T.settle();
+    T.pickGold();
+    out[id] = st.gold - purse;
+  }
+  return { out, used: st.used.length, owned: game.novelties.length, nails: mammoth.horn.roughness, tusks: mammoth.ivory.roughness, eggs: game.coins.eggs.count, said: game.says.history.slice(-14), fx: st.flags.fx,
+    row: [...document.querySelectorAll('[data-tool="gag"]')].map((b) => b.hidden)[0] };
+`);
+console.log(`  the rest: ${Object.entries(v.out).map(([k, g]) => k + ' ' + g).join(', ')} gold`);
+check(v.out.feather === 80 && v.out.nosespray === 110 && v.out.varnish === 130 && v.out.tarot === 170 && v.out.plunger === 190 && v.out.polish === 320 && v.out.watch === 440, 'each of the others pays out what it is worth, and all of it can be picked up');
+check(v.used === 10 && v.owned === 0 && v.row === true, 'all ten are used up, and their button is gone');
+check(v.nails < 0.3 && v.tusks < 0.3 && v.fx && v.fx.nails && v.fx.tusks, 'his toenails are painted and his tusks shine');
+check(v.said.some((l) => /BUKAWK/.test(l)) && v.said.some((l) => /Norway/.test(l)) && v.said.some((l) => /Harlot Red/.test(l)), 'and he has had something to say about every one of them');
+await T(`T.goTo('gnome')`);
+await page.keyboard.press('KeyE');
+v = await T(`const sec = [...document.querySelectorAll('#dialog section')].find((x) => /Remedies/.test(x.querySelector('h3').textContent)); return { spent: sec.querySelectorAll('.have').length, text: sec.querySelector('.have').textContent }`);
+check(v.spent === 10 && /Used up/.test(v.text), 'the stall has no more of them to sell');
+
+// ---- cave men: hired, they come running with spears; told it is rude, they say sorry and go home ----
+const purse3 = await T(`st.earn(Math.max(0, 300 - st.gold)); game.fillDialog(); return st.gold`);
+await page.click('#dialog [data-buy="cavemen"]');
+await page.waitForFunction(() => window.__game.game.raid.playing, null, { timeout: 240000 });
+v = await T(`
+  const R = game.raid, far = () => R.men.map((c) => Math.hypot(c.group.position.x - 2.5, c.group.position.z));
+  const start = { far: far(), dialog: game.dialog, cine: !!rig.cine, seen: R.men.filter((c) => c.group.visible).length, gold: st.gold };
+  T.frame(60 * 6);
+  const there = { far: far(), level: R.men.map((c) => c.pose.level), cries: game.raid.play.said };
+  T.frame(60 * 2);
+  const him = game.says.history.slice(-1)[0];
+  T.frame(60 * 8.2);
+  const sorry = [...document.querySelectorAll('.talk .line')].map((e) => e.textContent), shame = R.men.map((c) => c.pose.shame), spears = R.men.map((c) => c.pose.level);
+  let n = 0; while (R.playing && n < 60 * 14) { T.frame(); n++; }
+  const after = { cine: !!rig.cine, bars: document.body.classList.contains('cine'), fov: camera.fov, far: far(), bye: game.says.history.slice(-1)[0], hint: document.getElementById('hint').textContent.trim().slice(0, 60), raids: st.stats.raids };
+  T.frame(60 * 32);
+  return { start, there, him, sorry, shame, spears, after, gone: R.men.filter((c) => c.group.visible).length };
+`);
+console.log(`  cave men: from ${v.start.far.map((d) => round(d)).join(', ')} m off to ${v.there.far.map((d) => round(d)).join(', ')} m; he said "${v.him}"; they said "${v.sorry.join('" / "')}"; then "${v.after.bye}"`);
+check(v.start.seen === 4 && v.start.far.every((d) => d > 15) && v.start.dialog === null && v.start.cine && v.start.gold === purse3 - 150, 'four cave men cost 150 gold and come running from a long way off, and the shop steps aside to watch');
+check(v.there.far.every((d) => d > 3 && d < 4.6) && v.there.level.every((l) => l > 0.8), 'they stop in front of him, clear of his tusks, with their spears levelled');
+check(v.him === 'Excuse me. Pointing is rude.', 'he tells them that pointing is rude');
+check(v.sorry.length === 4 && /right/.test(v.sorry[0]) && /apologise/.test(v.sorry.join(' ')) && v.shame.every((x) => x > 0.5) && v.spears.every((l) => l < 0.2), 'they agree, say sorry, and put up their spears');
+check(!v.after.cine && !v.after.bars && v.after.fov === 62 && v.after.raids === 1 && /gone home/.test(v.after.hint), 'the scene ends with the elf looking out of his own eyes, 150 gold the poorer');
+check(v.after.far.every((d, i) => d > v.there.far[i] + 1) && v.gone === 0, 'and they walk off the way they came, until they are out of sight');
+
 // ---- what is under the coat is found when the hair over it is gone ----
 // (one of them first, on its own: the heart for his mum)
 v = await T(`
@@ -361,7 +503,7 @@ v = await T(`
 `);
 console.log(`  one tattoo uncovered: "${v.hint}..."; the mammoth: "${v.said}"`);
 check(v.found.length === v.was + 1 && v.found.includes('mum'), 'shaving the hide over one tattoo finds that one');
-check(v.all.includes('Gosh, this is embarrassing.'), 'and the first thing found on him embarrassed him');
+check(embarrassed || v.all.includes('Gosh, this is embarrassing.'), 'and the first thing found on him embarrassed him');
 v = await T(`
   const gold = st.gold, was = st.found.length, total = game.finds.total;
   mammoth.setHaircut(new Float32Array(mammoth.bodyCut.length).fill(0.0005));
@@ -415,18 +557,21 @@ check(v.shorn > 0.985, 'which leaves him bald enough for the legend');
 // ---- it is all still there after the page is loaded again ----
 const kept = await T(`
   game.choose('sheep'); T.frame(40);
+  // (some gold left lying where it fell: it is not to be lost by closing the page)
+  game.coins.spout((p, d) => { p.set(-3, 1, 0); d.set(-1, 0.5, 0); }, 90, { n: 9, over: 0.2 });
+  T.frame(240);
   game.save(true);
   const raw = localStorage.getItem('mammoth-save-3');
-  return { gold: st.gold, hair: st.hair, owned: [...st.owned].sort().join(','), sack: st.level('sack'), sweeper: st.sweeper, tool: st.tool, shorn: mammoth.shorn, found: st.found.length, lift: st.lift, helpers: st.helpers, bytes: raw ? raw.length : 0 };
+  return { gold: st.gold, hair: st.hair, owned: [...st.owned].sort().join(','), sack: st.level('sack'), sweeper: st.sweeper, tool: st.tool, shorn: mammoth.shorn, found: st.found.length, lift: st.lift, helpers: st.helpers, used: st.used.length, owed: st.owed, bytes: raw ? raw.length : 0 };
 `);
 console.log(`kept: ${kept.gold} gold, ${round(kept.hair)} g, [${kept.owned}], shorn ${(kept.shorn * 100).toFixed(3)}% (${kept.bytes} bytes in the browser's storage)`);
 check(kept.bytes > 100, 'the game is written to the browser\'s storage');
 await load('');
 v = await page.evaluate(() => {
   const { shaving: s, mammoth, game } = window.__game, st = game.state;
-  return { resumed: game.resumed, gold: st.gold, hair: st.hair, owned: [...st.owned].sort().join(','), sack: st.level('sack'), sweeper: st.sweeper, tool: st.tool, hand: s.tool.id, shorn: mammoth.shorn, found: st.found.length, lift: st.lift, rigLift: window.__game.rig.lift && window.__game.rig.lift.id, helpers: st.helpers, onHim: game.helpers.count };
+  return { resumed: game.resumed, gold: st.gold, hair: st.hair, owned: [...st.owned].sort().join(','), sack: st.level('sack'), sweeper: st.sweeper, tool: st.tool, hand: s.tool.id, shorn: mammoth.shorn, found: st.found.length, lift: st.lift, rigLift: window.__game.rig.lift && window.__game.rig.lift.id, helpers: st.helpers, onHim: game.helpers.count, used: st.used.length, owed: st.owed, coins: game.coins.n, nails: mammoth.horn.roughness };
 });
-check(await page.evaluate(() => !window.__game.hero.playing), 'no scene is played for scissors he has already been given');
+check(await page.evaluate(() => !window.__game.hero.playing), 'no scene is played on coming back, either');
 console.log(`after loading the page again: ${v.gold} gold, ${round(v.hair)} g, [${v.owned}], shorn ${(v.shorn * 100).toFixed(3)}%, in hand: ${v.hand}`);
 check(v.resumed === true, 'the kept game is taken up again');
 check(v.gold === kept.gold && Math.abs(v.hair - kept.hair) < 1e-6 && v.owned === kept.owned && v.sack === kept.sack && v.sweeper === kept.sweeper, 'gold, hair and everything bought are as they were');
@@ -434,15 +579,62 @@ check(v.hand === kept.tool, 'the tool last used is in hand');
 check(v.found === kept.found && v.lift === 'pack' && v.rigLift === 'jet', 'what was found stays found, and the jet pack is still on his back');
 check(v.helpers === kept.helpers && v.onHim === kept.helpers && kept.helpers === 7, `and the ${v.helpers} lemmings are still on the payroll, and on him`);
 check(Math.abs(v.shorn - kept.shorn) < 0.02 * kept.shorn + 1e-5, 'and so is the haircut');
+check(kept.owed === 90 && v.owed === 90 && v.coins > 0, 'gold left lying on the snow is in a heap by his foot, still to be had');
+check(v.used === kept.used && v.nails < 0.3, 'and what the novelties did to him is still done');
 
 // ---- and a new game can be started over it ----
 v = await page.evaluate(() => {
   const { shaving: s, mammoth, game } = window.__game, st = game.state;
   game.restart();
-  return { gold: st.gold, owned: [...st.owned].sort().join(','), shorn: mammoth.shorn, hand: s.next || s.tool.id, raw: localStorage.getItem('mammoth-save-3'), helpers: st.helpers + game.helpers.count };
+  return { gold: st.gold, owned: [...st.owned].sort().join(','), shorn: mammoth.shorn, hand: s.next || s.tool.id, raw: localStorage.getItem('mammoth-save-3'), helpers: st.helpers + game.helpers.count, used: st.used.length, owed: st.owed + game.coins.n, nails: mammoth.horn.roughness };
 });
 check(v.gold === 0 && v.owned === 'hands,scissors' && v.shorn === 0 && v.hand === 'scissors', 'starting again gives back the coat and takes everything else');
 check(v.helpers === 0, 'the hired help included');
+check(v.used === 0 && v.owed === 0 && v.nails > 0.4, 'and the novelties, the gold on the snow and the varnish on his toenails');
+
+// ---- dev: a button that puts enough gold in the purse to buy everything (beside the purse, in both shops, and on B) ----
+v = await page.evaluate(() => {
+  const { game, rig } = window.__game, st = game.state, b = document.getElementById('dev-gold');
+  return { need: st.everything(), gold: st.gold, chip: !!b && !b.hidden && getComputedStyle(b).display !== 'none' && getComputedStyle(b).pointerEvents !== 'none', label: b ? b.textContent : '', mode: rig.mode };
+});
+const need = v.need;
+check(v.chip && v.mode === 'elf' && /Dev/.test(v.label), `the dev button is beside the purse ("${v.label}")`);
+check(need > 20000 && need < 40000 && v.gold === 0, `everything there is to buy comes to ${need} gold, and a new game has none`);
+await page.click('#dev-gold');
+v = await page.evaluate(() => { const { game } = window.__game, st = game.state; return { gold: st.gold, earned: st.stats.earned, purse: document.getElementById('gold').textContent, hint: document.getElementById('hint').textContent }; });
+console.log(`dev: pressed, the purse holds ${v.gold} gold ("${v.hint.slice(0, 70)}...")`);
+check(v.gold >= need && v.gold % 1000 === 0 && v.gold - need < 1000, 'pressing it fills the purse with enough for everything');
+check(v.earned === 0, 'none of which counts as earned');
+check(v.purse.includes(String(v.gold)) && /Dev/.test(v.hint), 'and the purse on screen, and a line under it, say so');
+// in the shop: the same button at the foot of the list, and the B key
+await page.evaluate(() => { const { game } = window.__game; game.scenes = false; game.raid.start = () => true; game.state.gold = 7; game.open('gnome'); });
+await page.click('#dialog [data-act="devgold"]');
+v = await page.evaluate(() => { const { game } = window.__game, st = game.state; return { gold: st.gold, foot: document.querySelector('#dialog footer .purse').textContent, said: game.said, dear: document.querySelectorAll('#dialog button.dear').length, tags: document.querySelectorAll('#dialog [data-buy]').length }; });
+check(v.gold >= need && v.foot.includes(String(v.gold)), `the same button at the foot of Gnorman's list does the same ("${v.said}")`);
+check(v.dear === 0 && v.tags > 30, `and none of the ${v.tags} price tags is beyond the purse any more`);
+await page.click('#dialog [data-buy="electric"]');
+await page.keyboard.press('KeyB');
+v = await page.evaluate(() => { const { game } = window.__game, st = game.state; return { gold: st.gold, need: st.everything(), owns: st.owns('electric'), dialog: game.dialog }; });
+check(v.owns && v.dialog === 'gnome' && v.gold >= v.need && v.need === need - 600, 'B in the shop tops it up again after something has been bought');
+// ...and it is enough: every level of everything, whatever can be had again three times over, and lemmings until he is full
+v = await page.evaluate(() => {
+  const { game } = window.__game, st = game.state, items = game.items, refused = [];
+  let bought = 0;
+  for (const id of Object.keys(items)) {
+    const item = items[id];
+    if (item.hire) continue;
+    const times = item.levels ? item.levels.length : item.again ? 3 : 1;
+    for (let k = 0; k < times; k++) { if (!Number.isFinite(st.price(id))) break; if (st.buy(id)) bought++; else refused.push(id); }
+  }
+  for (const id of ['plague', 'lemmings', 'lemming']) while (Number.isFinite(st.price(id))) { if (st.buy(id)) bought++; else { refused.push(id); break; } }
+  game.close(); game.open('gnome');       // (sending for the cave men shut the shop)
+  const left = Object.keys(items).filter((id) => Number.isFinite(st.price(id)) && !items[id].again);
+  return { bought, refused, left, gold: st.gold, helpers: st.helpers, tags: [...document.querySelectorAll('#dialog [data-buy]')].map((b) => b.dataset.buy).sort().join(',') };
+});
+console.log(`dev: bought ${v.bought} things with it; ${v.gold} gold over`);
+check(v.refused.length === 0 && v.left.length === 0 && v.gold >= 0, `everything on the list could be bought with it${v.refused.length ? ' (refused: ' + v.refused.join(', ') + ')' : ''}`);
+check(v.helpers === 240 && v.tags === 'box,cavemen,tonic', `down to a full complement of lemmings; all that still has a price is what can be had again (${v.tags})`);
+await page.evaluate(() => window.__game.game.close());
 
 console.log(errors.length ? 'ERRORS:\n' + errors.join('\n') : 'no script errors');
 await browser.close();

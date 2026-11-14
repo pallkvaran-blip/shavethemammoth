@@ -69,6 +69,9 @@ export class CameraRig {
     window.addEventListener('blur', () => this.keys.clear());
     document.addEventListener('pointerlockchange', () => {
       const locked = document.pointerLockElement === canvas;
+      // (the pointer is asked for when a conversation ends, and comes a moment later: if another has begun by then, it is
+      // let go again at once, or nothing in the shop could be clicked)
+      if (locked && this.busy && this.mode === 'elf') { this.locked = true; document.exitPointerLock(); return; }
       // leaving the lock (Esc) ends the walk, but only if we ever had it
       if (!locked && this.locked && this.mode === 'elf' && !this.busy) this.leaveElf();
       this.locked = locked;

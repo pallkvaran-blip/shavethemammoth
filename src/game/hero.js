@@ -71,6 +71,7 @@ export class Hero {
     this.seen = true;
     this.playing = null;          // the scene under way, if any
     this.height = 0;              // how far the elf's feet are off the snow (a ladder, a jet pack)
+    this.outside = false;         // the camera has stepped outside him for a moment (see gags.js): he is to be seen
 
     // the light behind the prize: two wheels of rays turning against each other, and a few stars
     const glow = (map, colour) => new THREE.MeshBasicMaterial({ map, color: colour, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, toneMapped: false, side: THREE.DoubleSide });
@@ -350,7 +351,7 @@ export class Hero {
     }
     if (rig.mode === 'elf') {
       // looked out of: only his shadow shows. He stands where the eyes are, turned the way they look, hands out in front.
-      this._show(false);
+      this._show(this.outside);
       const sy = Math.sin(rig.yaw), cy = Math.cos(rig.yaw);
       e.group.position.set(rig.pos.x + sy * 0.035, rig.pos.y - e.eye, rig.pos.z + cy * 0.035);
       e.group.rotation.y = rig.yaw + Math.PI;

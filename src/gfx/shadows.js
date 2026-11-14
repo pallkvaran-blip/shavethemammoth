@@ -86,6 +86,22 @@ export class SunShadow {
   }
 }
 
+/** Depth-only material for a mesh drawn many times over, each in a place of its own (coins, lemmings). */
+export function makeInstancedDepthMaterial() {
+  return new THREE.ShaderMaterial({
+    vertexShader: /* glsl */ `
+      void main() {
+        #ifdef USE_INSTANCING
+          gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(position, 1.0);
+        #else
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        #endif
+      }`,
+    fragmentShader: 'void main() { gl_FragColor = vec4(gl_FragCoord.z, 0.0, 0.0, 1.0); }',
+    side: THREE.DoubleSide,
+  });
+}
+
 /** Depth-only material for ordinary rigid meshes. */
 export function makeDepthMaterial(opts = {}) {
   return new THREE.ShaderMaterial({

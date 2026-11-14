@@ -261,10 +261,16 @@ async function start() {
   // Where everything is, is worked out once a frame (in the frame loop), not once for every map and picture drawn.
   scene.matrixWorldAutoUpdate = false;
   let nearStale = true;   // the map that holds the whole mammoth must be drawn this frame, whatever its turn
+  // (the mammoth's map takes in him and the snow round his feet; while there are cave men in front of him, them as well)
+  let wideStage = false;
+  const fitNear = () => {
+    if (wideStage) shadowNear.fit(new THREE.Vector3(3.9, 1.45, 0), sky.sunDir, 8.4, 4.2, 160); else shadowNear.fit(new THREE.Vector3(1.0, 1.45, 0), sky.sunDir, 4.8, 2.4, 160);
+    shadowNear.bind(U.uShadowNear, U.uShadowNearMat, U.uShadowNearInfo);
+    nearStale = true;
+  };
   const fitShadows = () => {
     scene.updateMatrixWorld();
-    shadowNear.fit(new THREE.Vector3(1.0, 1.45, 0), sky.sunDir, 4.8, 2.4, 160);
-    shadowNear.bind(U.uShadowNear, U.uShadowNearMat, U.uShadowNearInfo);
+    fitNear();
     shadowFar.fit(new THREE.Vector3(0, 2, 0), sky.sunDir, 90, 22, 900);
     shadowFar.bind(U.uShadowFar, U.uShadowFarMat, U.uShadowFarInfo);
     shadowFar.render(renderer, scene, farCasters);   // the land's own shadows only change with the sun
@@ -499,7 +505,7 @@ async function start() {
   const dressFrom = performance.now();
   game = new Game({
     scene, terrain, mammoth, shaving, rig, sound, hint: showHint, storage: !shot && !q.has('nosave'), baked,
-    dev: { unlock: shot || q.has('unlock'), gold: q.has('gold') ? num('gold', 0) : null, fresh: shot || q.has('fresh'), noscene: q.has('noscene'), helpers: q.has('helpers') ? num('helpers', 0) : null },
+    dev: { unlock: shot || q.has('unlock'), gold: q.has('gold') ? num('gold', 0) : null, fresh: shot || q.has('fresh'), noscene: q.has('noscene'), tools: !(shot || q.has('nodev')), helpers: q.has('helpers') ? num('helpers', 0) : null },
   });
   // the elf himself: seen from outside before the shaving starts, and whenever he has something new to show off
   hero = new Hero({ scene, camera, rig, shaving, terrain, mammoth, sound, baked: baked.elf });
@@ -517,6 +523,13 @@ async function start() {
   antics = new Antics({ mammoth, rig, sound, hint: showHint, state: game.state, puffs: lifter.puffs, terrain, shaving });
   game.antics = antics;
   antics.says = game.says;
+  game.gags.puffs = lifter.puffs;
+  game.coins.puffs = lifter.puffs;
+  game.gags.hero = hero;
+  // the cave men: baked on a thread of their own once the game is up (nobody can hire them sooner), and given room in the shadows when they come
+  game.raid.hero = hero;
+  game.raid.baking = () => startBaking(['caveman'], { threads: !q.has('nothreads') }).caveman;
+  game.raid.stage = (on) => { wideStage = on; fitNear(); };
   // bald: the shaving stops, the camera goes round to his best side, and the legend is told to the end
   antics.ready = () => game.finds.pending() === 0;
   antics.hush = () => (game.tipIn ?? 0) > 4;
@@ -527,10 +540,11 @@ async function start() {
   if (q.has('wear')) { game.state.worn.push(...q.get('wear').split(',')); antics.dress(); }
   if (q.has('pink')) { game.state.flags.pink = true; antics.dye(); }
   if (!q.has('tool')) shaving.setTool(game.state.tool);
+  else if (shaving.tools[q.get('tool')] && shaving.tools[q.get('tool')].def.gag) { game.state.owned.add(q.get('tool')); shaving.setTool(q.get('tool')); game.refresh(); }   // dev: ?tool=<novelty> has it, and in hand
 
   // ---- which tool ---------------------------------------------------------------
   const toolButtons = [...document.querySelectorAll('[data-tool]')];
-  const chooseTool = (id) => (id === 'sweep' ? game.toggleSweep() : game.choose(id));
+  const chooseTool = (id) => (id === 'sweep' ? game.toggleSweep() : id === 'gag' ? game.nextNovelty() : game.choose(id));
   shaving.onTool = (tool) => {
     rig.reachGoal = tool.def.reach;
     if (rig.mode !== 'elf') rig.reach = rig.reachGoal;   // (while shaving, the elf steps in or back over a moment)
@@ -552,11 +566,12 @@ async function start() {
     if (!elf && game.dialog) game.close();
     if (progressEl) progressEl.hidden = !elf;
     if ($('purse')) $('purse').hidden = !elf;
+    if ($('dev-gold')) $('dev-gold').hidden = !elf || !game.devTools;
     if (elfButton) elfButton.textContent = elf ? 'Stop shaving' : 'Start shaving';
     if (elf) {
       if (!shot) sound.start();   // allowed now: this follows a click or a key press
       markView('elf');
-      if (!game.arrive()) showHint(`<strong>${shaving.tool.name}.</strong> ${shaving.tool.def.sweep ? 'Look at the hair on the snow and hold the cut button to gather it.' : shaving.tool.def.motor ? 'Walk up to the mammoth, lay it flat against the hide, hold it on and push.' : 'Walk up to the mammoth and cut; lay the blades flat against the hide for a close shave.'} <span class="desk"><kbd>Left mouse</kbd> or <kbd>Space</kbd> cuts (hold to keep cutting), <kbd>Q</kbd> swaps to picking the hair up, <kbd>E</kbd> talks, <kbd>W A S D</kbd> walks, <kbd>Esc</kbd> stops.</span>`, 12);
+      showHint(`<strong>${shaving.tool.name}.</strong> ${shaving.tool.def.gag ? `${shaving.tool.def.blurb} Hold the cut button where it works.` : shaving.tool.def.sweep ? 'Look at the hair on the snow and hold the cut button to gather it.' : shaving.tool.def.motor ? 'Walk up to the mammoth, lay it flat against the hide, hold it on and push.' : 'Walk up to the mammoth and cut; lay the blades flat against the hide for a close shave.'} <span class="desk"><kbd>Left mouse</kbd> or <kbd>Space</kbd> cuts (hold to keep cutting), <kbd>Q</kbd> swaps to picking the hair up, <kbd>E</kbd> talks, <kbd>W A S D</kbd> walks, <kbd>Esc</kbd> stops.</span>`, 12);
     } else {
       markView(-1);
     }
@@ -608,8 +623,12 @@ async function start() {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
     // a scene is playing: any key gets on with it (Esc still stops the shaving altogether)
     if (hero.playing && e.code !== 'Escape') { e.preventDefault(); hero.skip(); return; }
+    // (and gets back to the elf from wherever the game has gone to watch gold come out of a mammoth)
+    // (a key pressed for it, that is: one still held down from before, walking or working, is not asking for anything)
+    if (game.gags.shot && e.code !== 'Escape') { e.preventDefault(); if (!e.repeat) game.gags.skip(); return; }
+    if (game.raid.playing && game.raid.play.cine && e.code !== 'Escape') { e.preventDefault(); if (!e.repeat) game.raid.skip(); return; }
     // talking to someone: E or Esc ends it, and nothing else is a command
-    if (game.dialog) { if (e.code === 'KeyE' || e.code === 'Escape') { e.preventDefault(); game.close(); } return; }
+    if (game.dialog) { if (e.code === 'KeyE' || e.code === 'Escape') { e.preventDefault(); game.close(); } else if (e.code === 'KeyB' && !e.repeat) game.devGold(); return; }
     if (e.code.startsWith('Digit')) {
       const i = +e.code.slice(5) - 1;
       // with a tool in hand the number keys change it; otherwise they change the view
@@ -620,8 +639,12 @@ async function start() {
       if (rig.mode === 'elf') game.interact(); else rig.enterElf();
     } else if (e.code === 'KeyQ' && rig.mode === 'elf') {
       game.toggleSweep();
+    } else if (e.code === 'KeyG' && rig.mode === 'elf') {
+      game.nextNovelty();
     } else if (e.code === 'KeyT' && rig.mode === 'elf') {
       game.swapLift();
+    } else if (e.code === 'KeyB' && rig.mode === 'elf' && !e.repeat) {
+      game.devGold();                    // (dev: gold enough for everything)
     } else if (e.code === 'Escape' && rig.mode === 'elf') {
       rig.leaveElf();
     } else if (e.code === 'KeyH') {
@@ -635,8 +658,9 @@ async function start() {
     }
   });
   statsEl.hidden = !showStats;
+  if ($('dev-gold')) $('dev-gold').addEventListener('click', () => game.devGold());
   // (a click gets on with a scene that is playing, as any key does)
-  window.addEventListener('pointerdown', () => { if (hero.playing) hero.skip(); });
+  window.addEventListener('pointerdown', () => { if (hero.playing) hero.skip(); else if (game.gags.shot) game.gags.skip(); else if (game.raid.playing) game.raid.skip(); });
 
   setProgress(0.985, 'Warming up');
   // Compile every shader now, including those for things not yet on screen
@@ -668,7 +692,8 @@ async function start() {
       const first = back
         ? `<strong>Welcome back.</strong> ${s.gold} gold, and he is ${(mammoth.shorn * 100).toFixed(mammoth.shorn < 0.1 ? 1 : 0)}% shorn. Press <strong>Start shaving</strong> to carry on.`
         : 'All you have is a pair of <strong>small bad scissors</strong>. Press <strong>Start shaving</strong> to climb down and use them.';
-      setTimeout(() => showHint(`${first} <span class="desk">Or drag to look around; <kbd>H</kbd> hides these controls, <kbd>M</kbd> mutes the sound.</span>`, 9), tellLegend ? 1500 : 5200);
+      // (said a moment after the controls come up; not to somebody who has already climbed down and been told what to do there)
+      setTimeout(() => { if (rig.mode !== 'elf') showHint(`${first} <span class="desk">Or drag to look around; <kbd>H</kbd> hides these controls, <kbd>M</kbd> mutes the sound.</span>`, 9); }, tellLegend ? 1500 : 5200);
     }
   };
   legend.onSkip = () => {
@@ -687,6 +712,7 @@ async function start() {
     }
     const open = () => {
       document.body.classList.add('ready');
+      setTimeout(() => game.raid.prepare().catch(() => {}), 4000);     // (the cave men are baked now, behind everything else, so that they come when called)
       pace.settle = 1.5; pace.acc = 0; pace.n = 0; pace.lost = pace.stumbles = 0;
       const tell = tellLegend && !legend.skipped;
       if (intro) rig.setView(startView, tell ? 11 : 6.5);
@@ -761,6 +787,47 @@ async function start() {
   if (q.has('scene') && rig.mode === 'elf' && hero.celebrate(q.get('scene'))) { rig.update(0); hero.jump(num('st', 2.2)); rig.update(0); camera.updateMatrixWorld(true); }
   if (shot && rig.mode === 'elf') shaving.lowered = num('away', 0);   // dev stills: the tool is already up
   if (q.has('look')) { const l = q.get('look').split(',').map(Number); rig.yaw = l[0]; rig.pitch = l[1]; }   // dev: where to look after the snips
+  // dev: ?gag=<novelty>[,seconds] has that novelty work, and shows what has come of it so many seconds later (1.5, if not said)
+  if (q.has('gag')) {
+    const [id, after = '1.5'] = q.get('gag').split(',');
+    document.body.classList.add('told');
+    if (rig.mode === 'elf') rig.update(1 / 30);
+    game.gags.finish(id);
+    for (let i = 0, n = Math.round(+after * 30); i < n; i++) {
+      U.uTime.value += 1 / 30; rig.update(1 / 30); mammoth.update(1 / 30); camera.updateMatrixWorld(true);
+      mammoth.sampler.begin(mammoth.furMats.uniforms.uBreath.value);
+      game.coins.update(1 / 30, camera); game.gags.update(1 / 30, camera); lifter.update(1 / 30);
+      game.says.update(1 / 30, { elf: true, busy: false, seen: true });
+    }
+  }
+  // dev: ?raid=<seconds> has the cave men sent for, and shows the scene that many seconds in
+  if (q.has('raid')) {
+    await game.raid._make();
+    document.body.classList.add('told');
+    if (rig.mode === 'elf') rig.update(1 / 30);
+    game.raid._begin();
+    for (let t = 0, to = num('raid', 6); t < to && (game.raid.playing || game.raid.lingering); t += 1 / 30) {
+      U.uTime.value += 1 / 30; rig.update(1 / 30); mammoth.update(1 / 30); camera.updateMatrixWorld(true);
+      mammoth.sampler.begin(mammoth.furMats.uniforms.uBreath.value);
+      game.raid.update(1 / 30, camera); game.gags.update(1 / 30, camera);
+      game.says.update(1 / 30, { elf: true, busy: false, seen: true });
+    }
+    rig.update(0); camera.updateMatrixWorld(true);
+  }
+  // dev: ?use=<seconds> holds the cut button down for so long before the still (a novelty in hand is used on whatever it is pointed at)
+  if (q.has('use') && rig.mode === 'elf') {
+    document.body.classList.add('told');
+    shaving.lowered = 0;
+    for (let i = 0, n = Math.round(num('use', 1) * 30); i < n; i++) {
+      U.uTime.value += 1 / 30; rig.update(1 / 30); mammoth.update(1 / 30); camera.updateMatrixWorld(true);
+      mammoth.sampler.begin(mammoth.furMats.uniforms.uBreath.value);
+      // (?tap=n: pressed and let go every n frames, for things that are used a press at a time)
+      shaving.squeeze(q.has('tap') ? i % num('tap', 12) < num('tap', 12) / 2 : true);
+      shaving.update(1 / 30, camera, rig.feel); game.update(1 / 30); hero.update(1 / 30); lifter.update(1 / 30);
+    }
+    if (!q.has('hold')) shaving.squeeze(false);
+    rig.update(0); camera.updateMatrixWorld(true);
+  }
   // dev: ?hire=n lets so many lemmings out of the stall at the start (and ?warm=frames, below, gives them time to get somewhere)
   if (q.has('hire')) game.helpers.hire(num('hire', 0));
   for (let i = 0, n = num('warm', 0); i < n; i++) {
@@ -774,6 +841,7 @@ async function start() {
   let shadowTris = 0;
   const count = renderer.info.render;
   const folk = [hero.elf, game.gnome, game.vulture, game.table];
+  game.raid.onMade = (men) => folk.push(...men);
   const frame = (stamp) => {
     // The time is the one the browser gives the frame, which keeps step with the screen: taken off the clock instead,
     // it wavers by however long the page was busy, and everything that moves would then move unevenly.
@@ -812,10 +880,11 @@ async function start() {
     mammoth.setFurDetail(THREE.MathUtils.clamp(coat * far, 0.05, 1), Q.furShadow * A.shade * Math.min(1, furBase * 1.4));
     // (and the people's hair goes the same way as his when the frames are slow)
     const folkHair = THREE.MathUtils.clamp((Q.folk ?? 1) * A.fur, 0.3, 1);
+    game.raid.quality = folkHair;
     // each of them is told how far off the eye is: at a distance fewer faces and fewer strands will do. (Looked out of,
     // the elf is only his own shadow, which never needs more than that.)
     const eye = camera.position;
-    hero.elf.see(rig.mode === 'elf' && !hero.playing ? 99 : eye.distanceTo(hero.elf.group.position), folkHair);
+    hero.elf.see(rig.mode === 'elf' && !hero.playing && !hero.outside ? 99 : eye.distanceTo(hero.elf.group.position), folkHair);
     inView.setFromProjectionMatrix(viewMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
     for (const who of ['gnome', 'vulture']) {
       const at = game.people[who], d = Math.hypot(eye.x - at.x, eye.y - at.y - 0.25, eye.z - at.z);
@@ -841,16 +910,27 @@ async function start() {
     // shading allows for, this one is drawn as often as that takes.)
     let every = A.every;
     while (every > 1 && (mammoth.stir || 0) * (every - 1) * dt > 0.006) every--;
+    if (game.raid.playing || game.raid.lingering) every = 1;      // (cave men cover metres a second, and their shadows are in it)
     if (nearStale || frames < 3 || shot || frames % every === 0) {
       shadowNear.render(renderer, scene, casters);
       nearStale = false;
     }
     if (rig.mode === 'elf' && !q.has('noelfshadow')) {
-      // centred a little ahead of the elf, at about the height of its work
-      camera.getWorldDirection(elfAhead); elfAhead.y = 0; elfAhead.normalize();
-      elfCentre.copy(camera.position).addScaledVector(elfAhead, 0.45); elfCentre.y = terrain.height(elfCentre.x, elfCentre.z) + 0.5 + rig.height;
+      // centred a little ahead of the elf, at about the height of its work (or, while the game is watching something from
+      // outside him, on the elf himself: where the camera happens to be standing is of no interest to anybody)
+      if (rig.cine) elfCentre.set(rig.pos.x, 0, rig.pos.z);
+      else { camera.getWorldDirection(elfAhead); elfAhead.y = 0; elfAhead.normalize(); elfCentre.copy(camera.position).addScaledVector(elfAhead, 0.45); }
+      elfCentre.y = terrain.height(elfCentre.x, elfCentre.z) + 0.5 + rig.height;
       shadowElf.fit(elfCentre, sky.sunDir, 1.3, 0.65, 70, true);
       shadowElf.bind(U.uShadowElf, U.uShadowElfMat, U.uShadowElfInfo);
+      // (a cave man casts into this one only while he, or the spear he is holding out, is over it: it is a few paces across,
+      // he is a good way off for most of his visit, and there is a great deal of him to draw)
+      if (game.raid.men) for (const c of game.raid.men) {
+        if (!c.group.visible) continue;
+        centreOf.copy(c.group.position); centreOf.y += 0.9; centreOf.applyMatrix4(U.uShadowElfMat.value);
+        const off = centreOf.x < -0.85 || centreOf.x > 1.85 || centreOf.y < -0.85 || centreOf.y > 1.85;
+        for (const o of c.meshes) o.userData.nearOnly = off;
+      }
       // (whatever casts into the mammoth's map casts into this one, but for the coat as a whole: this one has it patch by patch)
       for (const o of casters) { if (o.userData.shadowMaterial && !o.userData.nearOnly && o.layers.isEnabled(LAYER_SHADOW_NEAR)) o.layers.enable(LAYER_SHADOW_ELF); else o.layers.disable(LAYER_SHADOW_ELF); }
       shadowElf.render(renderer, scene, casters);

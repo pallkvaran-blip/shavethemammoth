@@ -75,6 +75,26 @@ if (who === 'vulture' || who === 'all') {
   const { buildVulture } = await import('../src/game/people/vulture.js');
   place(buildVulture({ bare: q.has('bare') }), who === 'all' ? 0.4 : 0);
 }
+if (who === 'caveman' || who === 'tribe') {
+  // (the size they were sculpted, unless ?big: the snow and the sun here are set up for small people)
+  const { buildCaveman, TRIBE, SIZE } = await import('../src/game/people/caveman.js');
+  const { bakeFigure } = await import('../src/game/people/bake.js');
+  const { cavemanRecipe } = await import('../src/game/people/caveman.recipe.js');
+  const baked = bakeFigure(cavemanRecipe(), { bare: q.has('bare') });
+  const list = who === 'tribe' ? TRIBE : [TRIBE[num('look', 0)]];
+  list.forEach((look, i) => {
+    const c = buildCaveman({ baked, look, scale: q.has('big') ? SIZE : 1 });
+    for (const k of Object.keys(c.want)) if (q.has(k)) c.want[k] = num(k, 0);
+    c.state.speed = num('speed', 0);
+    c.settle(num('t', 0));
+    // (?step=n: so many thirtieths of a second of going, to see a stride part way through)
+    for (let n = 0; n < num('step', 0); n++) c.update(1 / 30, n / 30);
+    c.state.speed = q.has('live') ? c.state.speed : 0;
+    const upd = c.update;
+    c.update = (dt, t) => upd(q.has('live') ? dt : 0, t);
+    place(c, (i - (list.length - 1) / 2) * 0.12 * (q.has('big') ? SIZE : 1));
+  });
+}
 // (for finding out which part of a material is doing what: ?fa=<layer>:x,y,z,w sets its first four numbers)
 if (q.has('fa')) { const [name, v] = q.get('fa').split(':'); for (const f of figures) if (f.materials && f.materials[name]) f.materials[name].userData.folk.uFolkA.value.fromArray(v.split(',').map(Number)); }
 // (?far draws them as they are drawn from a long way off: fewer faces, fewer strands)

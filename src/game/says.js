@@ -80,6 +80,16 @@ const BOUGHT = {
   soda: 'Is that fizzy pop? Strapped to an elf?',
   blower: 'It is very loud. I have enormous ears, you know.',
   jet: 'Elves were never meant to fly. Nor mammoths, but nobody tried.',
+  feather: 'Is that a feather? Keep it away from my legs.',
+  nosespray: 'I can smell menthol. I do not like where this is going.',
+  scratcher: 'What is the little hand for?',
+  varnish: 'Red? For me? I could not possibly. What kind of red?',
+  tarot: 'Cards. I do not hold with cards.',
+  plunger: 'That had better be for the snow.',
+  needles: 'Those are very small spears.',
+  polish: 'Lambswool. Nobody ever asks the lamb.',
+  watch: 'A watch. You will find that I am not suggestible.',
+  depil: 'Mammoth strength? Who tried it? On WHOM?',
   lemming: 'Something is climbing my leg. It has very cold feet.',
   lemmings: 'There are more of them. They appear to be organised.',
   plague: 'I am infested. With staff.',
@@ -156,6 +166,8 @@ const IDLE_WHEN = [
   [(c) => c.found > 0, 'I was young. It was the Pleistocene.'],
   [(c) => c.found > 2, 'Stop reading me.'],
   [(c) => c.found > 4, 'In my day a mammoth kept his hide to himself.'],
+  [(c) => c.raids > 0, 'Nice boys, the cave men. Dreadful manners. Lovely apologies.'],
+  [(c) => c.used > 2, 'I have paid out more this week than in the last ten thousand years.'],
   [(c) => c.help > 0, 'They tickle. All of them. All the time.'],
   [(c) => c.help > 5, 'One of them is in my ear. Hello? Yes. Out.'],
   [(c) => c.help > 20, 'I have more lemmings than hair. This was not the plan.'],
@@ -182,6 +194,7 @@ export class Says {
     this.wasElf = false; this.greeted = false; this.helloIn = 2.6; this.pinned = false;
     this._v = new THREE.Vector3();
     this.x = 0; this.y = 0; this.w = 0; this.h = 0; this.top = 14; this.tail = ''; this.at = -1;
+    this.aside = false;            // the label is to keep off his face (something is happening there: see gags.js)
   }
 
   /** Lines said once a game are ticked off here, and kept with it. */
@@ -225,6 +238,16 @@ export class Says {
     }
   }
 
+  /** Say it now, over whatever he was saying (something has just been done to him: see gags.js). */
+  blurt(line) {
+    if (!line || !this.el || this.pinned) return;
+    this.queue = this.queue.filter((q) => q.line !== line);
+    if (this.now && this.now.line === line) { this.now.left = holdFor(line); return; }
+    this._show(line);
+    this.quiet = 0;
+    this.idleIn = Math.max(this.idleIn, between(40, 75));
+  }
+
   /** Put a line up now and leave it there (dev: ?says=...). */
   pin(line) {
     this.pinned = true;
@@ -253,6 +276,9 @@ export class Says {
     requestAnimationFrame(() => { if (this.now && this.now.line === line) el.classList.add('show'); });
     if (this.sound && this.sound.mutter) this.sound.mutter(Math.min(6, 2 + Math.round(line.split(/\s+/).length / 3)));
   }
+
+  /** Whatever he is saying is taken down now (the game has turned to look at somebody else). */
+  hush() { this._hide(); }
 
   _hide() {
     if (!this.now) return;
@@ -290,9 +316,16 @@ export class Says {
       const side = ax < W / 2 ? 1 : -1;
       x = ax - w / 2 + side * w * 0.3; y = ay - h - 30;
       if (y < this.top) { x = side > 0 ? ax + 36 : ax - w - 36; y = ay - h * 0.62; }
+      if (this.aside) {
+        // (his face is what is being looked at: the label goes in front of it, down by his tusks)
+        const f = this.mammoth.bone('head').localToWorld(this._v.set(1.6, -0.5, 0)).project(cam), front = (f.x * 0.5 + 0.5) * W >= ax ? 1 : -1;
+        x = front > 0 ? ax + 46 : ax - w - 46; y = ay - h * 0.2;
+      }
     }
+    // (while the picture has bars across its top and bottom, for a scene, the label keeps below the upper one)
+    const top = document.body.classList.contains('cine') ? Math.max(this.top, H * 0.11 + 10) : this.top;
     x = Math.min(W - w - 14, Math.max(14, x));
-    y = Math.min(H * 0.6 - h, Math.max(this.top, y));
+    y = Math.min(H * 0.6 - h, Math.max(top, y));
     for (const r of this.keep || []) if (x < r.right + 10 && x + w > r.left - 10 && y < r.bottom + 10) y = r.bottom + 10;
     const k = snap ? 1 : 1 - Math.exp(-dt * 12);
     this.x += (x - this.x) * k; this.y += (y - this.y) * k;
@@ -319,7 +352,7 @@ export class Says {
     const c = {
       tool: tool ? tool.id : '', motor: !!(tool && tool.def.motor), sweeping: !!(tool && tool.def.sweep), full: s.hair > 0 && s.room <= 0,
       pink: !!s.flags.pink, hat: s.worn.includes('partyhat'), shades: s.worn.includes('shades'),
-      shorn: this.mammoth.shorn, minutes: this.minutes, named: s.found.includes('hello'), found: s.found.length, help: s.helpers || 0,
+      shorn: this.mammoth.shorn, minutes: this.minutes, named: s.found.includes('hello'), found: s.found.length, help: s.helpers || 0, raids: s.stats.raids || 0, used: (s.used || []).length,
     };
     const fits = IDLE_WHEN.filter(([when, line]) => when(c) && !this.spoken.includes(line)).map((e) => e[1]);
     let from = IDLE.filter((line) => !this.spoken.includes(line));
