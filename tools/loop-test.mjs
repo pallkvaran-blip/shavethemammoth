@@ -354,12 +354,14 @@ v = await T(`
   const spot = game.finds.spots.find((sp) => sp.id === 'mum'), cut = Float32Array.from(mammoth.bodyCut), was = st.found.length;
   for (const p of spot.at) cut[p] = 0.0005;
   mammoth.setHaircut(cut);
-  let n = 0; while (!game.says.history.includes('Gosh, this is embarrassing.') && n < 60 * 30) { T.frame(); n++; }
-  return { was, found: st.found.slice(), hint: document.getElementById('hint').textContent.trim().slice(0, 60), said: game.says.history.slice(-1)[0], n };
+  // (until it has been found, and he has had time to say what he thinks of that)
+  let n = 0; while (!st.found.includes('mum') && n < 60 * 30) { T.frame(); n++; }
+  T.frame(60 * 4);
+  return { was, found: st.found.slice(), hint: document.getElementById('hint').textContent.trim().slice(0, 60), said: game.says.history.slice(-1)[0], all: game.says.history.slice(), n };
 `);
 console.log(`  one tattoo uncovered: "${v.hint}..."; the mammoth: "${v.said}"`);
 check(v.found.length === v.was + 1 && v.found.includes('mum'), 'shaving the hide over one tattoo finds that one');
-check(v.was > 0 || v.said === 'Gosh, this is embarrassing.', 'and the first thing found on him embarrasses him');
+check(v.all.includes('Gosh, this is embarrassing.'), 'and the first thing found on him embarrassed him');
 v = await T(`
   const gold = st.gold, was = st.found.length, total = game.finds.total;
   mammoth.setHaircut(new Float32Array(mammoth.bodyCut.length).fill(0.0005));
@@ -401,8 +403,9 @@ v = await T(`
   const before = longest(), shorn0 = mammoth.shorn;
   T.frame(90);
   const noticed = !H.idle;
-  let n = 0; while (!(H.idle && H.pending.length === 0) && n < 60 * 400) { T.frame(); n++; }
-  return { helpers: H.count, before, after: longest(), noticed, took: n / 60 + 1.5, idle: H.idle, shorn0, shorn: mammoth.shorn };
+  // (until they have had nothing to do for three seconds together: a patch can look finished for a moment, between one count of it and the next)
+  let n = 0, calm = 0; while (calm < 180 && n < 60 * 400) { T.frame(); n++; calm = H.idle && H.pending.length === 0 ? calm + 1 : 0; }
+  return { helpers: H.count, before, after: longest(), noticed, took: (n - calm) / 60 + 1.5, idle: H.idle, shorn0, shorn: mammoth.shorn };
 `);
 console.log(`  three patches left on him (shorn ${(v.shorn0 * 100).toFixed(2)}%): ${v.helpers} lemmings had them off in ${round(v.took)} s (shorn ${(v.shorn * 100).toFixed(2)}%)`);
 check(v.helpers === 7 && v.before > 0.03 && v.noticed, `patches of hair left on him (up to ${round(v.before * 100)} cm long) are noticed by the help`);
