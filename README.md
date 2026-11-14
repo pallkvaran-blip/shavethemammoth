@@ -165,7 +165,7 @@ pays 25 gold the hundred grams. The whole coat is about 70 kg.
 
 | | Gold | |
 | --- | --- | --- |
-| Shears, garden clippers, beard shaver, electric shears | 15, 120, 300, 600 | Each cuts more, or closer, than the last. A minute of work: about 25 g with the bad scissors, 200 to 300 g with the shears or the clippers, and as much as you can sweep with the electric ones |
+| Shears, garden clippers, beard shaver, electric shears | 15, 120, 300, 600 | Each cuts more, or closer, than the last. A minute of steady work round a leg: about 125 g with the bad scissors, 200 g with the shears, 240 g with the clippers (all of them more where the hair is longer), and as much as you can sweep with the electric ones |
 | Twig broom, push broom | 10, 80 | Gather what is under the head of the broom at each stroke |
 | Hand vacuum, shop vacuum; more suck | 350, 1000; 250, 600 | Hair flies up the nozzle from a distance |
 | Sack, wheelbarrow, bottomless sack | 30, 180, 600 | Carry 350 g, 1.2 kg, 5 kg |
@@ -206,11 +206,13 @@ Walk up to the mammoth. Held away from it, a tool points ahead with its blades
 level, and a snip trims whatever hair hangs between them. Press it into the coat
 and it turns to lie flat on the hide, pointing up the limb, as a shearer holds
 it: a snip there takes everything between the blades and the skin down to
-stubble.
+stubble, and trims off the hair that hangs across the blades from higher up, so
+that what has been shorn is bare to look at and not hidden under the rest of
+the coat.
 
 | Tool | Size | What it is like |
 | --- | --- | --- |
-| Small bad scissors | 7.5 cm, blades 3.4 cm | The pair from the back of a kitchen drawer: blunt, spotted with rust, one point snapped off, a rivet so loose the blades rattle. A bite the width of a finger. A little over half of the hair between the blades is cut; the rest folds over and slips out. What is cut is chewed off at uneven lengths, three strokes in ten stick part way, and they are slow to open again |
+| Small bad scissors | 11 cm, blades 5 cm | The pair from the back of a kitchen drawer: blunt, spotted with rust, one point snapped off, a rivet so loose the blades rattle. A bite two fingers wide. Nine locks in ten between the blades are cut; the tenth folds over and slips out. What is cut is chewed off a little unevenly, one stroke in seven sticks part way, and they are slow to open again. (They were smaller and much worse once: it took minutes of them to afford anything, and nothing they cut could be seen to be gone) |
 | Shears | 17 cm, blades 9.5 cm | Blade shears, as used on sheep for centuries: one strip of spring steel, two broad blades and a bow at the back. One hand, a quick squeeze, and the bow throws them open again with a quiver. A clean cut, closest to the skin of the three |
 | Garden clippers | 27 cm, blades 13.5 cm | Hedge shears held in both hands. The biggest bite of the hand tools, and a heavier, slower stroke |
 | Electric shears | 18 cm, comb 5.5 cm | A cordless shearing handpiece: a comb of thirteen teeth that slides along the skin, and a four-pointed cutter thrown from side to side across it. No stroke: hold it on, lay it on the hide and push. It takes a strip the width of the comb, leaves three to five millimetres of stubble, and is hard to outrun |

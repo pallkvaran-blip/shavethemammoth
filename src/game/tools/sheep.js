@@ -162,7 +162,7 @@ export function buildSheepShears() {
     reach: 0.19,
     // the squeeze is quick, and the bow flings the blades open again, quivering for a moment
     stroke: { delay: 0.03, speed0: 3.5, accel: 130, max: 12, shut: 0.03, shutHeld: 0.06, open: 0.085, kick: 0.5, bounce: { amount: 0.07, decay: 16, rate: 52 } },
-    cut: { below: 0.03, min: 0.004, chance: 1, ragged: 0 },
+    cut: { below: 0.03, above: 0.03, min: 0.004, chance: 1, ragged: 0 },
     voice: 'sheep',
     onAngle: setBow,
   };

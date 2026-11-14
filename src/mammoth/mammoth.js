@@ -504,11 +504,14 @@ export class Mammoth {
    * `halfAngle`. A lock is cut where it crosses that sector. With `below` > 0
    * the blades are lying on the hide, and everything between them and the
    * skin (to that depth) goes too: hair rooted under the blades is cut to
-   * stubble. `blades`, `shape` and `backAt` describe the blades themselves:
+   * stubble. So does what lies over them, as far as `above` (the tuft the
+   * blades close on is the hair on top of them as well as the hair beneath;
+   * otherwise what is shorn stays hidden under what hangs across it from
+   * higher up). `blades`, `shape` and `backAt` describe the blades themselves:
    * hair that would pass through one has been swept into the gap, and is cut
    * too. Returns one entry per lock that would be cut.
    */
-  findCuts({ pivot, forward, normal, radius, inner = 0, halfAngle = Math.PI, minLength = 0.006, below = 0, blades = null, shape = null, backAt = null }) {
+  findCuts({ pivot, forward, normal, radius, inner = 0, halfAngle = Math.PI, minLength = 0.006, below = 0, above = 0.003, blades = null, shape = null, backAt = null }) {
     const S = this.sampler;
     S.begin(this.furMats.uniforms.uBreath.value);
     const fx = forward.x, fy = forward.y, fz = forward.z, nx = normal.x, ny = normal.y, nz = normal.z;
@@ -517,7 +520,7 @@ export class Mammoth {
     const full = halfAngle >= Math.PI - 1e-3;
     const cr = (full ? radius : radius * 0.62) + (blades ? 0.02 : 0);
     const cx = full ? px : px + fx * radius * 0.5, cy = full ? py : py + fy * radius * 0.5, cz = full ? pz : pz + fz * radius * 0.5;
-    const NS = 12, above = 0.003;
+    const NS = 12;
     const P = [0, 0, 0], Q = [0, 0, 0];
     const out = [];
     // is a point (given relative to the pivot) over the sector? leaves its polar coordinates in ru, rphi
@@ -557,7 +560,7 @@ export class Mammoth {
         S.point(0, P);
         let dPrev = (P[0] - px) * nx + (P[1] - py) * ny + (P[2] - pz) * nz;
         let len = -1, hx = 0, hy = 0, hz = 0, tx = 0, ty = 0, tz = 0;
-        if (below > 0 && dPrev <= above && dPrev >= -below && over(P[0] - px, P[1] - py, P[2] - pz)) {
+        if (below > 0 && dPrev <= 0.003 && dPrev >= -below && over(P[0] - px, P[1] - py, P[2] - pz)) {
           // rooted under the blades: down to stubble, each lock a slightly different length
           len = minLength * (1 + 0.8 * a.iA[i * 4 + 2]);
           hx = P[0]; hy = P[1]; hz = P[2];

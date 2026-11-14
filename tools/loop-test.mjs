@@ -129,7 +129,7 @@ check(v.two === false, 'key 2 does nothing: the shears are not owned yet');
 // ---- cut ----
 v = await T(`const g = T.cutRound(0, 0.3, Math.PI / 2, 60); return { g, lying: C.lying, snips: s.snips }`);
 console.log(`bad scissors, a minute round the foreleg: ${round(v.g)} g cut in ${v.snips} strokes; ${round(v.lying)} g lying on the snow`);
-check(v.g > 8, 'a minute with the bad scissors cuts a fair handful');
+check(v.g > 60 && v.g < 220, 'a minute with the bad scissors cuts most of a pocketful (and less than the shears would)');
 check(Math.abs(v.lying - v.g) < 0.02 * v.g + 0.05, 'every gram cut is lying about to be picked up');
 const cutFirst = v.g;
 // ...and the mammoth has something to say about being cut
@@ -147,17 +147,19 @@ check(v.got > 0.85 * Math.min(cutFirst, v.cap), 'looking at cut hair and holding
 check(v.hair <= v.cap + 1e-6, 'the pockets do not hold more than they hold');
 
 // ---- sell it to Mortimer (E, then his button) ----
-v = await T(`T.goTo('vulture'); return { near: game.nearby(), prompt: document.getElementById('prompt').textContent.trim(), hidden: document.getElementById('prompt').hidden, hair: st.hair }`);
+v = await T(`T.goTo('vulture'); return { near: game.nearby(), prompt: document.getElementById('prompt').textContent.trim(), hidden: document.getElementById('prompt').hidden, hair: st.hair, gold: st.gold, found: st.found.length }`);
 check(v.near === 'vulture' && !v.hidden && /Mortimer/.test(v.prompt), `standing at the wig table offers "${v.prompt}"`);
-const carried = v.hair;
+// (a minute of the scissors may well have uncovered a tattoo by now, which Gnorman pays for: that gold is not Mortimer's)
+const carried = v.hair, purseBefore = v.gold;
+if (v.found) console.log(`  (${v.found} thing${v.found > 1 ? 's' : ''} found under the coat already, for ${purseBefore} gold)`);
 await page.keyboard.press('KeyE');
 v = await T(`return { dialog: game.dialog, open: !document.getElementById('dialog').hidden, text: document.querySelector('#dialog .sheet').innerText.replace(/\\n+/g, ' | ').slice(0, 200), busy: rig.busy }`);
 console.log(`  Mortimer: ${v.text}`);
 check(v.dialog === 'vulture' && v.open && v.busy, 'E opens his scales, and the elf stands still for it');
 await page.click('#dialog [data-act="sell"]');
 v = await T(`return { gold: st.gold, hair: st.hair, sold: st.stats.sold }`);
-console.log(`  sold ${round(carried)} g for ${v.gold} gold`);
-check(v.gold === Math.floor(carried * 0.25 + 1e-6) && v.hair === 0, 'he pays a quarter of a gold a gram, rounded down in his favour, and the pockets are empty');
+console.log(`  sold ${round(carried)} g for ${v.gold - purseBefore} gold`);
+check(v.gold - purseBefore === Math.floor(carried * 0.25 + 1e-6) && v.hair === 0, 'he pays a quarter of a gold a gram, rounded down in his favour, and the pockets are empty');
 // (the mammoth saw that; but he says nothing while the shop is open)
 v = await T(`T.frame(150); const el = document.getElementById('says'); return { now: game.says.now && game.says.now.line, waiting: game.says.queue.length, up: !el.hidden && el.classList.contains('show') }`);
 check(v.now === null && !v.up && v.waiting >= 1, 'the mammoth has a view on the sale, and keeps it to himself while the shop is open');
@@ -352,12 +354,14 @@ v = await T(`
   const spot = game.finds.spots.find((sp) => sp.id === 'mum'), cut = Float32Array.from(mammoth.bodyCut), was = st.found.length;
   for (const p of spot.at) cut[p] = 0.0005;
   mammoth.setHaircut(cut);
-  let n = 0; while (!game.says.history.includes('Gosh, this is embarrassing.') && n < 60 * 30) { T.frame(); n++; }
-  return { was, found: st.found.slice(), hint: document.getElementById('hint').textContent.trim().slice(0, 60), said: game.says.history.slice(-1)[0], n };
+  // (until it has been found, and he has had time to say what he thinks of that)
+  let n = 0; while (!st.found.includes('mum') && n < 60 * 30) { T.frame(); n++; }
+  T.frame(60 * 4);
+  return { was, found: st.found.slice(), hint: document.getElementById('hint').textContent.trim().slice(0, 60), said: game.says.history.slice(-1)[0], all: game.says.history.slice(), n };
 `);
 console.log(`  one tattoo uncovered: "${v.hint}..."; the mammoth: "${v.said}"`);
 check(v.found.length === v.was + 1 && v.found.includes('mum'), 'shaving the hide over one tattoo finds that one');
-check(v.was > 0 || v.said === 'Gosh, this is embarrassing.', 'and the first thing found on him embarrasses him');
+check(v.all.includes('Gosh, this is embarrassing.'), 'and the first thing found on him embarrassed him');
 v = await T(`
   const gold = st.gold, was = st.found.length, total = game.finds.total;
   mammoth.setHaircut(new Float32Array(mammoth.bodyCut.length).fill(0.0005));
@@ -399,8 +403,9 @@ v = await T(`
   const before = longest(), shorn0 = mammoth.shorn;
   T.frame(90);
   const noticed = !H.idle;
-  let n = 0; while (!(H.idle && H.pending.length === 0) && n < 60 * 400) { T.frame(); n++; }
-  return { helpers: H.count, before, after: longest(), noticed, took: n / 60 + 1.5, idle: H.idle, shorn0, shorn: mammoth.shorn };
+  // (until they have had nothing to do for three seconds together: a patch can look finished for a moment, between one count of it and the next)
+  let n = 0, calm = 0; while (calm < 180 && n < 60 * 400) { T.frame(); n++; calm = H.idle && H.pending.length === 0 ? calm + 1 : 0; }
+  return { helpers: H.count, before, after: longest(), noticed, took: (n - calm) / 60 + 1.5, idle: H.idle, shorn0, shorn: mammoth.shorn };
 `);
 console.log(`  three patches left on him (shorn ${(v.shorn0 * 100).toFixed(2)}%): ${v.helpers} lemmings had them off in ${round(v.took)} s (shorn ${(v.shorn * 100).toFixed(2)}%)`);
 check(v.helpers === 7 && v.before > 0.03 && v.noticed, `patches of hair left on him (up to ${round(v.before * 100)} cm long) are noticed by the help`);

@@ -1,14 +1,18 @@
 // Small bad scissors: the pair from the back of a kitchen drawer. Blunt,
 // spotted with rust, one point snapped off, faded plastic handles, and a rivet
-// so loose that the blades rattle and never quite meet. 7.5 cm over all, with
-// blades of 3.4 cm.
+// so loose that the blades rattle and never quite meet. 11 cm over all, with
+// blades of 5 cm.
 //
-// They cut like it. Hair folds between the blades as often as it parts, what
-// does part is chewed off at uneven lengths, and now and then they stick
-// half way through a stroke.
+// They cut like it, but they do cut: a lock in ten folds between the blades
+// and slips out, what parts is chewed off a little unevenly, and now and then
+// they stick half way through a stroke. (They were smaller and worse once.
+// Nobody could earn the price of anything better with them.)
 import * as THREE from 'three';
 import { Kit, loft, steelTextures, canvasTexture, rngFrom, smoothstep, lerp } from '../tool.js';
 
+// The pair is modelled at the size it first was, and made half as big again when it is put together (SIZE): every
+// length below is for the smaller pair, and what the game is told about it at the end is multiplied up.
+const SIZE = 1.5;
 const TIPS = [0.034, 0.0322];                // pivot to tip of each blade: the second has lost its point
 const HALF_THICK = 0.00065;
 const OPEN = (38 * Math.PI) / 180;
@@ -130,9 +134,13 @@ export function buildSmallScissors() {
   }, HALF_THICK);
 
   // the rivet: a small domed head above, peened flat below
-  const head = kit.add(kit.group, new THREE.SphereGeometry(0.0024, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), steel, 'scissors-rivet');
+  const rivet = new THREE.Group();
+  kit.group.add(rivet);
+  const head = kit.add(rivet, new THREE.SphereGeometry(0.0024, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), steel, 'scissors-rivet');
   head.scale.y = 0.55; head.position.y = 2 * HALF_THICK + 0.0003;
-  kit.add(kit.group, new THREE.CylinderGeometry(0.0021, 0.0021, 0.0007, 12), steel, 'scissors-rivet').position.y = -2 * HALF_THICK - 0.0005;
+  kit.add(rivet, new THREE.CylinderGeometry(0.0021, 0.0021, 0.0007, 12), steel, 'scissors-rivet').position.y = -2 * HALF_THICK - 0.0005;
+  // (all of it, half as big again)
+  for (const part of [kit.upper, kit.lower, rivet]) part.scale.setScalar(SIZE);
 
   // what may not pass through things (the larger ring stands for both)
   const leverSamples = [];
@@ -149,29 +157,31 @@ export function buildSmallScissors() {
     leverSamples.push([centre.x + back.x * ra * Math.cos(th) + out.x * rb * Math.sin(th), 0, centre.z + back.z * ra * Math.cos(th) + out.z * rb * Math.sin(th), 0.0034]);
   }
 
+  const big = (list) => list.map((v) => v * SIZE);
   return {
     id: 'scissors',
     name: 'Small bad scissors',
-    blurb: 'Blunt and loose. They miss half of what they bite.',
+    blurb: 'Blunt and loose, but they bite. One lock in ten gets away.',
     seed: 5,
     kit,
-    halfThick: HALF_THICK,
+    halfThick: HALF_THICK * SIZE,
     open: OPEN,
-    tip: TIPS[0],
-    blade: { from: 0.002, to: TIPS[0], back0: 0.0058, back1: 0.0026, exp: 1.3, edge: 0.0035 },
-    part: { above: 0.02, below: 0.012 },
-    pivotClear: 0.006,
-    cutInner: 0.006,
-    leverSamples,
-    fixedSamples: [[0, 0.0018, 0, 0.003], [0, -0.0016, 0, 0.0028]],
+    tip: TIPS[0] * SIZE,
+    blade: { from: 0.002 * SIZE, to: TIPS[0] * SIZE, back0: 0.0058 * SIZE, back1: 0.0026 * SIZE, exp: 1.3, edge: 0.0035 * SIZE },
+    part: { above: 0.02, below: 0.014 },
+    pivotClear: 0.006 * SIZE,
+    cutInner: 0.006 * SIZE,
+    leverSamples: leverSamples.map(big),
+    fixedSamples: [[0, 0.0018, 0, 0.003], [0, -0.0016, 0, 0.0028]].map(big),
     // held in the right hand, thumb uppermost: off to the right, turned in towards the middle
-    hold: { pos: [0.034, -0.06, -0.115], tilt: (20 * Math.PI) / 180, yaw: (-14 * Math.PI) / 180, roll: (22 * Math.PI) / 180, sway: 0.6 },
-    lie: { tip: 0.004, pivot: 0.007 },
-    reach: 0.115,
-    // stiff to close, slow to open, and three strokes in ten they stick part way
-    stroke: { delay: 0.05, speed0: 1.6, accel: 55, max: 6.5, shut: 0.05, shutHeld: 0.09, open: 0.2, kick: 0.25, catch: { chance: 0.3, time: 0.11 } },
-    // little more than half of what lies between the blades is cut; the rest folds over and slips out, and what is cut is cut ragged
-    cut: { below: 0.018, min: 0.008, chance: 0.55, ragged: 0.012 },
+    hold: { pos: [0.04, -0.072, -0.142], tilt: (20 * Math.PI) / 180, yaw: (-14 * Math.PI) / 180, roll: (22 * Math.PI) / 180, sway: 0.6 },
+    lie: { tip: 0.005, pivot: 0.009 },
+    reach: 0.145,
+    // stiff to close and slow to open, and one stroke in seven they stick part way
+    stroke: { delay: 0.05, speed0: 1.8, accel: 62, max: 7, shut: 0.05, shutHeld: 0.085, open: 0.18, kick: 0.3, catch: { chance: 0.14, time: 0.09 } },
+    // nine locks in ten of what lies between the blades are cut; the others fold over and slip out, and what is cut is cut a little ragged
+    // (lying on the hide they take the whole tuft: what is under the blades, and what hangs across them for a finger's breadth above)
+    cut: { below: 0.024, above: 0.03, min: 0.007, chance: 0.9, ragged: 0.006 },
     voice: 'scissors',
     // the loose rivet: the blades never lie true, and they shiver after every stroke and with every step
     animate: (tool) => {
