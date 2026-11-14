@@ -147,17 +147,19 @@ check(v.got > 0.85 * Math.min(cutFirst, v.cap), 'looking at cut hair and holding
 check(v.hair <= v.cap + 1e-6, 'the pockets do not hold more than they hold');
 
 // ---- sell it to Mortimer (E, then his button) ----
-v = await T(`T.goTo('vulture'); return { near: game.nearby(), prompt: document.getElementById('prompt').textContent.trim(), hidden: document.getElementById('prompt').hidden, hair: st.hair }`);
+v = await T(`T.goTo('vulture'); return { near: game.nearby(), prompt: document.getElementById('prompt').textContent.trim(), hidden: document.getElementById('prompt').hidden, hair: st.hair, gold: st.gold, found: st.found.length }`);
 check(v.near === 'vulture' && !v.hidden && /Mortimer/.test(v.prompt), `standing at the wig table offers "${v.prompt}"`);
-const carried = v.hair;
+// (a minute of the scissors may well have uncovered a tattoo by now, which Gnorman pays for: that gold is not Mortimer's)
+const carried = v.hair, purseBefore = v.gold;
+if (v.found) console.log(`  (${v.found} thing${v.found > 1 ? 's' : ''} found under the coat already, for ${purseBefore} gold)`);
 await page.keyboard.press('KeyE');
 v = await T(`return { dialog: game.dialog, open: !document.getElementById('dialog').hidden, text: document.querySelector('#dialog .sheet').innerText.replace(/\\n+/g, ' | ').slice(0, 200), busy: rig.busy }`);
 console.log(`  Mortimer: ${v.text}`);
 check(v.dialog === 'vulture' && v.open && v.busy, 'E opens his scales, and the elf stands still for it');
 await page.click('#dialog [data-act="sell"]');
 v = await T(`return { gold: st.gold, hair: st.hair, sold: st.stats.sold }`);
-console.log(`  sold ${round(carried)} g for ${v.gold} gold`);
-check(v.gold === Math.floor(carried * 0.25 + 1e-6) && v.hair === 0, 'he pays a quarter of a gold a gram, rounded down in his favour, and the pockets are empty');
+console.log(`  sold ${round(carried)} g for ${v.gold - purseBefore} gold`);
+check(v.gold - purseBefore === Math.floor(carried * 0.25 + 1e-6) && v.hair === 0, 'he pays a quarter of a gold a gram, rounded down in his favour, and the pockets are empty');
 // (the mammoth saw that; but he says nothing while the shop is open)
 v = await T(`T.frame(150); const el = document.getElementById('says'); return { now: game.says.now && game.says.now.line, waiting: game.says.queue.length, up: !el.hidden && el.classList.contains('show') }`);
 check(v.now === null && !v.up && v.waiting >= 1, 'the mammoth has a view on the sale, and keeps it to himself while the shop is open');
