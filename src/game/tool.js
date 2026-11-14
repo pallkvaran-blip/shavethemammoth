@@ -375,6 +375,8 @@ export class Tool {
     // elf's feet instead: looking down, "back and down" is where the eyes are.)
     this.awayBack = def.level ? def.tip + 0.16 : this.tipReach - 0.03;
     this.awayDown = def.level ? 0 : 0.34 * this.awayBack;
+    // (something held up in front of the face has further to go: it says how far for itself)
+    if (def.stow) { this.awayBack = def.stow.back; this.awayDown = def.stow.down; }
     this._off = new THREE.Vector3();
 
     this.setAngle(this.angle);
@@ -396,8 +398,9 @@ export class Tool {
     this.poseReady = false; this.flat = 0; this.lying = 0;
     this.on = false; this.power = 0; this.load = 0; this.budget = 0;
     this.swing = 0; this.swinging = false;
+    this.aim = null; this.out = 0; this.length = this.def.pole ? this.def.pole.rest : 0;
     this.setAngle(this.def.open);
-    if ((this.def.motor || this.def.sweep) && this.def.animate) this.def.animate(this, 0);
+    if ((this.def.motor || this.def.sweep || this.def.gag) && this.def.animate) this.def.animate(this, 0);
   }
 
   /**
@@ -412,6 +415,13 @@ export class Tool {
     this.time += dt;
     this.timer += dt;
     this.sinceShut += dt;
+    if (this.def.gag) {
+      // a novelty: it is being used for as long as it is held down, and what comes of that is decided elsewhere (see game/gags.js)
+      const want = this.squeezing && this.away < 0.1;
+      if (want !== this.on) { this.on = want; ev.push(want ? 'on' : 'off'); }
+      if (this.def.animate) this.def.animate(this, dt);
+      return ev;
+    }
     if (this.def.motor) {
       const m = this.def.motor, want = this.squeezing && this.away < 0.1;
       if (want !== this.on) { this.on = want; ev.push(want ? 'on' : 'off'); }
@@ -630,6 +640,24 @@ export class Tool {
     if (def.level) off.applyQuaternion(_qa.setFromAxisAngle(AX, -camera.rotation.x));
     this._local.compose(this._tp.copy(this.poseP).add(off), this.poseQ, this._one);
     this.group.matrix.multiplyMatrices(camera.matrixWorld, this._local);
+    // A pole reaches for what it is aimed at (this.aim, a point in the world): its foot stays in the hand, and the
+    // rest of it is turned that way and drawn out until its end is there.
+    if (def.pole) {
+      const want = this.aim && this.away < 0.05 ? 1 : 0;
+      this.out = (this.out || 0) + (want - (this.out || 0)) * Math.min(1, dt * 6.5);
+      if (this.aim) (this._aimed || (this._aimed = new THREE.Vector3())).copy(this.aim);
+      let len = def.pole.rest;
+      if (this.out > 0.003 && this._aimed) {
+        const e = this.group.matrix.elements, T = this._aimed, k = this.out * this.out * (3 - 2 * this.out);
+        const gx = e[12], gy = e[13], gz = e[14];
+        const far = Math.min(def.pole.most, Math.hypot(T.x - gx, T.y - gy, T.z - gz)) || 1;
+        const X = this._n.set(e[0], e[1], e[2]).lerp(this._f.set(T.x - gx, T.y - gy, T.z - gz).normalize(), k).normalize();
+        const Y = this._u.set(e[4], e[5], e[6]).addScaledVector(X, -(e[4] * X.x + e[5] * X.y + e[6] * X.z)).normalize();
+        this.group.matrix.makeBasis(X, Y, this._s.crossVectors(X, Y)).setPosition(gx, gy, gz);
+        len += (far - len) * k;
+      }
+      this.length = len;
+    }
     // Whatever the hands meant to do, steel does not pass through hide, horn
     // or packed snow: every part of the tool is moved clear, and the hands
     // remember where they ended up.

@@ -4,5 +4,6 @@ import { elfRecipe } from './elf.recipe.js';
 import { gnomeRecipe } from './gnome.recipe.js';
 import { vultureRecipe } from './vulture.recipe.js';
 import { lemmingRecipe } from './lemming.recipe.js';
+import { cavemanRecipe } from './caveman.recipe.js';
 
-export const RECIPES = { elf: elfRecipe, gnome: gnomeRecipe, vulture: vultureRecipe, lemming: lemmingRecipe };
+export const RECIPES = { elf: elfRecipe, gnome: gnomeRecipe, vulture: vultureRecipe, lemming: lemmingRecipe, caveman: cavemanRecipe };

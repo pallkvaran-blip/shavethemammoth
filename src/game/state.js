@@ -58,6 +58,8 @@ export class GameState {
     this.found = [];                       // tattoos uncovered
     this.worn = [];                        // extras the mammoth has been given to wear
     this.helpers = 0;                      // lemmings on the payroll
+    this.used = [];                        // novelties that have been used up (until he has a new coat)
+    this.owed = 0;                         // gold that has come out of him and is still lying on the snow
     this.stats = { cut: 0, picked: 0, sold: 0, earned: 0, spent: 0, visits: 0, tonics: 0 };
     this.flags = {};
     this.haircut = '';                     // the hide, point by point (see Game.save)
@@ -86,10 +88,31 @@ export class GameState {
       p = item.levels[at].price;
     } else {
       if (this.owns(id) && !item.again) return Infinity;
+      if (this.used.includes(id)) return Infinity;                                // (it worked once, and that was it)
       if (item.hire && this.helpers + item.hire > MOST_HELP) return Infinity;     // (there is only so much mammoth)
       p = item.price;
     }
     return Math.max(1, Math.round(p * (this.flags.loyal ? 0.9 : 1)));
+  }
+
+  /**
+   * What it would cost to buy everything there still is to buy: every level of everything, lemmings until there is no
+   * room for another, and whatever can be had again and again (the cave men, the tonic, the mystery box) `again` times.
+   * Nobody is expected to earn this; it is what the dev button asks for (see Game.devGold).
+   */
+  everything(again = 3) {
+    let total = 0;
+    for (const id of Object.keys(ITEMS)) {
+      const item = ITEMS[id];
+      if (item.levels) { for (let l = this.level(id); l < item.levels.length; l++) total += item.levels[l].price; }
+      else if (item.hire) continue;
+      else if (item.again) total += item.price * again;
+      else if (!this.owns(id) && !this.used.includes(id)) total += item.price;
+    }
+    // (lemmings in the biggest lots that there is room for)
+    let room = Math.max(0, MOST_HELP - this.helpers);
+    for (const item of Object.values(ITEMS).filter((i) => i.hire).sort((x, y) => y.hire - x.hire)) { const n = Math.floor(room / item.hire); total += n * item.price; room -= n * item.hire; }
+    return total;
   }
 
   /** Whether the shop will sell it yet: some things want another thing first. */
@@ -114,6 +137,13 @@ export class GameState {
     if (item.hire) this.helpers += item.hire;
     this.changed('bought:' + id);
     return true;
+  }
+
+  /** A novelty has been used up: it is no longer owned, and is not for sale again until he has a new coat. */
+  spend(id) {
+    this.owned.delete(id);
+    if (!this.used.includes(id)) this.used.push(id);
+    this.changed('used:' + id);
   }
 
   /** Put hair in the sack; returns how many grams fitted. */
@@ -144,7 +174,7 @@ export class GameState {
   toJSON() {
     return {
       v: 3, gold: this.gold, hair: this.hair, owned: [...this.owned], levels: this.levels, tool: this.tool, sweeper: this.sweeper,
-      climber: this.climber, pack: this.pack, lift: this.lift, found: this.found, worn: this.worn, helpers: this.helpers, stats: this.stats, flags: this.flags, haircut: this.haircut, locks: this.locks,
+      climber: this.climber, pack: this.pack, lift: this.lift, found: this.found, worn: this.worn, helpers: this.helpers, used: this.used, owed: this.owed, stats: this.stats, flags: this.flags, haircut: this.haircut, locks: this.locks,
     };
   }
 
@@ -171,6 +201,8 @@ export class GameState {
     this.found = Array.isArray(d.found) ? d.found : [];
     this.worn = Array.isArray(d.worn) ? d.worn : [];
     this.helpers = Math.max(0, Math.min(MOST_HELP, Math.floor(+d.helpers || 0)));
+    this.used = Array.isArray(d.used) ? d.used.filter((id) => ITEMS[id] && !this.owned.has(id)) : [];
+    this.owed = Math.max(0, Math.floor(+d.owed || 0));
     this.stats = { ...this.stats, ...(d.stats || {}) };
     this.flags = d.flags && typeof d.flags === 'object' ? d.flags : {};
     this.haircut = typeof d.haircut === 'string' ? d.haircut : '';

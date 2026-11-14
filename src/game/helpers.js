@@ -18,6 +18,7 @@ import * as THREE from 'three';
 import { folkMaterial } from './people/materials.js';
 import { patchStandardMaterial } from '../gfx/patch.js';
 import { LAYER_SHADOW_NEAR, LAYER_SHADOW_ELF } from '../gfx/globals.js';
+import { makeInstancedDepthMaterial } from '../gfx/shadows.js';
 import { lemmingRecipe, NECK, EYES, EYE_R } from './people/lemming.recipe.js';
 import { bakeFigure } from './people/bake.js';
 import { coarsen } from './people/sculpt.js';
@@ -116,18 +117,7 @@ export class Helpers {
     const b = baked || bakeFigure(lemmingRecipe());
     const coat = folkMaterial('plain', { a: [0.0013, 0.5, 0, 0], roughness: 0.92, sheen: 0.6, sheenRoughness: 0.6, sheenColor: new THREE.Color(0.42, 0.32, 0.22) });
     const bead = patchStandardMaterial(new THREE.MeshPhysicalMaterial({ color: 0x060403, roughness: 0.06, clearcoat: 1, clearcoatRoughness: 0.05 }), { key: 'folk-bead', bias: 0.012, radius: 0.012, offset: 0.004 });
-    const depth = new THREE.ShaderMaterial({
-      vertexShader: /* glsl */ `
-        void main() {
-          #ifdef USE_INSTANCING
-            gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(position, 1.0);
-          #else
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-          #endif
-        }`,
-      fragmentShader: 'void main() { gl_FragColor = vec4(gl_FragCoord.z, 0.0, 0.0, 1.0); }',
-      side: THREE.DoubleSide,
-    });
+    const depth = makeInstancedDepthMaterial();
     // Close to, a helper is drawn with all its faces; further off, with a fifth of them; from across the snow, with a
     // hundred or so. Its head shares its eyes' place, and all of it one colour of coat; and one more drawing, of the
     // plainest body and head run together, casts the shadows.
@@ -232,6 +222,48 @@ export class Helpers {
       queue: new Int32Array(S), scanAt: 0, stepsIn: 0, chunks: null,
     };
     this._locks();
+  }
+
+  /** The places to stand, made if they have not been yet (others have uses for a map of him: see gags.js). */
+  sites() {
+    if (!this.map) this._sites();
+    if (this.map.chunks !== this.mammoth.chunks) this._locks();
+    return this.map;
+  }
+
+  /**
+   * Everything growing within `radius` of a point on him lets go at once, down to stubble (a spray does this; a lemming
+   * would want the afternoon). The hair falls as what they gnaw off falls. Returns how many locks went.
+   */
+  strip(x, y, z, radius, camera) {
+    const M = this.sites(), P = this._p, Nn = this._n, body = this.mammoth.data.body, V = body.positions, I = body.indices;
+    const wide = (radius + SPACING) * (radius + SPACING);
+    let n = 0;
+    for (let s = 0; s < M.S; s++) {
+      if (M.first[s + 1] === M.first[s]) continue;
+      this._where(s, P, Nn);
+      const dx = P[0] - x, dy = P[1] - y, dz = P[2] - z;
+      if (dx * dx + dy * dy + dz * dz > wide) continue;
+      // (each lock by where it is rooted: the edge of what goes is a ragged one, not a row of patches)
+      const ox = P[0] - M.pos[s * 3], oy = P[1] - M.pos[s * 3 + 1], oz = P[2] - M.pos[s * 3 + 2];
+      for (let k = M.first[s], e = M.first[s + 1]; k < e; k++) {
+        const c = M.chunks[M.lockChunk[k]], a = c.arrays, i = M.lockAt[k];
+        if (Math.min(a.iA[i * 4], a.iCut[i]) <= DONE) continue;
+        const v = I[a.tri[i] * 3] * 3, r = radius * (0.82 + 0.3 * a.iA[i * 4 + 2]);
+        if ((V[v] + ox - x) ** 2 + (V[v + 1] + oy - y) ** 2 + (V[v + 2] + oz - z) ** 2 > r * r) continue;
+        this.pending.push({ chunk: c, i, len: STUB * (1 + 0.8 * a.iA[i * 4 + 2]) });
+        n++;
+      }
+      M.left[s] = 0;
+    }
+    if (n) {
+      // (more of it is seen to fall than a lemming's leavings: it all comes away together)
+      this.pieces = Math.max(this.pieces, Math.min(26, 4 + n * 0.25));
+      this.shedAt = this.time;
+      const cap = this.pieces;
+      this._shed(camera, cap);
+    }
+    return n;
   }
 
   /** Which locks are rooted on which site's bit of hide. Made again if the coat is (at another level of detail). */
@@ -371,12 +403,12 @@ export class Helpers {
   // ---- every frame -----------------------------------------------------------------------
 
   /** Take what has been gnawed through off him, and let it fall. */
-  _shed(camera) {
+  _shed(camera, pieces = 0) {
     const cuts = this.pending, m = this.mammoth, clip = this.shaving.clippings, env = this.shaving._env(camera);
     // Only so many pieces of hair can be lying about at once (the oldest make way, and are lost), so the help is
     // allowed a dozen new pieces a second between them: when more locks than that come off, what the others weighed
-    // goes to the next piece to fall, as the electric tools do it.
-    this.pieces = Math.min(4, this.pieces + 12 * Math.max(0.12, this.time - this.shedAt));
+    // goes to the next piece to fall, as the electric tools do it. (`pieces`: so many are allowed this once.)
+    this.pieces = pieces || Math.min(4, this.pieces + 12 * Math.max(0.12, this.time - this.shedAt));
     this.shedAt = this.time;
     for (let k = 0; k < cuts.length; k++) {
       const c = cuts[k], a = c.chunk.arrays, L = a.iA[c.i * 4], rem = Math.min(L, a.iCut[c.i]);

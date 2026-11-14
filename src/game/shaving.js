@@ -11,6 +11,7 @@ import { buildGardenClippers } from './tools/garden.js';
 import { buildElectricShears } from './tools/electric.js';
 import { buildBeardShaver } from './tools/shaver.js';
 import { buildSweepers } from './tools/sweepers.js';
+import { buildNovelties } from './tools/novelties.js';
 import { Clippings } from './clippings.js';
 
 /** The tools in the order of the number keys: by hand first, smallest to largest, then the electric ones. */
@@ -28,7 +29,7 @@ export class Shaving {
     this.sound = sound;
     this.tools = {};
     const defs = [buildSmallScissors, buildSheepShears, buildGardenClippers, buildElectricShears, buildBeardShaver].map((build) => build());
-    for (const def of [...defs, ...buildSweepers()]) {
+    for (const def of [...defs, ...buildSweepers(), ...buildNovelties()]) {
       const t = new Tool(def);
       t.def.backAt = (u) => bladeBack(t.def.blade, u);
       this.tools[t.id] = t;
@@ -43,6 +44,7 @@ export class Shaving {
     this.next = null;         // the tool being changed to, while the one in hand is being put away
     this.lowered = 0;         // 0 = tool up in front of the eyes, 1 = drawn back out of sight
     this.onTool = () => {};   // told when a different tool is in hand
+    this.gags = null;         // what the novelties do (see gags.js): asked each frame one of them is in hand
     this.clippings = new Clippings({ terrain, mammoth, a2c });
     scene.add(this.clippings.mesh);
     this.clippings.onTake = (grams) => { if (this.onHair(grams) > 0) this.sound.pop(); };
@@ -105,6 +107,17 @@ export class Shaving {
     if (!on) this.mammoth.furMats.uniforms.uShOn.value = 0;
   }
 
+  /**
+   * Out of sight for a moment (the game is looking at something from outside the elf: see gags.js), or back. A change
+   * of tool asked for meanwhile has been made by the time it is back.
+   */
+  hide(on) {
+    this.hidden = on;
+    if (on) { this.tool.squeeze(false); this._quiet(this.tool); this.tool.group.visible = false; return; }
+    if (this.next) { this._take(this.next); this.lowered = this.active ? 1 : 0; }
+    this.tool.group.visible = this.active;
+  }
+
   /** A tool that was running is put down: its motor stops. */
   _quiet(tool) {
     this._mouthAt.valid = false;
@@ -126,7 +139,7 @@ export class Shaving {
     this._quiet(was);
     this.tool = this.tools[id];
     this.tool.reset();
-    this.tool.group.visible = this.active;
+    this.tool.group.visible = this.active && !this.hidden;
     this.next = null;
     this.pending = []; this.ptr = 0;
     this.onTool(this.tool);
@@ -199,13 +212,13 @@ export class Shaving {
     u.uShD.value.set(def.part.above, def.part.below, Math.max(0.002, def.lie.tip - 0.002));
     u.uShT.value = b.point ?? 0.0012;
     // while a tool is on its way up or down, the hair lets go of it
-    u.uShOn.value = this.noPush || def.sweep ? 0 : 1 - ease(Math.min(1, this.lowered * 1.5));
+    u.uShOn.value = this.noPush || def.sweep || def.gag ? 0 : 1 - ease(Math.min(1, this.lowered * 1.5));
     return r;
   }
 
   update(dt, camera, feel) {
     this.clippings.update(dt);
-    if (this.showing) { this.mammoth.flushCuts(); return; }
+    if (this.showing || this.hidden) { this.mammoth.flushCuts(); return; }
     if (!this.active) return;
     // changing tools: the hands draw one back out of sight and come up with the other
     if (this.pinned != null) {
@@ -220,6 +233,8 @@ export class Shaving {
     this.camera = camera;
     sh.away = ease(this.lowered);
     this._env(camera);
+    // (a novelty is told where it is being pointed before it is put there: some of them reach for it)
+    if (sh.def.gag && this.gags) this.gags.aim(dt, sh, camera, this.world);
     sh.place(dt, camera, feel, this.world);
     // a thick bunch of hair between the blades slows the stroke a little
     const drag = Math.min(0.8, (this.pending.length - this.ptr) / 450);
@@ -231,10 +246,11 @@ export class Shaving {
         this.sound.clack(voice, 1 - Math.min(0.6, this.pending.length / 500));
         this.snips++;
       } else if (ev === 'opening') this.sound.release(voice);
-      else if (ev === 'on' || ev === 'off') this.sound.switch(voice, ev === 'on');
+      else if ((ev === 'on' || ev === 'off') && !sh.def.gag) this.sound.switch(voice, ev === 'on');
       else if (ev === 'stroke') this.sound.swish(voice);
       else if (ev === 'sweep') this._sweep(sh);
     }
+    if (sh.def.gag && this.gags) this.gags.use(dt, sh, camera, this.world);
     if (sh.def.sweep && sh.def.motor) this._suck(sh);
     if (sh.phase === 'closing') this._cut(sh.angle / 2, false);
     if (sh.def.motor && !sh.def.sweep) this._mow(dt, sh);

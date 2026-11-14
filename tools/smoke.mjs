@@ -69,6 +69,22 @@ await page.evaluate(() => { const { rig } = window.__game; rig.height = 0; rig.v
 await step('Q (the best thing owned for picking hair up)', () => page.keyboard.press('KeyQ'), 3000);
 await step('run it', async () => { await page.keyboard.down('Space'); await page.waitForTimeout(2500); await page.keyboard.up('Space'); }, 1500);
 await step('Q (back to cutting)', () => page.keyboard.press('KeyQ'), 3000);
+// the novelties: G takes one out, then the next, then puts them away; and one of them is used, in real frames
+const inHand = () => page.evaluate(() => { const s = window.__game.shaving; return s.next || s.tool.id; });
+const cutter = await inHand();
+await step('G with no novelty to take out', () => page.keyboard.press('KeyG'), 800);
+if ((await inHand()) !== cutter) errors.push('G took something out when there was nothing to take');
+await page.evaluate(() => { const { game, rig } = window.__game; game.state.owned.add('feather'); game.state.owned.add('watch'); game.refresh(); rig.pos.x = 1.6; rig.pos.z = 1.15; rig.yaw = 0.8; rig.pitch = 0.25; });
+await step('G (the feather)', () => page.keyboard.press('KeyG'), 3000);
+if ((await inHand()) !== 'feather') errors.push('G did not take out the feather');
+await step('tickle him', async () => { await page.keyboard.down('Space'); await page.waitForTimeout(2500); await page.keyboard.up('Space'); }, 1500);
+const tickled = await page.evaluate(() => ({ on: window.__game.game.gags.on, progress: +window.__game.game.gags.progress.toFixed(2), label: document.querySelector('#aim span').textContent }));
+console.log(`  the feather: "${tickled.label}", ${Math.round(tickled.progress * 100)}% of the way`);
+if (!(tickled.progress > 0)) errors.push('holding the button with the feather on his leg did nothing');
+await step('G (the next: the watch)', () => page.keyboard.press('KeyG'), 3000);
+if ((await inHand()) !== 'watch') errors.push('G did not go on to the watch');
+await step('G (after the last: the tool he was using)', () => page.keyboard.press('KeyG'), 3000);
+if ((await inHand()) !== cutter) errors.push('G did not put the novelties away');
 // the traders: walk up to each (placed there, to save a long slow walk) and talk
 for (const [who, name] of [['gnome', 'Gnorman'], ['vulture', 'Mortimer']]) {
   await page.evaluate((w) => { const { rig, game } = window.__game, at = game.people[w]; rig.pos.x = at.front[0]; rig.pos.z = at.front[1]; rig.yaw = Math.atan2(-(at.x - rig.pos.x), -(at.z - rig.pos.z)); rig.pitch = 0.15; }, who);

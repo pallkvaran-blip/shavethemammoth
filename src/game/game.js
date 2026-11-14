@@ -8,12 +8,16 @@ import { U } from '../gfx/globals.js';
 import { GameState, packLengths, unpackLengths } from './state.js';
 import { ITEMS, SECTIONS, HAIR_PRICE, MOST_HELP, inSection } from './catalog.js';
 import { TOOL_ORDER } from './shaving.js';
+import { NOVELTY_ORDER } from './tools/novelties.js';
 import { buildGnome, buildStall } from './people/gnome.js';
 import { buildVulture, buildWigTable } from './people/vulture.js';
 import { UNCUT } from '../mammoth/groom.js';
 import { Finds } from './finds.js';
 import { Says } from './says.js';
 import { Helpers } from './helpers.js';
+import { Coins } from './coins.js';
+import { Gags } from './gags.js';
+import { Raid } from './raid.js';
 
 const $ = (id) => document.getElementById(id);
 const pick = (list) => list[Math.floor(Math.random() * list.length)];
@@ -71,10 +75,13 @@ export class Game {
     this.lifter = null;          // the ladders and packs, as seen and heard (likewise)
     this.antics = null;          // what the mammoth gets up to, and wears (likewise)
     this.scenes = !dev.noscene;
+    this.devTools = dev.tools !== false;          // the dev button (gold for everything): there unless it has been asked not to be
+    this.items = ITEMS;                           // (the catalogue, where the tests and the console can get at it)
     this.state = new GameState({ storage });
     this.resumed = !dev.fresh && this.state.load();
     if (dev.unlock) {
-      for (const id of Object.keys(ITEMS)) if (!ITEMS[id].levels && !ITEMS[id].again && !ITEMS[id].wear && !ITEMS[id].flag) this.state.owned.add(id);
+      // (everything that is kept: the novelties are used up, and are had one at a time with ?tool=)
+      for (const id of Object.keys(ITEMS)) if (!ITEMS[id].levels && !ITEMS[id].again && !ITEMS[id].wear && !ITEMS[id].flag && ITEMS[id].kind !== 'gag') this.state.owned.add(id);
       Object.assign(this.state, { climber: 'fire', pack: 'jet', lift: 'ladder' });
       this.scenes = false;
     }
@@ -158,6 +165,14 @@ export class Game {
     { const g = this.people.gnome; this.helpers = new Helpers({ scene, mammoth, terrain, shaving, sound, baked: baked.lemming, door: { x: g.front[0] - Math.cos(g.turn) * 0.3, z: g.front[1] + Math.sin(g.turn) * 0.3 } }); }
     if (dev.helpers != null) this.state.helpers = Math.max(0, Math.min(MOST_HELP, dev.helpers | 0));
     this.helpers.settle(this.state.helpers);
+    // gold that comes out of him, and the novelties that make it come (any left lying when the game was put down is in a heap by his foot)
+    this.coins = new Coins({ scene, terrain, mammoth, rig, sound, state: this.state });
+    this.casters.push(...this.coins.casters);
+    if (this.state.owed > 0) this.coins.restore(this.state.owed);
+    this.gags = new Gags({ scene, mammoth, terrain, rig, shaving, sound, state: this.state, hint, coins: this.coins, says: this.says, helpers: this.helpers });
+    shaving.gags = this.gags;
+    // and the cave men, should anybody send for them (main.js says how they are baked, and what the shadows are to do)
+    this.raid = new Raid({ scene, mammoth, terrain, rig, sound, state: this.state, gags: this.gags, says: this.says, shaving, hint, casters: this.casters, baking: () => Promise.reject(new Error('nobody has said how')) });
 
     this.buildDialog();
     this.refresh();
@@ -211,6 +226,12 @@ export class Game {
       if (id === 'pinkdye' && this.antics) { this.antics.dye(); this.tell = '<strong>He is pink.</strong> All of him. He has not looked yet.'; }
       if (item.kind === 'cutter') { this.state.tool = id; this.shaving.take(id); this.celebrate(id); }
       if (item.kind === 'sweeper' && this.shaving.tool.def.sweep) this.shaving.setTool(id);
+      if (item.kind === 'gag') {
+        // a novelty is in hand as soon as it is paid for; the tool that was there comes back when it has been used
+        this.shaving.take(id);
+        this.tell = `<strong>${item.name}.</strong> ${item.use} <span class="desk">Hold the <kbd>left mouse</kbd> button or <kbd>Space</kbd> where it works; <kbd>G</kbd> puts it away and takes it out again.</span><span class="nomouse">Hold Cut where it works.</span>`;
+      }
+      if (item.raid) { this.tell = null; this.close(); this.raid.start(); }
       if (item.hire) {
         this.helpers.hire(this.state.helpers - this.helpers.count);
         this.tell = `<strong>${item.name}.</strong> ${item.hire > 1 ? 'They' : 'It'} will find ${item.hire > 1 ? 'their' : 'its'} own way up him and gnaw off whatever is left, wherever it is. What ${item.hire > 1 ? 'they cut' : 'it cuts'} falls on the snow for you to pick up.`;
@@ -226,6 +247,9 @@ export class Game {
     this.mammoth.setHaircut(null);
     s.stats.tonics++;
     s.flags.pink = false; s.flags.done = false; s.flags.told = {};
+    // (and Gnorman has every novelty in again: a new coat does not remember the old one's troubles)
+    s.used = [];
+    this.gags.reset();
     if (this.antics) this.antics.dye();
     this.hint('<strong>It all grew back.</strong> He is furious, and fluffy.', 6);
     this.says.heard('regrow');
@@ -268,7 +292,10 @@ export class Game {
 
   // ---- the scene for a new tool ----------------------------------------------------------
 
-  /** A new cutting tool: everything stops while it is admired. Returns true if the scene is being played. */
+  /**
+   * A cutting tool has been bought: everything stops while it is admired. Returns true if the scene is being played.
+   * (Only what is bought: nothing is made of the scissors he comes down with.)
+   */
   celebrate(id) {
     const got = this.state.flags.got || (this.state.flags.got = {});
     got[id] = true;
@@ -276,7 +303,7 @@ export class Game {
     if (!this.hero || !this.scenes || this.rig.mode !== 'elf') return false;
     // (for anyone who has asked their machine for less motion, the news without the camera going round)
     if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      this.sound.fanfare(id === 'scissors' ? 'droop' : 'grand');
+      this.sound.fanfare('grand');
       this.hint(`<strong>You got the ${ITEMS[id].name}!</strong> ${ITEMS[id].got || ''}`, 8);
       this.tipIn = 12;
       return false;
@@ -287,17 +314,8 @@ export class Game {
     this.shaving.squeeze(false);
     return this.hero.celebrate(id, {
       away: stall,
-      onDone: () => {
-        if (who && this.dialog === who && d) { this.fillDialog(); this.face(who); }
-        else if (id === 'scissors') this.hint('<strong>Small bad scissors.</strong> Walk up to the mammoth and cut. <span class="desk"><kbd>Left mouse</kbd> or <kbd>Space</kbd> cuts, <kbd>W A S D</kbd> walks, <kbd>Q</kbd> swaps to picking the hair up.</span>', 10);
-      },
+      onDone: () => { if (who && this.dialog === who && d) { this.fillDialog(); this.face(who); } },
     });
-  }
-
-  /** The elf has climbed down to the snow. The first time, he takes a moment over what he has been given to do the job. */
-  arrive() {
-    if (!(this.state.flags.got || {}).scissors) return this.celebrate('scissors');
-    return false;
   }
 
   // ---- tools --------------------------------------------------------------------------
@@ -309,15 +327,25 @@ export class Game {
   choose(id) {
     if (!this.state.owns(id) || !this.shaving.tools[id]) return false;
     this.shaving.setTool(id);
-    if (ITEMS[id].kind === 'cutter') this.state.tool = id; else this.state.sweeper = id;
+    if (ITEMS[id].kind === 'cutter') this.state.tool = id; else if (ITEMS[id].kind === 'sweeper') this.state.sweeper = id;
     this.state.changed('tool');
     return true;
+  }
+
+  /** The novelties in his pockets, not yet used. */
+  get novelties() { return NOVELTY_ORDER.filter((id) => this.state.owns(id)); }
+
+  /** The G key: take a novelty out (the next one, if one is in hand already; after the last, the tool he was using). */
+  nextNovelty() {
+    const have = this.novelties, at = have.indexOf(this.shaving.next || this.shaving.tool.id);
+    if (!have.length) return false;
+    return this.choose(at === have.length - 1 ? this.state.tool : have[at + 1]);
   }
 
   /** The n-th cutting tool the player owns (n from 0), or the next or previous one. */
   chooseNumber(n) { const id = TOOL_ORDER[n]; return id ? this.choose(id) : false; }
   step(dir) {
-    const have = [...this.cutters, this.state.sweeper], now = have.indexOf(this.shaving.next || this.shaving.tool.id);
+    const have = [...this.cutters, this.state.sweeper, ...this.novelties], now = have.indexOf(this.shaving.next || this.shaving.tool.id);
     return this.choose(have[(Math.max(0, now) + dir + have.length) % have.length]);
   }
 
@@ -343,6 +371,12 @@ export class Game {
       if (id === 'sweep') {
         b.lastChild.textContent = ITEMS[s.sweeper].name;
         b.setAttribute('aria-pressed', String(!!this.shaving.tools[now].def.sweep));
+      } else if (id === 'gag') {
+        // (one button for all the novelties: it names the one in hand, or says how many there are to take out)
+        const have = this.novelties, held = have.includes(now);
+        b.hidden = !have.length;
+        b.lastChild.textContent = held ? ITEMS[now].name : have.length === 1 ? ITEMS[have[0]].name : `Novelties (${have.length})`;
+        b.setAttribute('aria-pressed', String(held));
       } else {
         b.hidden = !s.owns(id);
         b.setAttribute('aria-pressed', String(id === now));
@@ -366,6 +400,7 @@ export class Game {
 
   /** The E key: talk to whoever is there, or stop talking. Returns true if it did something. */
   interact() {
+    if (this.gags.shot || this.raid.playing) return false;
     if (this.dialog) { this.close(); return true; }
     const who = this.rig.mode === 'elf' ? this.nearby() : null;
     if (!who) return false;
@@ -382,6 +417,7 @@ export class Game {
       if (b.dataset.buy) this.buy(b.dataset.buy);
       else if (b.dataset.use) this.use(b.dataset.use);
       else if (b.dataset.act === 'sell') this.sell();
+      else if (b.dataset.act === 'devgold') this.devGold();
       else if (b.dataset.act === 'close') this.close();
     });
   }
@@ -401,6 +437,8 @@ export class Game {
       if (shorn > 0.9) notes.push('There is hardly any of him left to be a fan of. I shall be a fan of what there is.');
       else if (shorn > 0.4) notes.push('He is half the mammoth he was. I have had to let out my scrapbook.');
       if (s.found.length >= 10) notes.push('The tattoos! I knew about four. I was present for one.');
+      if (s.stats.raids) notes.push('They said sorry to him? I brought those boys up myself. No refunds.');
+      if (s.used.length >= 3) notes.push('Gold out of his ears. Nine years I have followed him, and it never once occurred to me to ask.');
     } else if (s.hair >= 1) {
       if (s.flags.pink) notes.push('Pink. How... commercial. I will take all of it.');
       if (shorn > 0.5) notes.push('He is looking thin on top. And on the sides. I could do something for him. At a price.');
@@ -455,7 +493,7 @@ export class Game {
       for (const sec of SECTIONS) {
         const ids = inSection(sec.id).filter((id) => s.available(id));
         if (!ids.length) continue;
-        html += `<section><h3>${sec.title}</h3><p class="note">${sec.note}${sec.id === 'help' && s.helpers ? ` You have ${s.helpers} on him now.` : ''}</p><ul>`;
+        html += `<section><h3>${sec.title}</h3><p class="note">${sec.note}${sec.id === 'help' && s.helpers ? ` You have ${s.helpers} lemming${s.helpers > 1 ? 's' : ''} on him now.` : ''}</p><ul>`;
         for (const id of ids) {
           const item = ITEMS[id];
           let name = item.name, blurb = item.blurb, action;
@@ -467,6 +505,7 @@ export class Game {
           }
           if (Number.isFinite(p)) action = `<button type="button" data-buy="${id}" ${p > s.gold ? 'class="dear" title="More than you have"' : ''}>${p} <small>gold</small></button>`;
           else if (item.hire) action = '<span class="have">No room</span>';
+          else if (item.kind === 'gag') action = s.owns(id) ? `<button type="button" class="use" data-use="${id}">Take it out</button>` : '<span class="have">Used up</span>';
           else if (['sweeper', 'ladder', 'pack'].includes(item.kind)) {
             const inUse = s.sweeper === id || (s.climber === id && s.lift !== 'pack') || (s.pack === id && s.lift === 'pack');
             action = inUse ? '<span class="have">In use</span>' : `<button type="button" class="use" data-use="${id}">Use this</button>`;
@@ -476,7 +515,8 @@ export class Game {
         html += '</ul></section>';
       }
     }
-    html += `<footer><span class="purse">${s.gold} gold</span><button type="button" data-act="close">Leave <kbd class="desk">E</kbd></button></footer>`;
+    // (the middle button is not part of the game: see devGold)
+    html += `<footer><span class="purse">${s.gold} gold</span>${this.devTools ? '<button type="button" class="dev" data-act="devgold" title="Dev: puts enough gold in the purse to buy everything on Gnorman’s list">Dev: <span class="wide">enough </span>gold<span class="wide"> for everything</span> <kbd class="desk">B</kbd></button>' : ''}<button type="button" data-act="close">Leave <kbd class="desk">E</kbd></button></footer>`;
     const sheet = d.querySelector('.sheet'), top = sheet.scrollTop;
     sheet.dataset.who = who;                        // (each of them has a list of his own cut)
     sheet.innerHTML = html;
@@ -490,10 +530,38 @@ export class Game {
     if (s.buy(id)) { this.pleased.gnome = 1; this.sound.coin(3); }
   }
 
+  /**
+   * Dev (a button in both shops and beside the purse, and the B key): the purse is topped up until it holds enough to
+   * buy everything Gnorman still has to sell. It is not earned, and is not counted as earned.
+   */
+  devGold() {
+    if (!this.devTools) return 0;
+    const s = this.state, need = Math.ceil(s.everything() / 1000) * 1000, give = Math.max(0, need - s.gold);
+    if (give > 0) {
+      // (it is not an honour to be handed a fortune: the line that goes with a first thousand is not said over this one)
+      (s.flags.feats || (s.flags.feats = {})).rich = true;
+      s.gold += give; s.changed('gold');
+    }
+    this.sound.coin(give > 0 ? 6 : 1);
+    if (this.dialog) {
+      const lines = this.dialog === 'gnome'
+        ? ['Where did you get... no. I do not ask. I never ask. What will it be?', 'You could buy all I have already. I counted it from here.']
+        : ['New money. I can smell it from here. It is not for me, is it. It never is.', 'More gold than I have seen in one place. Do not mind me. I am only looking.'];
+      this.said = lines[give > 0 ? 0 : 1];
+      this.fillDialog();
+    } else {
+      this.hint(`<strong>Dev.</strong> ${give > 0 ? `${give} gold from nowhere. The` : 'Nothing added: the'} purse holds ${s.gold}, which is enough for everything on Gnorman’s list.`, 6);
+      this.tipIn = Math.max(this.tipIn || 0, 8);        // (and the guide waits its turn before remarking on all that gold)
+    }
+    this.save(true);
+    return give;
+  }
+
   /** Switch to something already owned (a different ladder, an older broom). */
   use(id) {
     const s = this.state, item = ITEMS[id];
     if (!s.owns(id)) return;
+    if (item.kind === 'gag') { this.close(); this.choose(id); return; }
     if (item.kind === 'sweeper') { s.sweeper = id; if (this.shaving.tool.def.sweep) this.shaving.setTool(id); }
     if (item.kind === 'ladder') { s.climber = id; s.lift = 'ladder'; }
     if (item.kind === 'pack') { s.pack = id; s.lift = 'pack'; }
@@ -536,6 +604,9 @@ export class Game {
     this.finds.update(dt, !elf || !!this.dialog || playing);
     if (this.antics) this.antics.update(dt, { elf, busy: !!this.dialog || playing });
     this.helpers.update(dt, this.rig.camera);
+    this.coins.update(dt, this.rig.camera);
+    this.gags.update(dt, this.rig.camera);
+    this.raid.update(dt, this.rig.camera);
     // (he holds his tongue while a shop is open, a scene is playing or the ending is up, and until the legend has been told)
     const cl = document.body.classList, finale = $('finale');
     this.says.update(dt, { elf, busy: !!this.dialog || playing || !!(finale && !finale.hidden), seen: cl.contains('told') && !cl.contains('bare') });
@@ -561,6 +632,8 @@ export class Game {
       tell('shop', '<strong>Gnorman sells better tools</strong> at the striped stall, and something to carry more hair in. You can afford a thing or two.');
     } else if (!told.reach && !s.climber && !s.pack && s.stats.sold > 700) {
       tell('reach', '<strong>Running out of mammoth you can reach?</strong> Gnorman has ladders. And worse ideas.');
+    } else if (!told.gag && s.stats.spent > 0 && s.gold >= 40 && !s.used.length && !this.novelties.length && s.stats.sold > 150) {
+      tell('gag', '<strong>There is more than one way to get gold out of a mammoth.</strong> Gnorman keeps remedies and novelties at the bottom of his list. Each works once.');
     } else if (!told.help && !s.helpers && this.mammoth.shorn > 0.6 && this.mammoth.shorn < 0.97) {
       tell('help', '<strong>Hard to find what is left of it?</strong> Gnorman hires out lemmings. They climb, they gnaw, and they find the bits you missed.');
     }
@@ -582,6 +655,9 @@ export class Game {
     this.state.wipe();
     this.mammoth.setHaircut(null);
     this.helpers.dismiss();
+    this.coins.clear();
+    this.gags.reset();
+    this.raid.reset();
     this.says.heard('newgame');
     this.shaving.setTool('scissors');
     this.applyUpgrades();
