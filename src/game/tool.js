@@ -655,8 +655,9 @@ export class Tool {
     out.radius = def.tip - 0.003;
     out.inner = def.cutInner;
     out.halfAngle = this.angle / 2;
-    // lying on the hide, the stroke takes everything between the blades and the skin
+    // lying on the hide, the stroke takes everything between the blades and the skin, and the hair lying across them
     out.below = this.lying > 0.5 ? def.cut.below : 0;
+    out.above = this.lying > 0.5 ? def.cut.above ?? 0.003 : 0.003;
     out.minLength = def.cut.min;
     // each blade: along it from the pivot, and across it towards its cutting edge
     const hf = this.angle / 2, c = Math.cos(hf), sn = Math.sin(hf);

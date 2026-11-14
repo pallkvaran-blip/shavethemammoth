@@ -5,16 +5,19 @@
 // that, 2 kg grows where it can be reached from the snow, another 5 kg within
 // reach of the milk crate, 22 kg more from the step ladder, 29 kg from the
 // painter's ladder, and the last 12 kg from the top of the fire ladder or the
-// air. A patient elf takes about half a gram a second with the bad scissors,
-// 3 to 5 with the shears, 5 to 10 with the garden clippers, and as much as the
-// hands can sweep with the electric ones. So: a pocketful (100 g, three
-// minutes of bad scissors) buys the shears and a broom; what grows near the
-// ground pays for the first ladders and the clippers; and after that each
-// purchase opens up more mammoth than it cost.
+// air. Working steadily round a foreleg an elf takes about 2 grams a second
+// with the bad scissors, 3.5 with the shears and 4 with the garden clippers
+// (tools/loop-test.mjs measures the first; all of them do better where the
+// hair is longer), and as much as the hands can sweep with the electric ones.
+// So: a pocketful (100 g, under a minute of bad scissors) buys the shears and
+// a broom; what grows near the ground pays for the first ladders and the
+// clippers; and after that each purchase opens up more mammoth than it cost.
+// (The scissors were a quarter as good once, and three minutes of them bought
+// nothing. Nobody enjoyed it.)
 //
 // The hired help. A lemming gnaws about three quarters of a gram a second
-// where the hair is long (a little better than the bad scissors, a fifth of
-// the shears) and finds its own way to wherever any is left, which is what it
+// where the hair is long (a third of the bad scissors, a fifth of the
+// shears) and finds its own way to wherever any is left, which is what it
 // is for: the last patches are hard to find. One earns its 60 gold back in the
 // first six minutes if somebody picks up after it; thirty of them take about
 // an hour over a whole mammoth, and a few minutes over what an elf has left

@@ -143,7 +143,7 @@ export function buildGardenClippers() {
     stroke: { delay: 0.045, speed0: 2.5, accel: 95, max: 11, shut: 0.04, shutHeld: 0.1, open: 0.17, kick: 1 },
     // what a stroke does: how deep under blades lying on the hide it reaches, the stubble it leaves,
     // the share of the locks between the blades that it really cuts, and how unevenly
-    cut: { below: 0.03, min: 0.006, chance: 1, ragged: 0 },
+    cut: { below: 0.03, above: 0.035, min: 0.006, chance: 1, ragged: 0 },
     voice: 'garden',
   };
 }
