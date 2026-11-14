@@ -870,6 +870,12 @@ export class Mammoth {
     b('tail1').rotation.x = 0.3 * Math.sin(t * 0.9 - 0.7);
     b('tail0').rotation.z = 0.05 * Math.sin(t * 0.5);
 
+    // How fast his quickest parts are moving (metres a second, about: the edge of an ear in a flick, the end of the
+    // tail). A shadow map drawn only every other frame must not be a frame late for something moving quickly.
+    const earR = b('ear_R').rotation.y, earL = b('ear_L').rotation.y, tail = b('tail0').rotation.x + b('tail1').rotation.x;
+    if (dt > 0 && this._earR !== undefined) this.stir = Math.max(Math.abs(earR - this._earR) * 0.45, Math.abs(earL - this._earL) * 0.45, Math.abs(tail - this._tail) * 0.6) / dt;
+    this._earR = earR; this._earL = earL; this._tail = tail;
+
     this.group.updateMatrixWorld(true);
     this.rig.skeleton.update();
     this.collider.begin();

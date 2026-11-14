@@ -297,6 +297,9 @@ Settings > System > Display > Graphics.
   a quick one, a slow one, one whose browser shows thirty frames a second, one that cannot keep
   up at all, one whose view gets heavier and lighter, and one that stumbles now and then. Nothing
   is drawn; each frame is told a time as if the machine had taken so long over it.
+- `tools/draw-count.mjs` says what a frame asks to be drawn in a given state of the game: triangles
+  and draw calls for each shadow map and for the picture, by kind of thing, and the processor's
+  time for a frame. It draws nothing, so it says nothing of how long a graphics card would take.
 - `dev/body.html` shows the bare body from four sides, for working on the anatomy.
 - `dev/folk.html` shows one of the people (or all three) on bare snow under the game's own sky,
   for working on them: `who=elf|gnome|vulture|all`, `cam`, `fov`, `el`, `az`, `turn` (degrees),

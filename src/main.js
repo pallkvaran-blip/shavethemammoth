@@ -763,8 +763,9 @@ async function start() {
     shaving.clippings.update(1 / 30);
   }
 
-  let shadowTris = 0, shadowTrisNear = 0;
+  let shadowTris = 0;
   const count = renderer.info.render;
+  const folk = [hero.elf, game.gnome, game.vulture, game.table];
   const frame = (stamp) => {
     // The time is the one the browser gives the frame, which keeps step with the screen: taken off the clock instead,
     // it wavers by however long the page was busy, and everything that moves would then move unevenly.
@@ -823,15 +824,17 @@ async function start() {
     if (timer) timer.begin();
     scene.updateMatrixWorld();
     const casters = nearCasters();
-    // (a shadow is cast by each figure's plainer meshes and by a share of its hair, however close the eye is)
-    const folk = [hero.elf, game.gnome, game.vulture, game.table];
+    // (while the maps are drawn, only a share of each figure's hair is: see figure.js)
     for (const f of folk) f.shade(true);
     const before = count.triangles;
     // The map that holds the whole mammoth: every frame, or every second or third when frames are hard to come by.
-    // (Nothing in it moves fast enough for that to show; what the elf is working on has the map below, every frame.)
-    if (nearStale || frames < 3 || shot || frames % A.every === 0) {
+    // (What the elf is working on has the map below, every frame. And while an ear flicks or the tail swings fast
+    // enough that a shadow drawn late would sit where the thing no longer is, by more than the few millimetres the
+    // shading allows for, this one is drawn as often as that takes.)
+    let every = A.every;
+    while (every > 1 && (mammoth.stir || 0) * (every - 1) * dt > 0.006) every--;
+    if (nearStale || frames < 3 || shot || frames % every === 0) {
       shadowNear.render(renderer, scene, casters);
-      shadowTrisNear = count.triangles - before;
       nearStale = false;
     }
     if (rig.mode === 'elf' && !q.has('noelfshadow')) {
@@ -846,7 +849,7 @@ async function start() {
     } else {
       U.uShadowElfInfo.value.w = 0;
     }
-    shadowTris = count.triangles - before;
+    shadowTris += (count.triangles - before - shadowTris) * (frames < 5 ? 1 : 0.1);   // (the usual, since not every map is drawn every frame)
     for (const f of folk) f.shade(false);
 
     // where the sun sits on screen, for the light shafts
