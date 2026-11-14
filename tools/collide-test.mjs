@@ -17,7 +17,7 @@ const POSES = +(process.env.POSES || 3000);   // per tool
 const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 const page = await browser.newPage({ viewport: { width: 320, height: 180 } });
 page.on('pageerror', (e) => console.log('pageerror:', e.message));
-await page.goto(base + '?q=low&strands=20000&adapt=5&debug&sync&bare&unlock&nosave&elf', { waitUntil: 'load' });
+await page.goto(base + '?q=low&strands=20000&adapt=9&debug&sync&bare&unlock&nosave&elf', { waitUntil: 'load' });
 await page.waitForFunction(() => document.body.classList.contains('ready') && window.__game, null, { timeout: 300000 });
 
 const results = await page.evaluate(async (N) => {

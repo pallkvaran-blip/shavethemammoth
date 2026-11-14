@@ -116,7 +116,7 @@ export function buildVulture({ bare = false, baked = null } = {}) {
   fig.bound([0, 0.26, 0], 0.42);
   let turn = 0, nod = 0, blinkIn = 3, blink = 0;
   return {
-    group, meshes, height: 0.47, rug: B.rug, rig, data, materials: M, see: fig.see,
+    group, meshes, height: 0.47, rug: B.rug, rig, data, materials: M, see: fig.see, shade: fig.shade,
     update(dt, t, look, near, pleased = 0) {
       turn += (THREE.MathUtils.clamp(look, -1, 1) * near - turn) * Math.min(1, dt * 3);
       // he looks you up and down; a sale gets a quick greedy nod
@@ -186,6 +186,7 @@ export function buildWigTable({ baked = null } = {}) {
     if (stand) stand(g); else M.ball(g, wood, 0.0195, WIG_BLOCK.c, [WIG_BLOCK.r[0] / 0.0195 * 0.95, WIG_BLOCK.r[1] / 0.0195 * 0.95, WIG_BLOCK.r[2] / 0.0195 * 0.95]);
     if (strands && strands[name]) {
       const locks = locksMesh(strands[name], { colour: WIG_HAIR[name], dense: 5, flex: 0.008 });
+      locks.bound();
       g.add(locks.mesh);
       M.meshes.push(locks.mesh);
       wigs.push(locks);
@@ -204,11 +205,14 @@ export function buildWigTable({ baked = null } = {}) {
   const sign = M.box(all, board, [0.4, 0.15, 0.012], [-0.3, 0.52, 0.11]);
   sign.rotation.y = 0.25;
 
+  M.castAsOne();
   let tipped = 0;
   return {
     group: M.group, meshes: M.meshes, radius: 0.36,
     /** How far off the eye is (see figure.js): fewer strands to a wig at a distance. */
     see(dist, quality = 1) { const f = Math.min(1, 2.2 / Math.max(dist, 0.01)) * (dist > 6 ? 0.6 : 1) * quality; for (const w of wigs) w.detail(f); },
+    /** Round the drawing of the shadow maps (see figure.js): a share of each wig's hair casts its shadow. */
+    shade(on) { for (const w of wigs) w.shade(on); },
     /** @param weighing 0..1: there is hair in the pan */
     update(dt, t, weighing) {
       tipped += (weighing - tipped) * Math.min(1, dt * 4);

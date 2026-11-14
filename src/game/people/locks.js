@@ -174,7 +174,24 @@ export function locksMesh(strands, { width = strands.width, colour = {}, flex = 
     geo.setDrawRange(0, Math.max(1, Math.round(strands.count * f)) * per);
     own.uWidth.value = width / Math.sqrt(f);
   };
-  return { mesh, material, count: strands.count, detail };
+  /**
+   * While the shadow maps are drawn: fewer strands still, and each as much wider, so that together they stop the same
+   * light. (A shadow shows no single hair, and at the size of a shadow map's dots most hairs are too fine to draw.)
+   */
+  const SHADE = 0.3;
+  const shade = (on) => {
+    if (shown <= SHADE) return;
+    const f = on ? SHADE : shown;
+    geo.setDrawRange(0, Math.max(1, Math.round(strands.count * f)) * per);
+    own.uWidth.value = on ? (width / Math.sqrt(shown)) * (shown / SHADE) : width / Math.sqrt(shown);
+  };
+  /** Say that the hair stays where it is put (a wig on a stand), so that it need not be drawn when out of the picture. */
+  const bound = () => {
+    geo.computeBoundingSphere();
+    geo.boundingSphere.radius = geo.boundingSphere.radius * 1.2 + 0.01;   // (it stirs a little beyond where it lies)
+    mesh.frustumCulled = true;
+  };
+  return { mesh, material, count: strands.count, detail, shade, bound };
 }
 
 /** Grow hair and make a mesh of it, in one go (see growStrands and locksMesh for what may be asked). */

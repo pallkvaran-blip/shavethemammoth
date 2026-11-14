@@ -5,11 +5,12 @@
 // Heights are computed on the CPU (so other systems can ask for them) and
 // laid out as nested meshes: finest around the feet, very fine around the
 // mammoth, fine out to 50 m, then a radial sheet that runs to the mountains.
+// Each of those is cut into tiles, so that the tiles outside the picture (or
+// outside a shadow map) are not drawn.
 import * as THREE from 'three';
 import { noise2, fbm2, ridged2, smoothstep, clamp } from './noise.js';
 import { COMMON, SHADOWS, ATMOSPHERE } from '../gfx/glsl.js';
 import { U, LAYER_SHADOW_FAR, LAYER_SHADOW_NEAR } from '../gfx/globals.js';
-import { makeDepthMaterial } from '../gfx/shadows.js';
 
 const tick = () => new Promise((r) => setTimeout(r, 0));
 
@@ -139,7 +140,7 @@ export class Terrain {
    * fitted to the edges of a coarser grid of that spacing (origin seam.x0,
    * seam.z0), so the two meshes meet without a step or a crack.
    */
-  _gridMesh(x0, z0, x1, z1, step, bias, hole, seam) {
+  _gridMesh(x0, z0, x1, z1, step, bias, hole, seam, tile = 4) {
     const nx = Math.round((x1 - x0) / step) + 1, nz = Math.round((z1 - z0) / step) + 1;
     const pos = new Float32Array(nx * nz * 3);
     const mask = new Float32Array(nx * nz * 4);
@@ -190,7 +191,7 @@ export class Terrain {
     } else {
       nrm = this._gridNormals(pos, nx, nz);
     }
-    return this._geometry(pos, nrm, mask, idx);
+    return this._tiles(pos, nrm, mask, idx, (x, z) => Math.floor((x - x0) / tile) + 4096 * Math.floor((z - z0) / tile));
   }
 
   _gridNormals(pos, nx, nz) {
@@ -219,14 +220,41 @@ export class Terrain {
     mask[k * 4 + 3] = shore;
   }
 
-  _geometry(pos, nrm, mask, idx) {
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    geo.setAttribute('normal', new THREE.BufferAttribute(nrm, 3));
-    geo.setAttribute('aMask', new THREE.BufferAttribute(mask, 4));
-    geo.setIndex(idx.length > 65535 * 3 || pos.length / 3 > 65535 ? new THREE.BufferAttribute(new Uint32Array(idx), 1) : new THREE.BufferAttribute(new Uint16Array(idx), 1));
-    geo.computeBoundingSphere();
-    return geo;
+  /**
+   * The triangles shared out into tiles: each a geometry of its own over the
+   * same vertices. `cell(x, z)` names the tile a point belongs to. A tile's
+   * bounding ball is measured from its own middle (geo.userData.centre),
+   * which is where its mesh is put: the shaders take no notice of that, but
+   * three.js draws the near tiles first for it.
+   */
+  _tiles(pos, nrm, mask, idx, cell) {
+    const position = new THREE.BufferAttribute(pos, 3), normal = new THREE.BufferAttribute(nrm, 3), aMask = new THREE.BufferAttribute(mask, 4);
+    const lists = new Map();
+    for (let t = 0; t < idx.length; t += 3) {
+      const a = idx[t] * 3, b = idx[t + 1] * 3, c = idx[t + 2] * 3;
+      const key = cell((pos[a] + pos[b] + pos[c]) / 3, (pos[a + 2] + pos[b + 2] + pos[c + 2]) / 3);
+      let list = lists.get(key);
+      if (!list) lists.set(key, (list = []));
+      list.push(idx[t], idx[t + 1], idx[t + 2]);
+    }
+    const wide = pos.length / 3 > 65535;
+    const out = [];
+    for (const list of lists.values()) {
+      const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
+      for (const v of list) for (let k = 0; k < 3; k++) { const p = pos[v * 3 + k]; if (p < lo[k]) lo[k] = p; if (p > hi[k]) hi[k] = p; }
+      const centre = new THREE.Vector3((lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, (lo[2] + hi[2]) / 2);
+      let r2 = 0;
+      for (const v of list) r2 = Math.max(r2, (pos[v * 3] - centre.x) ** 2 + (pos[v * 3 + 1] - centre.y) ** 2 + (pos[v * 3 + 2] - centre.z) ** 2);
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', position);
+      geo.setAttribute('normal', normal);
+      geo.setAttribute('aMask', aMask);
+      geo.setIndex(new THREE.BufferAttribute(wide ? new Uint32Array(list) : new Uint16Array(list), 1));
+      geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), Math.sqrt(r2));
+      geo.userData.centre = centre;
+      out.push(geo);
+    }
+    return out;
   }
 
   _radialMesh(rInner, rOuter, growth, sectors) {
@@ -273,7 +301,8 @@ export class Terrain {
         idx.push(a, b, c, b, d, c);
       }
     }
-    return this._geometry(pos, nrm, mask, idx);
+    // eight slices of the compass, each in two bands of distance
+    return this._tiles(pos, nrm, mask, idx, (x, z) => (Math.floor((Math.atan2(z, x) / (2 * Math.PI) + 0.5) * 8) % 8) + 64 * (Math.hypot(x, z) < 400 ? 0 : 1));
   }
 
   async build(progress = () => {}, { detail = 1 } = {}) {
@@ -284,18 +313,29 @@ export class Terrain {
     });
     this.group = new THREE.Group();
     this.meshes = [];
-    const depth = makeDepthMaterial({ side: THREE.DoubleSide });
-    const add = (geo, name, far, near) => {
-      const mesh = new THREE.Mesh(geo, this.material);
-      mesh.name = name;
-      mesh.frustumCulled = false;
-      mesh.userData.shadowMaterial = depth;
-      mesh.userData.castNear = near; mesh.userData.castFar = far;
-      if (far) mesh.layers.enable(LAYER_SHADOW_FAR);
-      if (near) mesh.layers.enable(LAYER_SHADOW_NEAR);
-      this.group.add(mesh);
-      this.meshes.push(mesh);
-      return mesh;
+    // (as the land's own shader does, this takes the vertices as they are: where a tile's mesh is put is only for sorting)
+    const depth = new THREE.ShaderMaterial({
+      vertexShader: 'void main() { gl_Position = projectionMatrix * viewMatrix * vec4(position, 1.0); }',
+      fragmentShader: 'void main() { gl_FragColor = vec4(gl_FragCoord.z, 0.0, 0.0, 1.0); }',
+      side: THREE.DoubleSide,
+    });
+    const add = (tiles, name, far, near) => {
+      for (const geo of tiles) {
+        const mesh = new THREE.Mesh(geo, this.material);
+        mesh.name = name;
+        mesh.position.copy(geo.userData.centre);
+        mesh.updateMatrix();
+        mesh.matrixAutoUpdate = false;
+        // The land is drawn after everything that stands on it: its shading is the dearest in the scene, and this way
+        // none of it is worked out for snow that the mammoth then hides.
+        mesh.renderOrder = 20;
+        mesh.userData.shadowMaterial = depth;
+        mesh.userData.castNear = near; mesh.userData.castFar = far;
+        if (far) mesh.layers.enable(LAYER_SHADOW_FAR);
+        if (near) mesh.layers.enable(LAYER_SHADOW_NEAR);
+        this.group.add(mesh);
+        this.meshes.push(mesh);
+      }
     };
     const fine = { x0: -28, z0: -7, x1: 7, z1: 7 };
     const s0 = detail >= 1 ? 0.05 : 0.08;
@@ -305,13 +345,13 @@ export class Terrain {
     // in. Its box sits on the coarser grid's lines, and its rim is fitted to
     // that grid, so the two join invisibly.
     const feetBox = { x0: -1.8, z0: -1.0, x1: 1.6, z1: 1.0 };
-    add(this._gridMesh(feetBox.x0, feetBox.z0, feetBox.x1, feetBox.z1, detail >= 1 ? 0.01 : 0.0125, 0, null, { step: s0, x0: fine.x0, z0: fine.z0 }), 'ground-feet', false, true);
+    add(this._gridMesh(feetBox.x0, feetBox.z0, feetBox.x1, feetBox.z1, detail >= 1 ? 0.01 : 0.0125, 0, null, { step: s0, x0: fine.x0, z0: fine.z0 }, 1.7), 'ground-feet', false, true);
     await tick();
-    add(this._gridMesh(fine.x0, fine.z0, fine.x1, fine.z1, s0, 0, feetBox), 'ground-fine', true, true);
+    add(this._gridMesh(fine.x0, fine.z0, fine.x1, fine.z1, s0, 0, feetBox, null, 5), 'ground-fine', true, true);
     progress(0.45, 'Laying snow');
     await tick();
     const hole = { x0: fine.x0 + 0.6, z0: fine.z0 + 0.6, x1: fine.x1 - 0.6, z1: fine.z1 - 0.6 };
-    add(this._gridMesh(-50, -50, 50, 50, detail >= 1 ? 0.25 : 0.4, 0.035, hole), 'ground-mid', true, true);
+    add(this._gridMesh(-50, -50, 50, 50, detail >= 1 ? 0.25 : 0.4, 0.035, hole, null, 25), 'ground-mid', true, true);
     progress(0.8, 'Raising mountains');
     await tick();
     add(this._radialMesh(38, 21000, detail >= 1 ? 1.024 : 1.036, detail >= 1 ? 640 : 448), 'ground-far', true, false);

@@ -45,6 +45,7 @@ ${SKINNING}
   attribute vec4 iSkinIdx;
   attribute vec4 iSkinWgt;
   attribute float iCut;     // metres of this lock left after shearing
+  attribute float iRank;    // (extra hairs only) which of the patch's guides this lock is: see Mammoth._batchStrands
 #endif
 attribute vec4 iA;        // length, lock width, strand seed, lock seed
 attribute vec4 iB;        // droop, lock tightness, layer height, breathing weight
@@ -157,6 +158,9 @@ void main() {
   #elif !defined(DEPTH_PASS)
     int batch = int(modelMatrix[0][0] + 0.5);
     k = floor(modelMatrix[1][1] - 0.5) + float(gl_InstanceID % batch);
+    // an extra hair goes when its guide does (the coat thinned: only the first so-many guides of a patch are drawn);
+    // the guides themselves carry no rank
+    if (batch > 1 && iRank >= modelMatrix[2][2]) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
     vec3 eyeVec = cameraPosition - (iRoot + uOrigin);
     float eyeDist = max(length(eyeVec), 0.03);
     nShow = clamp(lockW * uPxScale / (eyeDist * uHairPx) - 0.4, 1.0, uChildMax);
