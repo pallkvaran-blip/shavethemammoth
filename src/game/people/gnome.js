@@ -127,7 +127,7 @@ export function buildGnome({ bare = false, baked = null } = {}) {
   fig.bound([0, 0.22, 0], 0.4);
   let turn = 0, hello = 0, blinkIn = 1.7, blink = 0;
   return {
-    group, meshes, height: 0.3, rig, data, materials: M, see: fig.see,
+    group, meshes, height: 0.3, rig, data, materials: M, see: fig.see, shade: fig.shade,
     /**
      * @param look     which way the visitor is, as an angle about y from the gnome's own forward (radians)
      * @param near     0 when nobody is about, 1 when someone is at the counter
@@ -241,5 +241,6 @@ export function buildStall() {
   M.rod(broom, post, [0, 0.05, 0], [0, 0.46, 0], 0.006);
   M.box(broom, iron, [0.03, 0.09, 0.14], [0, 0.01, 0]);
 
+  M.castAsOne();
   return { group: M.group, meshes: M.meshes, lamp, radius: 0.46 };
 }

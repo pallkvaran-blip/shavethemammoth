@@ -8,7 +8,7 @@ try { ({ chromium } = require('playwright')); }
 catch { ({ chromium } = require('/opt/node-tools/node_modules/playwright')); }
 
 const base = process.env.BASE || 'http://localhost:5173/';
-const url = base + '?q=low&strands=20000&adapt=5&debug&sync';
+const url = base + '?q=low&strands=20000&adapt=9&debug&sync';
 const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 const failures = [];
 const check = (ok, what) => { if (!ok) failures.push(what); console.log(`  ${ok ? 'ok' : 'FAILED'}: ${what}`); };

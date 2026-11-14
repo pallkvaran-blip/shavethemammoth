@@ -21,7 +21,7 @@ const errors = [];
 page.on('console', (m) => { if (m.type() === 'error' || /THREE\.WebGLProgram|Shader Error|GL_INVALID|INVALID_/.test(m.text())) errors.push(m.text().slice(0, 600)); });
 page.on('pageerror', (e) => errors.push('pageerror: ' + e.message + '\n' + (e.stack || '').split('\n').slice(0, 4).join('\n')));
 const check = (ok, what) => { if (!ok) errors.push('CHECK FAILED: ' + what); console.log(`  ${ok ? 'ok' : 'FAILED'}: ${what}`); };
-const query = 'q=low&strands=40000&adapt=5&debug&sync&bare&elf=1.413,0.896,0.76,0.0';
+const query = 'q=low&strands=40000&adapt=9&debug&sync&bare&elf=1.413,0.896,0.76,0.0';
 const load = async (extra) => {
   await page.goto(`${base}?${query}${extra}`, { waitUntil: 'load' });
   await page.waitForFunction(() => (document.body.classList.contains('ready') && window.__game) || document.getElementById('status')?.textContent.startsWith('The scene could not'), null, { timeout: 600000 });

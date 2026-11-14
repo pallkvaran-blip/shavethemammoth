@@ -11,7 +11,7 @@ import { makeBodyMaterials } from './bodyMaterial.js';
 import { makeTattooSheet, placeTattoos, tattooUniforms } from './tattoos.js';
 import { patchStandardMaterial } from '../gfx/patch.js';
 import { makeDepthMaterial } from '../gfx/shadows.js';
-import { LAYER_SHADOW_NEAR } from '../gfx/globals.js';
+import { LAYER_SHADOW_NEAR, LAYER_SHADOW_ELF } from '../gfx/globals.js';
 
 const tick = () => new Promise((r) => setTimeout(r, 0));
 
@@ -354,8 +354,9 @@ export class Mammoth {
       f.geometry.dispose();
     }
     for (const c of this.chunks || []) {
-      for (const mesh of c.meshes) if (mesh && mesh.parent) mesh.parent.remove(mesh);
+      for (const mesh of [...c.meshes, c.cast]) if (mesh && mesh.parent) mesh.parent.remove(mesh);
       for (const g of c.geos.values()) g.dispose();
+      c.cast.geometry.dispose();
     }
     const groom = generateGroom(this.data.body, { count: strands });
     this.groom = groom;
@@ -365,15 +366,19 @@ export class Mammoth {
       this.rig.bones.forEach((b, i) => { if (/^(neck|head|ear|tail|trunk)/.test(b.name)) this.movingBones.add(i); });
     }
 
-    // Whole-coat meshes, used only to cast the shadow.
+    // Whole-coat meshes, used only to cast the shadow: into the map that holds
+    // all of him. (The elf's own small map takes the coat patch by patch, see
+    // below, since most of the coat is nowhere near it.)
     this.furMeshes = [];
-    for (const [name, segs] of [['long', 6], ['short', 3]]) {
+    const SHADOW_SEGMENTS = { long: 6, short: 3 };
+    for (const [name, segs] of Object.entries(SHADOW_SEGMENTS)) {
       if (!groom[name].count) continue;
       const mesh = new THREE.Mesh(makeFurGeometry(makeStrandAttributes(groom[name]), groom[name].count, segs), this.furMats.depth);
       mesh.frustumCulled = false;
       mesh.userData.shadowMaterial = this.furMats.depth;
       mesh.userData.total = groom[name].count;
       mesh.userData.group = name;
+      mesh.userData.nearOnly = true;
       mesh.layers.set(LAYER_SHADOW_NEAR);
       mesh.name = 'fur-shadow-' + name;
       this.furMeshes.push(mesh);
@@ -390,12 +395,25 @@ export class Mammoth {
         // does any of this patch ride on a bone that moves (head, trunk, ears, tail)?
         let mobile = false;
         for (let i = 0; i < c.count && !mobile; i++) mobile = this.movingBones.has(c.arrays.iSkinIdx[i * 4]) || this.movingBones.has(c.arrays.iSkinIdx[i * 4 + 1]);
-        this.chunks.push({
+        const chunk = {
           ...c, long: name === 'long', mobile, attributes: makeStrandAttributes(c.arrays), geos: new Map(), meshes: [],
           centre: new THREE.Vector3(...c.center), sphere: new THREE.Sphere(new THREE.Vector3(...c.center), c.radius),
-        });
+        };
+        // The patch as the elf's shadow map draws it. Only the patches that can throw a shadow near the elf go into
+        // that map: three.js leaves out those whose ball (measured from where the mesh is put) misses it.
+        const cast = new THREE.Mesh(makeFurGeometry(chunk.attributes, c.count, SHADOW_SEGMENTS[name]), this.furMats.depth);
+        cast.geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(), c.radius);
+        cast.position.copy(chunk.centre).add(this.group.position);
+        cast.updateMatrix();
+        cast.matrixAutoUpdate = false;
+        cast.layers.set(LAYER_SHADOW_ELF);
+        cast.name = 'fur-shadow-patch';
+        chunk.cast = cast;
+        if (scene) scene.add(cast);
+        this.chunks.push(chunk);
       }
     }
+    this._shadowApplied = -1;
     this.dirtyChunks = new Set();
     this.totalLength = 0;
     this.cutLength = 0;
@@ -607,6 +625,7 @@ export class Mammoth {
     const before = Math.min(a.iA[i * 4], a.iCut[i]);
     if (len >= before) return 0;
     a.iCut[i] = len;
+    if (chunk.batch) chunk.batch.arrays.iCut[chunk.batch.slot[i]] = len;
     this.dirtyChunks.add(chunk);
     const g = this.groom[chunk.long ? 'long' : 'short'];
     g.iCut[a.orig[i]] = len;
@@ -626,7 +645,7 @@ export class Mammoth {
     if (this.dirtyChunks.size) {
       for (const c of this.dirtyChunks) {
         c.attributes.iCut.needsUpdate = true;
-        if (c.attributesBatch) c.attributesBatch.iCut.needsUpdate = true;
+        if (c.batch) c.batch.attributes.iCut.needsUpdate = true;
       }
       this.dirtyChunks.clear();
     }
@@ -656,6 +675,7 @@ export class Mammoth {
         const left = own ? own[a.orig[i]] : Math.min(bc[I[t]], bc[I[t + 1]], bc[I[t + 2]]);
         const to = left < L ? left : UNCUT;
         a.iCut[i] = to; g.iCut[a.orig[i]] = to;
+        if (c.batch) c.batch.arrays.iCut[c.batch.slot[i]] = to;
         if (left < L) this.cutLength += L - left;
       }
       this.dirtyChunks.add(c);
@@ -670,12 +690,42 @@ export class Mammoth {
     return this.totalLength > 0 ? this.cutLength / this.totalLength : 0;
   }
 
-  _chunkGeometry(chunk, segments, repeat = 1) {
-    const key = segments * 100 + repeat;
+  /**
+   * The patch's locks a second time, widest first: what its extra hairs are drawn from. A wide lock shows its extra
+   * hairs from further off than a narrow one, so at any distance the locks that have a given hair to show are the
+   * first so-many of these, and only those are drawn (see updateCoat). `rank` is each lock's place among the guides,
+   * so that an extra hair is left out along with its guide when the coat is thinned.
+   */
+  _batchStrands(chunk) {
+    if (chunk.batch) return chunk.batch;
+    const a = chunk.arrays, n = chunk.count;
+    const order = Array.from({ length: n }, (_, i) => i).sort((p, q) => a.iA[q * 4 + 1] - a.iA[p * 4 + 1] || p - q);
+    const arrays = {}, slot = new Uint32Array(n), rank = new Float32Array(n), widths = new Float32Array(n);
+    for (const name of ['iRoot', 'iOff', 'iDir', 'iNormal', 'iA', 'iB', 'iCol', 'iSkinIdx', 'iSkinWgt', 'iCut']) {
+      const src = a[name], size = src.length / n, dst = new src.constructor(src.length);
+      for (let j = 0; j < n; j++) for (let k = 0; k < size; k++) dst[j * size + k] = src[order[j] * size + k];
+      arrays[name] = dst;
+    }
+    order.forEach((i, j) => { slot[i] = j; rank[j] = i; widths[j] = a.iA[i * 4 + 1]; });
+    const attributes = makeStrandAttributes(arrays, BATCH);
+    attributes.iRank = new THREE.InstancedBufferAttribute(rank, 1, false, BATCH);
+    return (chunk.batch = { arrays, attributes, slot, widths });
+  }
+
+  /** How many of the patch's locks are wider than `width`. */
+  _wider(chunk, width) {
+    const w = this._batchStrands(chunk).widths;
+    let lo = 0, hi = w.length;
+    while (lo < hi) { const mid = (lo + hi) >> 1; if (w[mid] > width) lo = mid + 1; else hi = mid; }
+    return lo;
+  }
+
+  /** The geometry for one draw of a patch: its guides (b = 0), or its b-th batch of extra hairs. */
+  _chunkGeometry(chunk, segments, repeat = 1, b = 0) {
+    const key = segments * 100 + repeat + b * 10000;
     let geo = chunk.geos.get(key);
     if (!geo) {
-      if (repeat > 1 && !chunk.attributesBatch) chunk.attributesBatch = makeStrandAttributes(chunk.arrays, repeat);
-      geo = makeFurGeometry(repeat > 1 ? chunk.attributesBatch : chunk.attributes, chunk.count * repeat, segments);
+      geo = makeFurGeometry(repeat > 1 ? this._batchStrands(chunk).attributes : chunk.attributes, chunk.count * repeat, segments);
       // centred on the mesh, so three.js orders the draws by the patch's real distance
       geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), chunk.radius);
       chunk.geos.set(key, geo);
@@ -689,10 +739,11 @@ export class Mammoth {
     if (!mesh) {
       mesh = new THREE.Mesh(this._chunkGeometry(chunk, 3), this.furMats.color);
       // The shaders ignore the mesh transform. Its position lets three.js draw
-      // near patches first; its scale carries the batch size (x) and the index
-      // of the first hair in the batch (y, plus one).
+      // near patches first; its scale carries the batch size (x), the index
+      // of the first hair in the batch (y, plus one), and how many of the
+      // patch's guides are being drawn (z; see updateCoat).
       mesh.position.copy(chunk.centre).add(this.group.position);
-      mesh.scale.set(b === 0 ? 1 : BATCH, (b === 0 ? 0 : 1 + (b - 1) * BATCH) + 1, 1);
+      mesh.scale.set(b === 0 ? 1 : BATCH, (b === 0 ? 0 : 1 + (b - 1) * BATCH) + 1, b === 0 ? 1 : chunk.count);
       mesh.frustumCulled = false;   // culled by hand in updateCoat
       mesh.name = 'fur';
       mesh.updateMatrixWorld(true);
@@ -711,19 +762,20 @@ export class Mammoth {
     scene.add(this.group);
     scene.add(this.body);
     for (const f of this.furMeshes) scene.add(f);
-    for (const c of this.chunks) for (const mesh of c.meshes) if (mesh) scene.add(mesh);
+    for (const c of this.chunks) { for (const mesh of c.meshes) if (mesh) scene.add(mesh); scene.add(c.cast); }
   }
 
-  /** Fraction of strands to draw (level of detail), compensating with width. */
+  /** Fraction of strands to draw (level of detail), compensating with width; and the fraction that casts the shadow. */
   setFurDetail(fraction, shadowFraction = 0.5) {
     this._detail = fraction;
     this._shadowDetail = shadowFraction;
     this.furMats.color.uniforms.uWidthScale.value = 1 / Math.sqrt(fraction);
+    if (shadowFraction === this._shadowApplied) return;
+    this._shadowApplied = shadowFraction;
     this.furMats.depth.uniforms.uWidthScale.value = 0.7 / Math.sqrt(shadowFraction);
-  }
-  useMainCounts() {}
-  useShadowCounts() {
-    for (const f of this.furMeshes) f.geometry.instanceCount = Math.max(1, Math.floor(f.userData.total * this._shadowDetail));
+    // (the meshes that cast the shadow are drawn for nothing else, so their counts stay as they are set here)
+    for (const f of this.furMeshes) f.geometry.instanceCount = Math.max(1, Math.floor(f.userData.total * shadowFraction));
+    for (const c of this.chunks) c.cast.geometry.instanceCount = Math.max(1, Math.floor(c.count * shadowFraction));
   }
 
   /**
@@ -755,14 +807,25 @@ export class Mammoth {
         // closer patches get smoother curves
         const segs = c.long ? (n > 6 ? 12 : n > 1.5 ? 9 : 7) : (n > 6 ? 8 : n > 1.5 ? 5 : 3);
         const guides = Math.max(1, Math.floor(c.count * fraction));
+        let drawn = 0;
         for (let b = 0; b < batches; b++) {
+          // An extra hair shows only on a lock wide enough for it at this distance, so a batch is drawn for just
+          // those locks: the first so-many of the patch's locks taken widest first (the same sum as the shader's,
+          // for the nearest any lock of the patch could be).
+          const wide = b === 0 ? guides : this.allHairs ? c.count : this._wider(c, (((b - 1) * BATCH + 1.4) * d * hairPx) / (widthScale * pxScale));   // (dev: allHairs draws every lock's, to check that this leaves none out)
+          if (wide === 0) break;
           const mesh = this._chunkMesh(c, b);
-          const geo = b === 0 ? this._chunkGeometry(c, segs) : this._chunkGeometry(c, isWoolBatch(b) ? 5 : segs, BATCH);
-          geo.instanceCount = b === 0 ? guides : guides * BATCH;
+          const geo = b === 0 ? this._chunkGeometry(c, segs) : this._chunkGeometry(c, isWoolBatch(b) ? 5 : segs, BATCH, b);
+          geo.instanceCount = b === 0 ? guides : wide * BATCH;
           if (mesh.geometry !== geo) mesh.geometry = geo;
+          // (the extra hairs of a guide that is not drawn are not drawn either)
+          if (b > 0 && mesh.scale.z !== guides) { mesh.scale.z = guides; mesh.updateMatrix(); mesh.updateMatrixWorld(true); }
           mesh.visible = true;
+          hairs += b === 0 ? guides : wide * BATCH;
+          drawn++;
         }
-        hairs += guides * Math.ceil(n); draws += batches;
+        batches = drawn;
+        draws += drawn;
       }
       for (let b = batches; b < c.meshes.length; b++) if (c.meshes[b]) c.meshes[b].visible = false;
     }

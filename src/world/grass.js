@@ -2,7 +2,7 @@
 // sway in the wind and glow when the low sun is behind them.
 import * as THREE from 'three';
 import { COMMON, SHADOWS, ATMOSPHERE } from '../gfx/glsl.js';
-import { U, LAYER_SHADOW_NEAR } from '../gfx/globals.js';
+import { U, LAYER_SHADOW_NEAR, LAYER_SHADOW_ELF } from '../gfx/globals.js';
 import { mulberry32, smoothstep } from './noise.js';
 
 const VERT = /* glsl */ `
@@ -135,29 +135,18 @@ export function buildGrass(terrain, { tufts = 9000, radius = 60, seed = 21, avoi
       blades.push({ d: Math.hypot(bx, bz), a: [bx, by, bz, lx, lz, h, w, rng(), rng(), tone, rng()] });
     }
   }
-  // near blades first: the shadow pass only draws a leading slice
-  blades.sort((p, q) => p.d - q.d);
+  // The blades are drawn tile by tile, so that the tiles outside the picture (or outside a shadow map) are not drawn;
+  // and within a tile, those nearest the middle of the scene come first. Both the share of the grass that is drawn at
+  // lower detail and the part of it that casts a shadow are "everything within so far of the middle", which is then
+  // the first so-many blades of each tile.
+  const SHADOW_WITHIN = 26, REACH = 1.0;
   const count = blades.length;
-  const iPos = new Float32Array(count * 3), iLean = new Float32Array(count * 4), iVar = new Float32Array(count * 4);
-  let shadowCount = 0;
-  blades.forEach((b, i) => {
-    const a = b.a;
-    iPos[i * 3] = a[0]; iPos[i * 3 + 1] = a[1]; iPos[i * 3 + 2] = a[2];
-    iLean[i * 4] = a[3]; iLean[i * 4 + 1] = a[4]; iLean[i * 4 + 2] = a[5]; iLean[i * 4 + 3] = a[6];
-    iVar[i * 4] = a[7]; iVar[i * 4 + 1] = a[8]; iVar[i * 4 + 2] = a[9]; iVar[i * 4 + 3] = a[10];
-    if (b.d < 26) shadowCount = i + 1;
-  });
+  const distances = Float32Array.from(blades, (b) => b.d).sort();
 
   const pos = [], idx = [];
   for (let i = 0; i <= segs; i++) { const t = i / segs; pos.push(-0.5, t, 0, 0.5, t, 0); }
   for (let i = 0; i < segs; i++) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
-  const geo = new THREE.InstancedBufferGeometry();
-  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  geo.setIndex(idx);
-  geo.setAttribute('iPos', new THREE.InstancedBufferAttribute(iPos, 3));
-  geo.setAttribute('iLean', new THREE.InstancedBufferAttribute(iLean, 4));
-  geo.setAttribute('iVar', new THREE.InstancedBufferAttribute(iVar, 4));
-  geo.instanceCount = count;
+  const blade = new THREE.Float32BufferAttribute(pos, 3), bladeIndex = new THREE.Uint16BufferAttribute(idx, 1);
 
   const material = new THREE.ShaderMaterial({
     vertexShader: VERT, fragmentShader: FRAG, uniforms: { ...U },
@@ -169,12 +158,76 @@ export function buildGrass(terrain, { tufts = 9000, radius = 60, seed = 21, avoi
   });
   material.index0AttributeName = 'position';
   depth.index0AttributeName = 'position';
-  const mesh = new THREE.Mesh(geo, material);
-  mesh.frustumCulled = false;
-  mesh.name = 'grass';
-  mesh.userData.shadowMaterial = depth;
-  mesh.userData.total = count;
-  mesh.userData.shadowCount = shadowCount;
-  mesh.layers.enable(LAYER_SHADOW_NEAR);
-  return mesh;
+
+  const group = new THREE.Group();
+  group.name = 'grass';
+  /** The blades in `list` as tiles of `size` metres, each a mesh with material `mat`. */
+  const tiles = (list, size, mat, name, order) => {
+    const byTile = new Map();
+    for (const b of list) {
+      const key = Math.floor(b.a[0] / size) + 4096 * Math.floor(b.a[2] / size);
+      let own = byTile.get(key);
+      if (!own) byTile.set(key, (own = []));
+      own.push(b);
+    }
+    const out = [];
+    for (const own of byTile.values()) {
+      own.sort((p, q) => p.d - q.d);
+      const n = own.length;
+      const iPos = new Float32Array(n * 3), iLean = new Float32Array(n * 4), iVar = new Float32Array(n * 4);
+      const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
+      own.forEach((b, i) => {
+        const a = b.a;
+        iPos[i * 3] = a[0]; iPos[i * 3 + 1] = a[1]; iPos[i * 3 + 2] = a[2];
+        iLean[i * 4] = a[3]; iLean[i * 4 + 1] = a[4]; iLean[i * 4 + 2] = a[5]; iLean[i * 4 + 3] = a[6];
+        iVar[i * 4] = a[7]; iVar[i * 4 + 1] = a[8]; iVar[i * 4 + 2] = a[9]; iVar[i * 4 + 3] = a[10];
+        for (let k = 0; k < 3; k++) { if (a[k] < lo[k]) lo[k] = a[k]; if (a[k] > hi[k]) hi[k] = a[k]; }
+      });
+      const geo = new THREE.InstancedBufferGeometry();
+      geo.setAttribute('position', blade);
+      geo.setIndex(bladeIndex);
+      geo.setAttribute('iPos', new THREE.InstancedBufferAttribute(iPos, 3));
+      geo.setAttribute('iLean', new THREE.InstancedBufferAttribute(iLean, 4));
+      geo.setAttribute('iVar', new THREE.InstancedBufferAttribute(iVar, 4));
+      geo.instanceCount = n;
+      // (the ball round the tile is measured from its middle, where its mesh is put: the shaders take no notice of
+      // where that is, but three.js draws the near tiles first for it)
+      geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), Math.hypot(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]) / 2 + REACH);
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.name = name;
+      mesh.position.set((lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, (lo[2] + hi[2]) / 2);
+      mesh.updateMatrix();
+      mesh.matrixAutoUpdate = false;
+      mesh.renderOrder = order;
+      group.add(mesh);
+      out.push({ mesh, d: Float32Array.from(own, (b) => b.d) });
+    }
+    return out;
+  };
+  // in the picture (drawn after what stands on the snow and before the snow itself); and, in smaller tiles, since
+  // a shadow map takes in only a narrow strip of the land, the blades near enough the middle to cast a shadow
+  const seen = tiles(blades, 10, material, 'grass', 15);
+  const cast = tiles(blades.filter((b) => b.d < SHADOW_WITHIN), 5, depth, 'grass-shadow', 0);
+  for (const t of cast) { t.mesh.layers.set(LAYER_SHADOW_NEAR); t.mesh.layers.enable(LAYER_SHADOW_ELF); }
+  /** How many of a tile's blades lie within `far` of the middle of the scene. */
+  const within = (tile, far) => {
+    let a = 0, b = tile.d.length;
+    while (a < b) { const m = (a + b) >> 1; if (tile.d[m] < far) a = m + 1; else b = m; }
+    return a;
+  };
+  /** Draw this share of the grass (1 = all of it): the rest, furthest from the middle, is left out. */
+  group.setShare = (share) => {
+    const far = share >= 1 ? Infinity : distances[Math.max(0, Math.floor(count * share))];
+    let drawn = 0;
+    for (const t of [...seen, ...cast]) {
+      const n = within(t, far);
+      t.mesh.geometry.instanceCount = n;
+      t.mesh.visible = n > 0;
+      if (t.mesh.name === 'grass') drawn += n;
+    }
+    group.userData.drawn = drawn;
+  };
+  group.userData.total = count;
+  group.setShare(1);
+  return group;
 }

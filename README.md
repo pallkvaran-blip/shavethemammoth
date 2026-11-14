@@ -136,7 +136,7 @@ Then open the address Vite prints (http://localhost:5173 by default).
 | Drag / scroll | Orbit and zoom (when not shaving) |
 | `1` `2` `3` `4` (when not shaving) | The mammoth, in profile, into the sun, the coat |
 | `H` | Hide or show the controls |
-| `P` | Frame rate, resolution, hairs on screen and which graphics card is in use |
+| `P` | The numbers: frame rate and the rate being aimed for, how long a frame takes the script and (where the browser will say) the graphics card, resolution, hairs and triangles drawn, how far the detail has been turned down, and which graphics card is in use |
 | Sun slider, Detail menu | Height of the sun; Low, Medium, High, Ultra |
 | **New game** (asks twice) | Gives him his coat back and takes everything you have |
 
@@ -213,8 +213,18 @@ the snow only the feet, the lower legs and the tip of the trunk are within reach
 The rest wants a ladder or a pack. Off the ground the hide stops him in every
 direction, and where it is underneath him it holds him up.
 
-The scene also tunes itself while it runs: if the frame rate drops it lowers the
-resolution and draws less of the coat, and raises them again when there is headroom.
+The scene also tunes itself while it runs. It aims to draw a frame every time the
+screen is redrawn (or sixty times a second, on a screen faster than that). When it
+falls behind it gives something up a step at a time: first what nobody sees (how
+often the shadow of the whole mammoth is drawn afresh, and how much of the coat
+throws it), then a little sharpness and a little of the coat at each step. When the
+frames come easily again it takes a step back, warily, because trying costs a
+stumble: at once if the view has become lighter, and otherwise after a wait that
+doubles each time a step up fails. Looking on from outside and shaving from the snow
+are very different loads, so each remembers its own setting, and both are kept from
+one visit to the next. If the browser itself is holding the page to thirty frames a
+second (as some do to save power), that is what it aims for, and no detail is given
+up chasing frames that would never be shown.
 
 On a laptop with two graphics cards, check with `P` that the browser is using the
 fast one. If it is not, set the browser to "High performance" under Windows
@@ -225,11 +235,11 @@ Settings > System > Display > Graphics.
 | Part | Where | Notes |
 | --- | --- | --- |
 | Body | `src/mammoth/anatomy.js`, `sdf.js`, `mesher.js` | The body is a smooth blend of ellipsoids and round cones, turned into a mesh at load. The same description gives the skin weights for the skeleton and the grooming map (hair length, lift, colour) |
-| Coat | `src/mammoth/groom.js`, `furMaterial.js`, `mammoth.js` | The groom stores about 240,000 guide strands at High, one per lock of hair. Each is grown in the vertex shader: it leaves the skin, bends under gravity and wind, gathers into locks, and drapes over the body using a baked distance volume. From far away one strand per lock is all the eye can resolve. As the camera approaches, each guide is drawn again and again, and every extra copy becomes a separate hair with its own root, length, curve and colour, some of them short crimped underwool. The coat is split into patches of hide about 40 cm across, so only the patches near the camera pay for this: at shaving distance roughly 600,000 individual hairs are on screen |
+| Coat | `src/mammoth/groom.js`, `furMaterial.js`, `mammoth.js` | The groom stores about 240,000 guide strands at High, one per lock of hair. Each is grown in the vertex shader: it leaves the skin, bends under gravity and wind, gathers into locks, and drapes over the body using a baked distance volume. From far away one strand per lock is all the eye can resolve. As the camera approaches, each guide is drawn again and again, and every extra copy becomes a separate hair with its own root, length, curve and colour, some of them short crimped underwool. The coat is split into patches of hide about 40 cm across, so only the patches near the camera pay for this; and within a patch an extra hair is only asked for on the locks wide enough to show one at that distance (the patch keeps its locks a second time, widest first, for the purpose) |
 | Hair lighting | `furMaterial.js` | Two highlights (surface and through-the-fibre), light passing through the coat when the sun is behind it, and sunlight that soaks into the coat rather than stopping at its surface |
 | Sky | `src/world/sky.js` | Rayleigh, Mie and ozone scattering baked to a lookup for the current sun; clouds and the sun's disc drawn live. The sky also supplies the ambient light, reflections and haze colour |
 | Land | `src/world/terrain.js`, `grass.js`, `rocks.js`, `particles.js` | Wind-carved snow, a footprint trail, frozen grass, scattered stones, a frozen lake towards the sun, mountains, drifting ice crystals and the mammoth's breath. The mammoth stands sunk a few centimetres into the snow, which fits round each foot |
-| Light and shadow | `src/gfx/` | Shadows store depth so materials can measure how much lies between them and the sun: crisp on snow, soft inside fur and grass. Three maps: the land, the mammoth, and a fine one that follows the elf |
+| Light and shadow | `src/gfx/` | Shadows store depth so materials can measure how much lies between them and the sun: crisp on snow, soft inside fur and grass. Three maps: the land (drawn only when the sun moves), the mammoth, and a fine one that follows the elf. A shadow map is the whole scene drawn again from the sun, so what goes into each is kept down: the land and the grass are in tiles, and only the tiles a map can see are drawn into it; the elf's map takes the coat patch by patch for the same reason; each person casts a shadow as one mesh with fewer faces (their own layers only when looked at from close to), and a stall as one mesh in place of its fifty sticks |
 | Tools | `src/game/tool.js`, `src/game/tools/` | `tool.js` holds what every tool shares: how it is held in front of the eyes with sway and bob, how it is laid along the hide when pressed into the coat, how a stroke runs, how a motor runs, and how every part of it is kept out of the mammoth and the snow (each tool is a few dozen small spheres for that purpose, checked every frame). A tool itself is a definition: its parts, its size, the hold, the stroke, how well it cuts and how it sounds. The garden clippers are two identical forgings, one turned over on the other: bevelled blades, cranked tangs, brass ferrules, turned handles, a bolt and nut. The shears are a single sprung strip: blades with a ground edge, grips in chipped red paint, and a bow that flexes as they close. The scissors are thin rusty steel with moulded plastic rings and a rivet that lets the blades shiver |
 | What is solid | `src/mammoth/collider.js` | The body's own description (ellipsoids and round cones) evaluated exactly, each piece carried by its bone so the swaying trunk is where it looks, with the toenails added. The baked distance volume the fur drapes over is too coarse to hold a blade a few millimetres off the skin |
 | Cutting | `src/mammoth/strand.js`, `mammoth.js`, `src/game/shaving.js` | The fur is shaped on the GPU, so the same recipe is followed in JavaScript for the guide strand of each lock to find the ones between the blades. Each is cut as a blade reaches it during the stroke, by writing a shorter length for it; its hairs follow. A poor tool misses some of the locks and leaves the others at uneven lengths. An electric tool is asked every frame instead, which needs a much quicker search: it looks only at locks rooted in the mouth of its comb (and, held in the air, at a sixth of the locks that might hang into it, a different sixth each frame). It can cut only so much a second; pushed faster than that through long hair it bogs down and leaves some standing. The hide shows as skin where the coat is down to stubble |
@@ -259,8 +269,10 @@ Settings > System > Display > Graphics.
   instead), `look=yaw,pitch`, `open` (blade angle, 0 to 1), `warm=n` (advance n
   frames first), `cutdisc=x,y,z,nx,ny,nz,r` (shear everything crossing a disc),
   `shearsat=x,y,z` (lay the tool down to look at it),
-  `debugShadow`, `adapt=n` (start n notches down the automatic quality scale), `fixed` (stay
-  there, however slow the frames), `away=x` (hold the
+  `debugShadow`, `adapt=n` (start n steps down the automatic scale of detail, 0 to 9), `fixed` (stay
+  there, however slow the frames), `notimer` (do not ask the graphics card how long it takes),
+  `allhairs` (ask for every lock's extra hairs, not only those wide enough to show: the picture
+  must come out the same), `away=x` (hold the
   tool part way put away, 0 to 1), `legend=n` (hold line n of the opening legend; `nolegend` on
   the live page goes without it), `sync` (wait for the graphics side every frame: the tests use
   it, because without a graphics card frames are queued faster than they are drawn), `bare`
@@ -281,6 +293,10 @@ Settings > System > Display > Graphics.
   `tools/collide-test.mjs` puts the elf in 3,000 places with each tool and measures whether
   any part of it ends up inside the mammoth or the snow, and whether a tool being put away
   is out of sight by the time the next one takes its place.
+- `tools/pace-test.mjs` tries the part that keeps the frames coming against pretended machines:
+  a quick one, a slow one, one whose browser shows thirty frames a second, one that cannot keep
+  up at all, one whose view gets heavier and lighter, and one that stumbles now and then. Nothing
+  is drawn; each frame is told a time as if the machine had taken so long over it.
 - `dev/body.html` shows the bare body from four sides, for working on the anatomy.
 - `dev/folk.html` shows one of the people (or all three) on bare snow under the game's own sky,
   for working on them: `who=elf|gnome|vulture|all`, `cam`, `fov`, `el`, `az`, `turn` (degrees),

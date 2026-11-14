@@ -22,7 +22,7 @@ const errors = [];
 page.on('console', (m) => { if (m.type() === 'error' || /THREE\.WebGLProgram|Shader Error|GL_INVALID|INVALID_/.test(m.text())) errors.push(m.text().slice(0, 700)); });
 page.on('pageerror', (e) => errors.push('pageerror: ' + e.message + '\n' + (e.stack || '').slice(0, 400)));
 // start beside the right foreleg with the garden clippers, close enough for them to lie on the hide
-await page.goto(base + '?q=low&strands=40000&adapt=5&stats&debug&sync&bare&unlock&nosave&tool=garden&elf=1.413,0.896,0.76,0.14', { waitUntil: 'load' });
+await page.goto(base + '?q=low&strands=40000&adapt=9&stats&debug&sync&bare&unlock&nosave&tool=garden&elf=1.413,0.896,0.76,0.14', { waitUntil: 'load' });
 await page.waitForFunction(() => document.body.classList.contains('ready'), null, { timeout: 300000 });
 
 let drawn = 0;

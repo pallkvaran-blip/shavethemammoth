@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { patchStandardMaterial } from '../../gfx/patch.js';
 import { makeDepthMaterial } from '../../gfx/shadows.js';
 import { LAMP } from '../../gfx/glsl.js';
-import { LAYER_SHADOW_NEAR } from '../../gfx/globals.js';
+import { LAYER_SHADOW_NEAR, LAYER_SHADOW_ELF } from '../../gfx/globals.js';
 import { canvasTexture } from '../tool.js';
 
 const depth = makeDepthMaterial();
@@ -56,6 +56,36 @@ export class Model {
     const m = this.add(parent, new THREE.BoxGeometry(w, h, d), material, name);
     m.position.set(x, y, z);
     return m;
+  }
+
+  /**
+   * For something that stands still: its whole shadow is cast by one mesh, all its solids run together, in place of
+   * each of them in turn. (A stall is dozens of sticks, and every one would be a drawing of its own in every shadow
+   * map.) Anything on it that moves casts its shadow from where it was when this was called.
+   */
+  castAsOne() {
+    this.group.updateMatrixWorld(true);
+    const inverse = new THREE.Matrix4().copy(this.group.matrixWorld).invert(), m = new THREE.Matrix4(), v = new THREE.Vector3();
+    const pos = [], idx = [];
+    for (const mesh of this.meshes) {
+      if (mesh.userData.shadowMaterial !== this.depth) continue;
+      const P = mesh.geometry.attributes.position, I = mesh.geometry.index, base = pos.length / 3;
+      m.multiplyMatrices(inverse, mesh.matrixWorld);
+      for (let i = 0; i < P.count; i++) { v.fromBufferAttribute(P, i).applyMatrix4(m); pos.push(v.x, v.y, v.z); }
+      if (I) for (let i = 0; i < I.count; i++) idx.push(base + I.getX(i)); else for (let i = 0; i < P.count; i++) idx.push(base + i);
+      mesh.userData.shadowMaterial = null;
+      mesh.layers.disable(LAYER_SHADOW_NEAR);
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    geo.setIndex(pos.length / 3 > 65535 ? new THREE.Uint32BufferAttribute(idx, 1) : new THREE.Uint16BufferAttribute(idx, 1));
+    geo.computeBoundingSphere();
+    const cast = new THREE.Mesh(geo, this.depth);
+    cast.name = this.group.name + ' (shadow)';
+    cast.layers.set(LAYER_SHADOW_NEAR);
+    cast.layers.enable(LAYER_SHADOW_ELF);
+    this.group.add(cast);
+    return cast;
   }
 }
 

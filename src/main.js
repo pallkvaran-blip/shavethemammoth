@@ -53,18 +53,33 @@ if (!legend.over) {
 }
 
 // What each detail setting asks for. The scene then tunes itself further at
-// run time (resolution and how much of the coat is drawn) to hold a steady
-// frame rate on whatever graphics card it finds.
+// run time (see ADAPT, and the frame loop) to keep the frames coming as fast
+// as the screen shows them, on whatever graphics card it finds.
 const PRESETS = {
   low: { children: 5, strands: 110000, shadow: [2048, 1024], samples: 2, scale: 0.72, dpr: 1, furShadow: 0.4, grass: 0.55, dust: 0.4, folk: 0.55 },
   medium: { children: 8, strands: 160000, shadow: [2048, 1024], samples: 4, scale: 0.86, dpr: 1, furShadow: 0.5, grass: 0.8, dust: 0.7, folk: 0.8 },
   high: { children: 12, strands: 240000, shadow: [4096, 2048], samples: 4, scale: 1, dpr: 1.25, furShadow: 0.6, grass: 1, dust: 1 },
   ultra: { children: 20, strands: 400000, shadow: [4096, 2048], samples: 4, scale: 1, dpr: 2, furShadow: 0.7, grass: 1, dust: 1 },
 };
+// What is given up, a step at a time, when the frames come too slowly. First
+// what nobody sees: how much of the coat throws the shadow (`shade`), and how
+// often the shadow of the whole mammoth is drawn afresh (every so many
+// frames). Then a little at each step: how sharp the picture is (`scale`),
+// how many locks the coat has (`fur`) and how many hairs a lock shows close
+// to (`kids`).
 const ADAPT = [
-  { scale: 1, fur: 1, kids: 1 }, { scale: 0.88, fur: 0.85, kids: 0.85 }, { scale: 0.78, fur: 0.7, kids: 0.7 },
-  { scale: 0.68, fur: 0.58, kids: 0.6 }, { scale: 0.6, fur: 0.48, kids: 0.5 }, { scale: 0.52, fur: 0.4, kids: 0.42 },
+  { scale: 1, fur: 1, kids: 1, shade: 1, every: 1 },
+  { scale: 1, fur: 1, kids: 1, shade: 0.8, every: 2 },
+  { scale: 0.94, fur: 0.93, kids: 0.9, shade: 0.75, every: 2 },
+  { scale: 0.88, fur: 0.85, kids: 0.8, shade: 0.7, every: 2 },
+  { scale: 0.82, fur: 0.77, kids: 0.72, shade: 0.65, every: 2 },
+  { scale: 0.76, fur: 0.69, kids: 0.64, shade: 0.6, every: 2 },
+  { scale: 0.7, fur: 0.61, kids: 0.57, shade: 0.56, every: 2 },
+  { scale: 0.64, fur: 0.54, kids: 0.5, shade: 0.56, every: 3 },
+  { scale: 0.58, fur: 0.47, kids: 0.45, shade: 0.56, every: 3 },
+  { scale: 0.52, fur: 0.4, kids: 0.42, shade: 0.56, every: 3 },
 ];
+const LIGHTEST = ADAPT.length - 1;
 
 const remembered = (() => { try { return localStorage.getItem('mammoth-detail'); } catch { return null; } })();
 let qualityName = q.get('q') || (PRESETS[remembered] ? remembered : 'high');
@@ -88,7 +103,28 @@ const setProgress = (p, label) => {
   if (text && label) text.textContent = label;
 };
 
+/**
+ * How often the screen is redrawn (seconds from one frame to the next), taken over a few frames before anything else
+ * is asked of the page. Sixty times a second is usual; but a screen may be slower, and a browser that is saving power
+ * may show only thirty, and there is no sense in giving up detail to chase frames that would never be shown.
+ */
+const measureScreen = () => new Promise((done) => {
+  const stamps = [];
+  let over = false;
+  const finish = () => {
+    if (over) return;
+    over = true;
+    const gaps = stamps.slice(1).map((t, i) => t - stamps[i]).filter((g) => g > 3 && g < 70).sort((a, b) => a - b);
+    // (one of the shorter gaps, not the middle one: a page still opening stumbles, and a stumble only ever makes a gap longer)
+    done(gaps.length >= 5 ? gaps[Math.floor(gaps.length * 0.2)] / 1000 : null);
+  };
+  const tick = (t) => { stamps.push(t); if (stamps.length < 13) requestAnimationFrame(tick); else finish(); };
+  requestAnimationFrame(tick);
+  setTimeout(finish, 600);   // (a page opened in the background is shown no frames at all)
+});
+
 async function start() {
+  const screenGap = shot ? null : await measureScreen();
   const canvas = $('view');
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: false, depth: false, stencil: false, powerPreference: 'high-performance' });
   renderer.toneMapping = THREE.NoToneMapping;
@@ -101,9 +137,15 @@ async function start() {
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(VIEWS[0].fov, 1, 0.08, 30000);
   const size = new THREE.Vector2();
-  let adaptLevel = Math.min(ADAPT.length - 1, Math.max(0, num('adapt', 0) | 0));   // dev: ?adapt=5 starts at the lightest setting
-  // frame-rate watchdog state
-  let wAcc = 0, wFrames = 0, goodStreak = 0, fps = 0, settle = 2.5;
+  // How far the detail is turned down (an index into ADAPT). Looking on from outside and shaving from the snow ask
+  // very different things of a graphics card, so each keeps its own, and both are remembered from one visit to the next.
+  const keptLevels = (() => {
+    try { const k = JSON.parse(localStorage.getItem('mammoth-pace') || 'null'); if (k && k.detail === qualityName) return { orbit: k.orbit | 0, elf: k.elf | 0 }; } catch { /* nothing kept */ }
+    return { orbit: 0, elf: 0 };
+  })();
+  const levels = q.has('adapt') || shot || q.has('fixed') ? { orbit: num('adapt', 0) | 0, elf: num('adapt', 0) | 0 } : keptLevels;   // dev: ?adapt=9 starts at the lightest setting
+  for (const k of ['orbit', 'elf']) levels[k] = Math.min(LIGHTEST, Math.max(0, levels[k]));
+  let adaptLevel = levels.orbit;
   const post = new Post(renderer, { samples: Q.samples });
   const resize = () => {
     const w = window.innerWidth, h = window.innerHeight;
@@ -151,6 +193,7 @@ async function start() {
   const rocks = buildRocks(terrain, { avoid });
   scene.add(rocks.group);
   const grass = buildGrass(terrain, { tufts: 11000, avoid });
+  grass.setShare(Q.grass);
   scene.add(grass);
   const dust = buildSnowDust({ count: 6000 });
   scene.add(dust);
@@ -166,6 +209,7 @@ async function start() {
   mammoth.addTo(scene);
   mammoth.setFurDetail(1, Q.furShadow);
   if (q.has('nofur')) mammoth.setCoatVisible(false);
+  if (q.has('allhairs')) mammoth.allHairs = true;   // dev: see Mammoth.updateCoat
   // the tools, and the hair they cut
   const sound = new Sound();
   const shaving = new Shaving({ scene, mammoth, terrain, sound, a2c: Q.samples > 0, tool: q.get('tool') || 'scissors' });
@@ -209,14 +253,22 @@ async function start() {
   // (every tool that is showing, not only the one in hand: while the scene warms up all of them are drawn once)
   const toolCasters = () => Object.values(shaving.tools).filter((t) => t.group.visible).flatMap((t) => t.meshes);
   let game = null, hero = null, lifter = null, antics = null;
-  const nearCasters = () => [...mammoth.casters, ...terrain.meshes.filter((m) => m.userData.castNear), ...rocks.meshes, grass, ...toolCasters(), ...(game ? game.casters : []), ...(hero ? hero.casters : []), ...(lifter ? lifter.casters : []), ...(antics ? antics.casters : [])];
+  // (what throws a shadow and has to be given its shadow material for it; the grass and the coat have meshes of their
+  // own for the shadow maps, which need nothing done to them)
+  const landNear = terrain.meshes.filter((m) => m.userData.castNear);
+  const nearCasters = () => [...mammoth.casters, ...landNear, ...rocks.meshes, ...toolCasters(), ...(game ? game.casters : []), ...(hero ? hero.casters : []), ...(lifter ? lifter.casters : []), ...(antics ? antics.casters : [])];
   const farCasters = [...terrain.meshes.filter((m) => m.userData.castFar), ...rocks.meshes];
+  // Where everything is, is worked out once a frame (in the frame loop), not once for every map and picture drawn.
+  scene.matrixWorldAutoUpdate = false;
+  let nearStale = true;   // the map that holds the whole mammoth must be drawn this frame, whatever its turn
   const fitShadows = () => {
+    scene.updateMatrixWorld();
     shadowNear.fit(new THREE.Vector3(1.0, 1.45, 0), sky.sunDir, 4.8, 2.4, 160);
     shadowNear.bind(U.uShadowNear, U.uShadowNearMat, U.uShadowNearInfo);
     shadowFar.fit(new THREE.Vector3(0, 2, 0), sky.sunDir, 90, 22, 900);
     shadowFar.bind(U.uShadowFar, U.uShadowFarMat, U.uShadowFarInfo);
     shadowFar.render(renderer, scene, farCasters);   // the land's own shadows only change with the sun
+    nearStale = true;
   };
   fitShadows();
 
@@ -244,8 +296,123 @@ async function start() {
   const intro = !q.has('cam') && !shot && !reducedMotion && !q.has('elf');
   resize();
   window.addEventListener('resize', resize);
+  // ---- keeping the frames coming ---------------------------------------------------
+  // The detail is turned down a step (ADAPT) when frames come slower than the screen shows them (or than sixty a
+  // second, on a screen faster than that), and turned back up, warily, when they come easily again.
+  const governed = !shot && !q.has('fixed');
+  const pace = {
+    gap: screenGap || 1 / 60,          // seconds from one redrawing of the screen to the next, as measured
+    bins: new Float32Array(256), seen: 0,
+    relax: 1,                          // aiming for every frame of the screen's (1), every other (2), ...
+    acc: 0, n: 0, long1: 0, long2: 0, settle: 2.5,   // the stretch being averaged (and its two longest gaps)
+    easy: 0, wait: 5, backoff: 5, raisedAt: -1e9, failedWhen: -1e9, failedAt: Infinity, floorMiss: 0, clock: 0,
+    fps: 0, script: 0,
+  };
+  const aimFor = () => Math.max(pace.gap, 1 / 60) * pace.relax;
+  const keepLevels = () => {
+    if (!governed || q.has('adapt')) return;
+    try { localStorage.setItem('mammoth-pace', JSON.stringify({ detail: qualityName, ...levels })); } catch { /* simply not kept */ }
+  };
+  const setLevel = (to) => {
+    to = Math.min(LIGHTEST, Math.max(0, to));
+    if (to === adaptLevel) return;
+    const sharp = ADAPT[to].scale !== ADAPT[adaptLevel].scale;
+    adaptLevel = to;
+    pace.settle = 0.5; pace.acc = 0; pace.n = 0; pace.long1 = pace.long2 = 0;
+    if (sharp) resize();
+  };
+  /** The gap between two frames (ms): the shortest that keeps turning up is how often the screen is redrawn. */
+  const noteGap = (ms) => {
+    if (!(ms > 3.5 && ms < 62)) return;
+    const b = pace.bins;
+    b[Math.floor(ms * 4)] += 1;
+    if (++pace.seen % 40) return;
+    for (let i = 14; i < 250; i++) {
+      const n = b[i - 1] + b[i] + b[i + 1];
+      if (n < 14 || b[i] < b[i - 1] || b[i] < b[i + 1]) continue;
+      // (only ever a shorter gap than was thought: frames that come slowly say nothing about the screen)
+      pace.gap = Math.min(pace.gap, ((i - 0.5) * b[i - 1] + (i + 0.5) * b[i] + (i + 1.5) * b[i + 1]) / n / 4000);
+      break;
+    }
+  };
+  /** Told the time since the frame before (seconds), every frame: decides whether the detail goes down or up a step. */
+  const govern = (gap, view) => {
+    pace.clock += Math.min(gap, 1);
+    noteGap(gap * 1000);
+    if (pace.settle > 0) { pace.settle -= Math.min(gap, 1); return; }   // (on a machine far too slow, a few frames are enough to know it)
+    const g = Math.min(gap, 1.5);
+    pace.acc += g; pace.n++;
+    if (g > pace.long1) { pace.long2 = pace.long1; pace.long1 = g; } else if (g > pace.long2) pace.long2 = g;
+    if (pace.acc < 0.7) return;
+    // The usual gap over the stretch, its two longest left out: the odd stumble (the browser clearing up after itself,
+    // something else on the machine) says nothing about how much detail the graphics card can carry.
+    const span = pace.acc, avg = pace.n > 8 ? (span - pace.long1 - pace.long2) / (pace.n - 2) : span / pace.n;
+    pace.fps = pace.n / span; pace.acc = 0; pace.n = 0; pace.long1 = pace.long2 = 0;
+    const ratio = avg / aimFor();
+    if (ratio > 1.08) {
+      pace.easy = 0;
+      if (adaptLevel < LIGHTEST) {
+        // A step up was tried a moment ago, and this came of it: go back the one step, and leave it longer before
+        // trying again from a view like this one.
+        const tried = pace.clock - pace.raisedAt < 6;
+        if (tried) { pace.backoff = Math.min(120, pace.backoff * 2); pace.failedAt = view; pace.failedWhen = pace.clock; }
+        pace.wait = pace.backoff;
+        pace.floorMiss = 0;
+        setLevel(adaptLevel + (tried ? 1 : ratio > 2.4 ? 3 : ratio > 1.6 ? 2 : 1));
+      } else if (++pace.floorMiss >= 3 && pace.relax < 4) {
+        // With everything turned down it still cannot be done (or the browser is holding the frames back): aim for
+        // the next pace down that a screen can show evenly, and have back whatever detail that leaves room for.
+        pace.relax++; pace.floorMiss = 0; pace.wait = pace.backoff = 3;
+      }
+      return;
+    }
+    pace.floorMiss = 0;
+    if (pace.relax > 1 && avg < Math.max(pace.gap, 1 / 60) * (pace.relax - 1) * 1.05) pace.relax--;   // the faster pace is being met after all
+    // (the last step up has held: whatever made the one before it fail is past, and the next may be tried as soon)
+    if (pace.backoff > 5 && pace.raisedAt > pace.failedWhen && pace.clock - pace.raisedAt > 6) pace.backoff = pace.wait = 5;
+    if (ratio > 1.04 || adaptLevel === 0) { pace.easy = 0; return; }
+    pace.easy += span;
+    // Room for more is plain when frames come faster than is aimed for, or the graphics card says it is idle half the
+    // time, or the view has become much lighter than the one a step up last failed from. Otherwise it can only be
+    // tried, and trying costs a stumble, so it is tried seldom.
+    const idle = timer && timer.ms >= 0 && (timer.ms + pace.script) < aimFor() * 1000 * 0.6;
+    const lighter = view < pace.failedAt * 0.75;
+    if (lighter && pace.backoff > 5) { pace.backoff = 5; pace.wait = Math.min(pace.wait, 5); }
+    const need = ratio < 0.8 || (idle && pace.backoff <= 5) ? 1.4 : pace.wait;
+    if (pace.easy >= need) {
+      pace.easy = 0; pace.raisedAt = pace.clock; pace.wait = Math.max(pace.wait, 5);
+      setLevel(adaptLevel - 1);
+    }
+  };
   // coming back to the tab: do not mistake the pause for a slow frame
-  document.addEventListener('visibilitychange', () => { settle = 1.5; wAcc = 0; wFrames = 0; });
+  document.addEventListener('visibilitychange', () => { pace.settle = 1.5; pace.acc = 0; pace.n = 0; pace.long1 = pace.long2 = 0; if (document.visibilityState !== 'visible') { levels[rig.mode === 'elf' ? 'elf' : 'orbit'] = adaptLevel; keepLevels(); } });
+  // How long the graphics card takes over a frame, where the browser will say. It is shown with the other numbers
+  // (the P key), and taken as a hint that there is room for more detail; nothing depends on it.
+  const timer = (() => {
+    const ext = q.has('notimer') ? null : gl.getExtension('EXT_disjoint_timer_query_webgl2');
+    if (!ext) return null;
+    const waiting = [], spare = [];
+    let open = null, ms = -1, broken = false;
+    return {
+      begin() {
+        if (broken || open || waiting.length > 3) return;
+        try { open = spare.pop() || gl.createQuery(); gl.beginQuery(ext.TIME_ELAPSED_EXT, open); } catch { broken = true; open = null; }
+      },
+      end() {
+        if (broken) return;
+        try {
+          if (open) { gl.endQuery(ext.TIME_ELAPSED_EXT); waiting.push(open); open = null; }
+          while (waiting.length && gl.getQueryParameter(waiting[0], gl.QUERY_RESULT_AVAILABLE)) {
+            const query = waiting.shift();
+            const t = gl.getQueryParameter(query, gl.QUERY_RESULT) / 1e6;
+            if (!gl.getParameter(ext.GPU_DISJOINT_EXT) && t >= 0 && t < 5000) ms = ms < 0 ? t : ms + (t - ms) * 0.15;
+            spare.push(query);
+          }
+        } catch { broken = true; }
+      },
+      get ms() { return broken ? -1 : ms; },
+    };
+  })();
 
   // ---- detail settings ----------------------------------------------------------
   let furBase = 1;
@@ -259,7 +426,12 @@ async function start() {
     if (mammoth.strands < Q.strands) mammoth.growCoat(Q.strands);
     furBase = Math.min(1, Q.strands / mammoth.strands);
     dust.material.uniforms.uAmount.value = Q.dust;
-    adaptLevel = 0;
+    grass.setShare(Q.grass);
+    // (a setting chosen by hand starts from all of itself, and is turned down again from there if it must be)
+    adaptLevel = levels.orbit = levels.elf = 0;
+    Object.assign(pace, { relax: 1, acc: 0, n: 0, long1: 0, long2: 0, settle: 1.5, easy: 0, wait: 5, backoff: 5, failedAt: Infinity, floorMiss: 0 });
+    nearStale = true;
+    keepLevels();
     resize();
   };
   furBase = Math.min(1, Q.strands / mammoth.strands);
@@ -369,6 +541,9 @@ async function start() {
   $('prompt')?.addEventListener('click', () => game.interact());
   rig.onChange = (mode) => {
     const elf = mode === 'elf';
+    // (each way of looking keeps the detail it last settled at)
+    if (governed) { levels[elf ? 'orbit' : 'elf'] = adaptLevel; setLevel(levels[elf ? 'elf' : 'orbit']); pace.settle = 1; pace.easy = 0; keepLevels(); }
+    nearStale = true;
     document.body.classList.toggle('elf', elf);
     shaving.setActive(elf);
     if (!elf && game.dialog) game.close();
@@ -451,13 +626,14 @@ async function start() {
     } else if (e.code === 'KeyP') {
       showStats = !showStats;
       statsEl.hidden = !showStats;
-  window.addEventListener('pointerdown', () => { if (hero.playing) hero.skip(); });
     } else if (e.code === 'KeyM') {
       sound.setMuted(!sound.muted);
       showHint(sound.muted ? 'Sound off' : 'Sound on', 2);
     }
   });
   statsEl.hidden = !showStats;
+  // (a click gets on with a scene that is playing, as any key does)
+  window.addEventListener('pointerdown', () => { if (hero.playing) hero.skip(); });
 
   setProgress(0.985, 'Warming up');
   // Compile every shader now, including those for things not yet on screen
@@ -508,7 +684,7 @@ async function start() {
     }
     const open = () => {
       document.body.classList.add('ready');
-      settle = 2.5;
+      pace.settle = 1.5; pace.acc = 0; pace.n = 0; pace.long1 = pace.long2 = 0;
       const tell = tellLegend && !legend.skipped;
       if (intro) rig.setView(startView, tell ? 11 : 6.5);
       if (!tell) { endLegend(); return; }
@@ -521,7 +697,7 @@ async function start() {
     if (wait > 0) { waiting = open; later(() => { if (waiting) { waiting = null; open(); } }, wait); } else open();
   };
 
-  if (q.has('debug')) window.__game = { shaving, mammoth, rig, sound, camera, renderer, PUT_AWAY, game, hero, lifter, antics, U, state: game.state, folkTimes };   // dev: poke at the game from the console
+  if (q.has('debug')) window.__game = { shaving, mammoth, rig, sound, camera, renderer, PUT_AWAY, game, hero, lifter, antics, U, state: game.state, folkTimes, scene, sky, terrain, grass, rocks, post, shadowNear, shadowElf, shadowFar, nearCasters, pace, levels, get level() { return adaptLevel; }, dev: {} };   // dev: poke at the game from the console
   if (q.has('nopush')) shaving.noPush = true;                                      // dev: hair ignores the blades
   if (q.has('away')) shaving.pinned = num('away', 0);                              // dev: hold the tool part way put away (0 to 1)
   if (q.has('noclippings')) shaving.clippings.mesh.visible = false;
@@ -532,6 +708,7 @@ async function start() {
   const sunNDC = new THREE.Vector3(), viewDir = new THREE.Vector3();
   const mouth = new THREE.Vector3(), mouthDir = new THREE.Vector3(), tmpQ = new THREE.Quaternion();
   const centre = new THREE.Vector3(0.5, 1.8, 0);
+  const inView = new THREE.Frustum(), viewMatrix = new THREE.Matrix4(), ball = new THREE.Sphere(), centreOf = new THREE.Vector3();
   let last = performance.now();
   let frames = 0;
   // dev: ?sync waits for the graphics side at the end of every frame. Without a graphics card
@@ -586,9 +763,14 @@ async function start() {
     shaving.clippings.update(1 / 30);
   }
 
-  const frame = () => {
-    const now = performance.now();
-    const rawDt = (now - last) / 1000;
+  let shadowTris = 0, shadowTrisNear = 0;
+  const count = renderer.info.render;
+  const frame = (stamp) => {
+    // The time is the one the browser gives the frame, which keeps step with the screen: taken off the clock instead,
+    // it wavers by however long the page was busy, and everything that moves would then move unevenly.
+    const from = performance.now();
+    const now = stamp ?? from;
+    const rawDt = Math.max(0.001, (now - last) / 1000);
     last = now;
     const dt = shot ? 1 / 30 : Math.min(0.1, rawDt);
     U.uTime.value += dt;
@@ -596,24 +778,8 @@ async function start() {
     if (sunPending !== null) { setSun(sunPending); sunPending = null; }
 
     // (dev: ?fixed holds the detail where it starts, however slow the frames)
-    if (!shot && !q.has('fixed') && document.visibilityState === 'visible') {
-      if (settle > 0) settle -= Math.min(rawDt, 1);   // (on a machine far too slow, a few frames are enough to know it)
-      else { wAcc += Math.min(rawDt, 1.5); wFrames++; }
-      if (wAcc > 1.3) {
-        const avg = wAcc / wFrames;
-        fps = 1 / avg;
-        wAcc = 0; wFrames = 0;
-        if (avg > 1 / 26 && adaptLevel < ADAPT.length - 1) {
-          // well below target: drop two notches at once
-          adaptLevel = Math.min(ADAPT.length - 1, adaptLevel + (avg > 1 / 15 ? 2 : 1));
-          goodStreak = 0; settle = 0.6; resize();
-        } else if (avg < 1 / 55 && adaptLevel > 0) {
-          if (++goodStreak >= 4) { adaptLevel--; goodStreak = 0; settle = 0.6; resize(); }
-        } else {
-          goodStreak = 0;
-        }
-      }
-    }
+    if (governed && document.visibilityState === 'visible') govern(rawDt, (mammoth.hairsDrawn || 0) / (ADAPT[adaptLevel].fur * ADAPT[adaptLevel].kids));
+    const A = ADAPT[adaptLevel];
 
     rig.update(dt);
     mammoth.update(dt);
@@ -633,41 +799,55 @@ async function start() {
     // fewer strands are needed the further away the mammoth is
     const dist = camera.position.distanceTo(centre);
     const far = THREE.MathUtils.clamp(10 / Math.max(dist, 0.1), 0.42, 1);
-    const coat = furBase * ADAPT[adaptLevel].fur;
-    mammoth.setFurDetail(THREE.MathUtils.clamp(coat * far, 0.05, 1), Q.furShadow * Math.min(1, coat * 1.4));
+    const coat = furBase * A.fur;
+    mammoth.setFurDetail(THREE.MathUtils.clamp(coat * far, 0.05, 1), Q.furShadow * A.shade * Math.min(1, furBase * 1.4));
     // (and the people's hair goes the same way as his when the frames are slow)
-    const folkHair = THREE.MathUtils.clamp((Q.folk ?? 1) * ADAPT[adaptLevel].fur, 0.3, 1);
+    const folkHair = THREE.MathUtils.clamp((Q.folk ?? 1) * A.fur, 0.3, 1);
     // each of them is told how far off the eye is: at a distance fewer faces and fewer strands will do. (Looked out of,
     // the elf is only his own shadow, which never needs more than that.)
     const eye = camera.position;
     hero.elf.see(rig.mode === 'elf' && !hero.playing ? 99 : eye.distanceTo(hero.elf.group.position), folkHair);
+    inView.setFromProjectionMatrix(viewMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
     for (const who of ['gnome', 'vulture']) {
       const at = game.people[who], d = Math.hypot(eye.x - at.x, eye.y - at.y - 0.25, eye.z - at.z);
-      game[who].see(d, folkHair);
+      // (out of the picture, a trader is only a shadow, and may cast it with fewer faces)
+      game[who].see(d, folkHair, inView.intersectsSphere(ball.set(centreOf.set(at.x, at.y + 0.25, at.z), 0.6)));
       if (who === 'vulture') game.table.see(d, folkHair);
     }
     U.uPxScale.value = size.y * 0.5 * camera.projectionMatrix.elements[5];
-    mammoth.updateCoat(camera, U.uPxScale.value, Math.max(2, num('children', Q.children) * ADAPT[adaptLevel].kids));
+    mammoth.updateCoat(camera, U.uPxScale.value, Math.max(2, num('children', Q.children) * A.kids));
 
     breathe(dt);
 
-    mammoth.useShadowCounts();
-    grass.geometry.instanceCount = Math.min(grass.userData.shadowCount, Math.floor(grass.userData.total * Q.grass));
+    // ---- the shadow maps -------------------------------------------------------------
+    if (timer) timer.begin();
+    scene.updateMatrixWorld();
     const casters = nearCasters();
-    shadowNear.render(renderer, scene, casters);
+    // (a shadow is cast by each figure's plainer meshes and by a share of its hair, however close the eye is)
+    const folk = [hero.elf, game.gnome, game.vulture, game.table];
+    for (const f of folk) f.shade(true);
+    const before = count.triangles;
+    // The map that holds the whole mammoth: every frame, or every second or third when frames are hard to come by.
+    // (Nothing in it moves fast enough for that to show; what the elf is working on has the map below, every frame.)
+    if (nearStale || frames < 3 || shot || frames % A.every === 0) {
+      shadowNear.render(renderer, scene, casters);
+      shadowTrisNear = count.triangles - before;
+      nearStale = false;
+    }
     if (rig.mode === 'elf' && !q.has('noelfshadow')) {
       // centred a little ahead of the elf, at about the height of its work
       camera.getWorldDirection(elfAhead); elfAhead.y = 0; elfAhead.normalize();
       elfCentre.copy(camera.position).addScaledVector(elfAhead, 0.45); elfCentre.y = terrain.height(elfCentre.x, elfCentre.z) + 0.5 + rig.height;
       shadowElf.fit(elfCentre, sky.sunDir, 1.3, 0.65, 70, true);
       shadowElf.bind(U.uShadowElf, U.uShadowElfMat, U.uShadowElfInfo);
-      for (const o of casters) o.layers.enable(LAYER_SHADOW_ELF);
+      // (whatever casts into the mammoth's map casts into this one, but for the coat as a whole: this one has it patch by patch)
+      for (const o of casters) { if (o.userData.shadowMaterial && !o.userData.nearOnly && o.layers.isEnabled(LAYER_SHADOW_NEAR)) o.layers.enable(LAYER_SHADOW_ELF); else o.layers.disable(LAYER_SHADOW_ELF); }
       shadowElf.render(renderer, scene, casters);
     } else {
       U.uShadowElfInfo.value.w = 0;
     }
-    grass.geometry.instanceCount = Math.floor(grass.userData.total * Q.grass);
-    mammoth.useMainCounts();
+    shadowTris = count.triangles - before;
+    for (const f of folk) f.shade(false);
 
     // where the sun sits on screen, for the light shafts
     sunNDC.copy(camera.position).addScaledVector(sky.sunDir, 1000).project(camera);
@@ -681,7 +861,9 @@ async function start() {
     renderer.setRenderTarget(post.hdr);
     renderer.clear();
     renderer.render(scene, camera);
+    const pictureTris = count.triangles;
     post.finish(U.uTime.value);
+    if (timer) timer.end();
 
     if (q.has('debugShadow')) {
       // dev: show a shadow map (?debugShadow=elf, or the mammoth's own by default)
@@ -702,8 +884,10 @@ async function start() {
     frames++;
     // the first frame compiles every shader; only lift the loading card once that is done
     if (frames === 2) { for (const o of folkToWarm) o.frustumCulled = true; reveal(); }
+    pace.script += (performance.now() - from - pace.script) * (frames < 5 ? 1 : 0.1);
     if (showStats && frames % 20 === 0) {
-      statsEl.textContent = `${fps ? fps.toFixed(0) : '–'} fps · ${size.x}×${size.y} · ${Math.round((mammoth.hairsDrawn || 0) / 1000)}k hairs · ${(renderer.info.render.triangles / 1e6).toFixed(1)}M triangles · detail ${qualityName}${adaptLevel ? ' −' + adaptLevel : ''} · ${gpuName}`;
+      const busy = `${pace.script.toFixed(1)} ms of script${timer && timer.ms >= 0 ? `, ${timer.ms.toFixed(1)} ms of graphics` : ''}`;
+      statsEl.textContent = `${pace.fps ? pace.fps.toFixed(0) : '–'} fps (aiming for ${Math.round(1 / aimFor())}) · ${busy} · ${size.x}×${size.y} · ${Math.round((mammoth.hairsDrawn || 0) / 1000)}k hairs · ${(pictureTris / 1e6).toFixed(1)}M triangles, and ${(shadowTris / 1e6).toFixed(1)}M for shadows · detail ${qualityName}${adaptLevel ? ' −' + adaptLevel : ''} · ${gpuName}`;
     }
     if (shot && frames === 2) {
       gl.finish();

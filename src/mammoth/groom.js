@@ -230,18 +230,38 @@ function chunkStrands(g, make, cell = 0.4) {
   for (let i = 0; i < n; i++) {
     const kx = Math.floor(g.iRoot[i * 3] / cell) + 64, ky = Math.floor(g.iRoot[i * 3 + 1] / cell) + 64, kz = Math.floor(g.iRoot[i * 3 + 2] / cell) + 64;
     const key = kx | (ky << 8) | (kz << 16);
-    let list = buckets.get(key);
-    if (!list) buckets.set(key, (list = []));
-    list.push(i);
+    let b = buckets.get(key);
+    if (!b) buckets.set(key, (b = { key, list: [], x: 0, y: 0, z: 0 }));
+    b.list.push(i);
+    b.x += g.iRoot[i * 3]; b.y += g.iRoot[i * 3 + 1]; b.z += g.iRoot[i * 3 + 2];
   }
-  // fold tiny patches into a neighbour so there are not hundreds of near-empty draws
-  const lists = [...buckets.entries()].sort((a, b) => a[0] - b[0]).map((e) => e[1]);
-  const merged = [];
-  for (const list of lists) {
-    const last = merged[merged.length - 1];
-    if (last && (list.length < 220 || last.length < 220) && last.length + list.length < 2600) last.push(...list);
-    else merged.push(list.slice());
+  // Fold tiny patches into a neighbour, so there are not hundreds of near-empty draws: the smallest first, each into
+  // whichever patch next to it (of those with room) has its middle nearest. A patch must stay a patch: how many hairs
+  // it is given, and whether it is drawn at all, go by how far its nearest hair could be from the eye.
+  const SMALL = 220, FULL = 2600, REACH = cell * 1.25;
+  const middle = (b) => [b.x / b.list.length, b.y / b.list.length, b.z / b.list.length];
+  let patches = [...buckets.values()].sort((a, b) => a.key - b.key);
+  for (;;) {
+    const small = patches.filter((b) => b.list.length < SMALL).sort((a, b) => a.list.length - b.list.length || a.key - b.key);
+    let folded = false;
+    for (const b of small) {
+      const [x, y, z] = middle(b);
+      let best = null, bestD = REACH;
+      for (const o of patches) {
+        if (o === b || o.list.length + b.list.length >= FULL) continue;
+        const [ox, oy, oz] = middle(o), d = Math.hypot(ox - x, oy - y, oz - z);
+        if (d < bestD) { bestD = d; best = o; }
+      }
+      if (!best) continue;
+      best.list.push(...b.list); best.x += b.x; best.y += b.y; best.z += b.z;
+      patches = patches.filter((o) => o !== b);
+      folded = true;
+      break;   // (the sizes have changed: look again from the smallest)
+    }
+    if (!folded) break;
   }
+  // (as they were sown: a patch thinned by drawing only its first hairs must thin evenly)
+  const merged = patches.map((b) => b.list.sort((a, b) => a - b));
   const sorted = make(n);
   const orig = new Uint32Array(n);   // where each sorted strand sits in the unsorted arrays
   const chunks = [];

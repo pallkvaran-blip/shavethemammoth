@@ -19,7 +19,7 @@ const step = async (name, fn, wait = 2500) => {
   await page.waitForTimeout(wait);
   console.log(`ok: ${name}`);
 };
-await page.goto(base + '?q=low&strands=20000&adapt=5&stats&sync&unlock&nosave&debug', { waitUntil: 'load' });
+await page.goto(base + '?q=low&strands=20000&adapt=9&stats&sync&unlock&nosave&debug', { waitUntil: 'load' });
 await page.waitForFunction(() => document.body.classList.contains('ready'), null, { timeout: 240000 });
 // the legend is told over the opening shot; the controls come up when it ends
 const lines = await page.$$eval('#legend p', (ps) => ps.map((p) => p.textContent));
