@@ -3,5 +3,6 @@
 import { elfRecipe } from './elf.recipe.js';
 import { gnomeRecipe } from './gnome.recipe.js';
 import { vultureRecipe } from './vulture.recipe.js';
+import { lemmingRecipe } from './lemming.recipe.js';
 
-export const RECIPES = { elf: elfRecipe, gnome: gnomeRecipe, vulture: vultureRecipe };
+export const RECIPES = { elf: elfRecipe, gnome: gnomeRecipe, vulture: vultureRecipe, lemming: lemmingRecipe };

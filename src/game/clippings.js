@@ -238,9 +238,11 @@ export class Clippings {
       const wx = U.uWind.value.x, wz = U.uWind.value.y;
       const t = U.uTime.value;
       const DRAG = 11, SIDE = 6;              // 1/s: a loose lock of hair sinks at under a metre a second, and slows sideways more gently
-      let w = 0;
+      let w = 0, lo = Infinity, hi = -1;
       for (let idx = 0; idx < n; idx++) {
         const k = this.active[idx], k3 = k * 3, k4 = k * 4;
+        if (k < lo) lo = k;
+        if (k > hi) hi = k;
         if (this.state[k] === 2) continue;       // picked up while it was still falling
         if (this.state[k] === 3) {
           // being sucked up: it gathers speed towards the nozzle, turning as it goes
@@ -325,6 +327,8 @@ export class Clippings {
         if (this.state[k] !== 2) this.active[w++] = k;
       }
       this.active.length = w;
+      // (only the pieces that moved are sent: where they lie in the buffer, from the first of them to the last)
+      if (this.dirtyFrom < 0 && lo <= hi) { this.attr.cPos.addUpdateRange(lo * 4, (hi - lo + 1) * 4); this.attr.cQuat.addUpdateRange(lo * 4, (hi - lo + 1) * 4); }
       this.attr.cPos.needsUpdate = true;
       this.attr.cQuat.needsUpdate = true;
     }

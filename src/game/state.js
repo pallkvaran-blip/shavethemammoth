@@ -1,7 +1,7 @@
 // What the player has: gold, the hair in the sack, what has been bought, how
 // far the shave has got. Kept in the browser between visits, so that closing
 // the page does not grow the coat back.
-import { ITEMS } from './catalog.js';
+import { ITEMS, MOST_HELP } from './catalog.js';
 
 const KEY = 'mammoth-save-3';
 
@@ -57,6 +57,7 @@ export class GameState {
     this.lift = null;                      // which of those the up key works: 'ladder' or 'pack'
     this.found = [];                       // tattoos uncovered
     this.worn = [];                        // extras the mammoth has been given to wear
+    this.helpers = 0;                      // lemmings on the payroll
     this.stats = { cut: 0, picked: 0, sold: 0, earned: 0, spent: 0, visits: 0, tonics: 0 };
     this.flags = {};
     this.haircut = '';                     // the hide, point by point (see Game.save)
@@ -85,6 +86,7 @@ export class GameState {
       p = item.levels[at].price;
     } else {
       if (this.owns(id) && !item.again) return Infinity;
+      if (item.hire && this.helpers + item.hire > MOST_HELP) return Infinity;     // (there is only so much mammoth)
       p = item.price;
     }
     return Math.max(1, Math.round(p * (this.flags.loyal ? 0.9 : 1)));
@@ -109,6 +111,7 @@ export class GameState {
     if (item.kind === 'pack') { this.pack = id; this.lift = 'pack'; }
     if (item.flag) this.flags[item.flag] = true;
     if (item.wear && !this.worn.includes(item.wear)) this.worn.push(item.wear);
+    if (item.hire) this.helpers += item.hire;
     this.changed('bought:' + id);
     return true;
   }
@@ -141,7 +144,7 @@ export class GameState {
   toJSON() {
     return {
       v: 3, gold: this.gold, hair: this.hair, owned: [...this.owned], levels: this.levels, tool: this.tool, sweeper: this.sweeper,
-      climber: this.climber, pack: this.pack, lift: this.lift, found: this.found, worn: this.worn, stats: this.stats, flags: this.flags, haircut: this.haircut, locks: this.locks,
+      climber: this.climber, pack: this.pack, lift: this.lift, found: this.found, worn: this.worn, helpers: this.helpers, stats: this.stats, flags: this.flags, haircut: this.haircut, locks: this.locks,
     };
   }
 
@@ -167,6 +170,7 @@ export class GameState {
     this.lift = d.lift === 'pack' && this.pack ? 'pack' : this.climber ? 'ladder' : this.pack ? 'pack' : null;
     this.found = Array.isArray(d.found) ? d.found : [];
     this.worn = Array.isArray(d.worn) ? d.worn : [];
+    this.helpers = Math.max(0, Math.min(MOST_HELP, Math.floor(+d.helpers || 0)));
     this.stats = { ...this.stats, ...(d.stats || {}) };
     this.flags = d.flags && typeof d.flags === 'object' ? d.flags : {};
     this.haircut = typeof d.haircut === 'string' ? d.haircut : '';

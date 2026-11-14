@@ -338,9 +338,20 @@ export class Sound {
     m.hairGain.gain.setTargetAtTime(power * Math.min(0.16, 0.02 * Math.sqrt(cutting)), t, 0.04);
   }
 
+  // ---- the hired help ----
+
+  /** One of them has an opinion: very small, very high, and soon over. */
+  squeak() {
+    if (!this.ctx) return;
+    const n = Math.random() < 0.3 ? 2 : 1;
+    for (let i = 0; i < n; i++) {
+      const f = 2600 + Math.random() * 1500;
+      this._tone({ freq: f, freqTo: f * (1.25 + Math.random() * 0.3), gain: 0.012, decay: 0.05 + Math.random() * 0.03, type: 'sine', when: i * 0.09 });
+    }
+  }
+
   // ---- the mammoth himself ----
 
-  /** A long low sound from somewhere inside him. */
   /** The mammoth says something: a few low syllables, as from a very large chest a long way up. */
   mutter(syllables = 3) {
     if (!this.ctx) return;
@@ -369,6 +380,7 @@ export class Sound {
     }
   }
 
+  /** A long low sound from somewhere inside him. */
   rumble() {
     if (!this.ctx) return;
     const f = 42 + Math.random() * 14;

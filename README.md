@@ -77,6 +77,12 @@ for it; where a page does not allow threads it is done between frames instead.
 | --- | --- |
 | ![The mammoth in profile, with a speech bubble: I wish I was an elephant. Nobody shaves an elephant.](docs/he-says.jpg) | ![A foreleg shaved to show the word LEFT, and a speech bubble from above: Gosh, this is embarrassing.](docs/embarrassing.jpg) |
 
+## Hired help
+
+| Setting off | At work |
+| --- | --- |
+| ![A column of lemmings running across the snow from Gnorman's stall](docs/lemmings-off.jpg) | ![Lemmings on a foreleg, gnawing the hair off round themselves](docs/lemmings-at-work.jpg) |
+
 ## Getting up there, and other purchases
 
 | Up a ladder | Picking it up | Sundries |
@@ -165,6 +171,7 @@ pays 25 gold the hundred grams. The whole coat is about 70 kg.
 | Sack, wheelbarrow, bottomless sack | 30, 180, 600 | Carry 350 g, 1.2 kg, 5 kg |
 | Milk crate, step ladder, painter's ladder, fire brigade ladder | 20, 90, 300, 800 | Reach 0.45, 1.05, 2.05 and 3.75 m off the snow. He is 3.2 m at the top of his head |
 | Fizzy-pop rocket belt, leaf-blower pack, jet pack; bigger tanks | 500, 1200, 2600; 350, 800 | One short violent hop; six seconds of steady lift; a pack that holds you where you are. All fill up again on the ground. You can land on his back and work there |
+| A lemming, half a dozen, a plague of thirty | 60, 320, 1400 | Hired help. They run from the stall to the nearest foot, climb, and gnaw off whatever hair is left, wherever it is, down to stubble; what they cut falls on the snow for you to pick up. One gnaws under a gram a second. Hire as many as you like, as often as you like: he has room for 240 |
 | Regrowth tonic | 150 | It all grows back, and you keep what you bought |
 | Loyalty card, rabbit's foot, cocoa | 100, 150, 60 | A tenth off; Mortimer pays 15% more; you walk a quarter faster |
 | Mystery box, party hat, sunglasses, a bucket of pink | 40, 80, 140, 400 | Nobody needs these |
@@ -173,6 +180,12 @@ pays 25 gold the hundred grams. The whole coat is about 70 kg.
 visible only where the hair is off. Each is announced when enough of it is uncovered,
 and Gnorman pays for the gossip. The beard shaver is the tool that makes them easy to
 read.
+
+**The last of it.** A mammoth is large and an elf is not, and the last patches of hair
+are hard to find from down there. The lemmings find them: each walks over him towards
+the nearest hair that is left, however little, and they tidy up what rougher tools
+left standing as they go. Enough of them will shave the whole of him while you watch
+(240 take about eight minutes), which is not the point, but is allowed.
 
 **He notices.** He rumbles, breaks wind (sooner if you stand behind him), and sneezes
 on anyone who loiters in front of his trunk. When he is bald the shaving stops and the
@@ -257,7 +270,7 @@ Settings > System > Display > Graphics.
 | Light and shadow | `src/gfx/` | Shadows store depth so materials can measure how much lies between them and the sun: crisp on snow, soft inside fur and grass. Three maps: the land (drawn only when the sun moves), the mammoth, and a fine one that follows the elf. A shadow map is the whole scene drawn again from the sun, so what goes into each is kept down: the land and the grass are in tiles, and only the tiles a map can see are drawn into it; the elf's map takes the coat patch by patch for the same reason; each person casts a shadow as one mesh with fewer faces (their own layers only when looked at from close to), and a stall as one mesh in place of its fifty sticks |
 | Tools | `src/game/tool.js`, `src/game/tools/` | `tool.js` holds what every tool shares: how it is held in front of the eyes with sway and bob, how it is laid along the hide when pressed into the coat, how a stroke runs, how a motor runs, and how every part of it is kept out of the mammoth and the snow (each tool is a few dozen small spheres for that purpose, checked every frame). A tool itself is a definition: its parts, its size, the hold, the stroke, how well it cuts and how it sounds. The garden clippers are two identical forgings, one turned over on the other: bevelled blades, cranked tangs, brass ferrules, turned handles, a bolt and nut. The shears are a single sprung strip: blades with a ground edge, grips in chipped red paint, and a bow that flexes as they close. The scissors are thin rusty steel with moulded plastic rings and a rivet that lets the blades shiver |
 | What is solid | `src/mammoth/collider.js` | The body's own description (ellipsoids and round cones) evaluated exactly, each piece carried by its bone so the swaying trunk is where it looks, with the toenails added. The baked distance volume the fur drapes over is too coarse to hold a blade a few millimetres off the skin |
-| Cutting | `src/mammoth/strand.js`, `mammoth.js`, `src/game/shaving.js` | The fur is shaped on the GPU, so the same recipe is followed in JavaScript for the guide strand of each lock to find the ones between the blades. Each is cut as a blade reaches it during the stroke, by writing a shorter length for it; its hairs follow. A poor tool misses some of the locks and leaves the others at uneven lengths. An electric tool is asked every frame instead, which needs a much quicker search: it looks only at locks rooted in the mouth of its comb (and, held in the air, at a sixth of the locks that might hang into it, a different sixth each frame). It can cut only so much a second; pushed faster than that through long hair it bogs down and leaves some standing. The hide shows as skin where the coat is down to stubble |
+| Cutting | `src/mammoth/strand.js`, `mammoth.js`, `src/game/shaving.js` | The fur is shaped on the GPU, so the same recipe is followed in JavaScript for the guide strand of each lock to find the ones between the blades. Each is cut as a blade reaches it during the stroke, by writing a shorter length for it; its hairs follow. (That is one number changed in each of a few long arrays the graphics card holds, and only that number is sent, not the megabyte it sits in.) A poor tool misses some of the locks and leaves the others at uneven lengths. An electric tool is asked every frame instead, which needs a much quicker search: it looks only at locks rooted in the mouth of its comb (and, held in the air, at a sixth of the locks that might hang into it, a different sixth each frame). It can cut only so much a second; pushed faster than that through long hair it bogs down and leaves some standing. The hide shows as skin where the coat is down to stubble |
 | Hair and steel | `src/mammoth/furMaterial.js`, `src/game/tool.js` | The fur's vertex shader is told where the blades are and how they are shaped, and moves hair off them. As a last guarantee a tool is drawn as if a few centimetres nearer the eye than it is (5.5 cm for the clippers, 3 cm for the scissors), so any hair lying that close in front of it is hidden behind it and no strand can be seen passing through steel |
 | Cut hair | `src/game/clippings.js`, `furMaterial.js` | A cut copies the strand (and the pose of the skin and the wind at that moment) into a pool drawn by a variant of the fur shader, which grows the same hairs and keeps only the part beyond the cut. That part is then moved as one rigid piece: it falls, turns, flutters, slides off the mammoth and is laid flat on the snow |
 | Sound | `src/game/audio.js` | Synthesised with the Web Audio API: blades sliding and meeting, hair parting, boots in snow, wind that follows the gusts on screen, coins, a fanfare for a new tool (and a deflating one for the bad scissors), the packs, and the mammoth's own noises. Each tool has its own voice: the clippers' wooden handles knock, the shears ring and twang as the bow opens them, the scissors tick, rattle and squeak. The electric tools hum for as long as they run, with the clatter of the cutter in step, and their note sags under load |
@@ -269,6 +282,7 @@ Settings > System > Display > Graphics.
 | Getting up | `src/controls.js`, `src/game/lift.js` | The elf has a height above the snow. A ladder is stood up under him and climbed (it is drawn only as high as his feet, so it is never between him and the hair); a pack burns what is in its tank. `lift.js` is what is seen and heard of it: the ladders, the packs on his back, what comes out of them, the gauge |
 | Under the coat | `src/mammoth/tattoos.js`, `bodyMaterial.js`, `src/game/finds.js` | Twenty-two tattoos drawn in code on one sheet of ink, each projected onto the hide where it belongs (found by walking in from outside until the skin is met); and a thong, which is a formula. The skin's shader shows both only where the hair is off. Bare hide is a pavement of cracked plates, as an elephant's is |
 | Antics | `src/game/antics.js` | What he does while he is being shaved, what he can be made to wear, the remarks at each milestone, and the end |
+| Hired help | `src/game/helpers.js`, `src/game/people/lemming.recipe.js` | The hide is covered with places to stand a hand's width apart, each knowing its neighbours along the surface and the locks rooted on its bit of hide. A few of these are counted again every frame (whoever did the cutting), and every half second each is told how many steps it is from the nearest with hair left; a lemming with nothing to gnaw where it stands steps to a neighbour that is nearer, preferring the less crowded, so they spread out over a full coat and converge on what is left of a thin one. Gnawing is the same cut the tools make, a lock at a time, the longer the slower, and the hair falls as theirs does (a dozen pieces a second between all of them, each standing for whatever else came off). A lemming is sculpted and baked like the people, but has no bones: a body and a head that nods on it, drawn many at once, with all its faces only near the eye; one more drawing of all of them casts their shadows. They ride on him as his skin does, breathing and all |
 | What he says | `src/game/says.js` | His lines, and when he says them: the rest of the game tells him what has happened, and he answers when there is a moment, never twice in a few seconds and never over a shop or a scene. The bubble is a label in the page, put each frame where his mouth is on the screen; when that is out of the picture it keeps to the middle of the nearest edge and points. His voice is a few low syllables from `audio.js` |
 | Picture | `src/gfx/post.js` | HDR rendering, bloom, light shafts, a film-style tone curve that keeps colour in the highlights, vignette and grain |
 | Opening | `index.html`, `src/main.js` | The legend: its first line shows on the dark while the scene is being made, the others over the opening camera move, high in the sky where they can be read. The controls come up when it ends |
@@ -298,12 +312,14 @@ Settings > System > Display > Graphics.
   `scene=<tool>` with `st=<seconds>` (the scene for getting that tool, stopped at that moment),
   `lift=<ladder or pack>` with `up=<metres>` (start that far off the snow on it), `bald` (the
   whole coat off at once), `shave=x,y,z,r` (the coat off within r of a point; several separated
-  by semicolons), `wear=partyhat,shades`, `pink`, and `says=<words>` (he is saying that, and
+  by semicolons), `wear=partyhat,shades`, `pink`, `helpers=n` (so many lemmings already on him), and `says=<words>` (he is saying that, and
   goes on saying it; with `hud` on a still, which otherwise leaves out everything laid over the scene).
 - `tools/loop-test.mjs` plays the whole game through on the live page: the first scene, cutting,
   picking up by hand, selling, buying, the scene for a new tool, every broom and vacuum, a full
-  sack, a ladder, the packs, landing on his back, everything under the coat, the ending, and
-  saving and loading. It steps the game itself rather than waiting for frames, so it is quick.
+  sack, a ladder, the packs, landing on his back, hiring lemmings (which must reach him, gnaw,
+  drop what they gnaw, and later find three patches left somewhere on him), everything under the
+  coat, the ending, and saving and loading. It steps the game itself rather than waiting for
+  frames, so it is quick.
 - `tools/smoke.mjs` drives the live page through every control and reports script errors;
   `tools/intro-test.mjs` checks the opening legend and the ways of skipping it;
   `tools/snip-test.mjs` picks up each tool in turn and cuts with real key presses;

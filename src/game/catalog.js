@@ -11,15 +11,26 @@
 // minutes of bad scissors) buys the shears and a broom; what grows near the
 // ground pays for the first ladders and the clippers; and after that each
 // purchase opens up more mammoth than it cost.
+//
+// The hired help. A lemming gnaws about three quarters of a gram a second
+// where the hair is long (a little better than the bad scissors, a fifth of
+// the shears) and finds its own way to wherever any is left, which is what it
+// is for: the last patches are hard to find. One earns its 60 gold back in the
+// first six minutes if somebody picks up after it; thirty of them take about
+// an hour over a whole mammoth, and a few minutes over what an elf has left
+// of one; two hundred and forty, eight minutes over all of him.
 
 /** Gold for a gram of hair. */
 export const HAIR_PRICE = 0.25;
+/** As many helpers as he has room for. */
+export const MOST_HELP = 240;
 
 export const SECTIONS = [
   { id: 'cutter', title: 'Sharp things', note: 'For taking it off.' },
   { id: 'sweeper', title: 'Picking it up', note: 'It does not sell itself from the snow.' },
   { id: 'ladder', title: 'Getting up there', note: 'He is taller than he looks, and he looks tall.' },
   { id: 'pack', title: 'Getting up there, with fire', note: 'No refunds. No next of kin, either, by the look of you.' },
+  { id: 'help', title: 'Hired help', note: 'They work for crumbs. The crumbs are extra.' },
   { id: 'upgrade', title: 'Improvements', note: 'The same, but more.' },
   { id: 'extra', title: 'Sundries', note: 'Things nobody needs. Priced accordingly.' },
 ];
@@ -49,6 +60,11 @@ export const ITEMS = {
   soda: { kind: 'pack', name: 'Fizzy-pop rocket belt', price: 500, blurb: 'Two bottles and a belt. Shake well. Lands you on your arse about half the time, which is the fun half.', fly: { thrust: 12, tank: 1.4, refill: 0.35, air: 0 } },
   blower: { kind: 'pack', name: 'Leaf-blower pack', price: 1200, blurb: 'Two leaf blowers and a rucksack. Loud enough to make him flinch. Six seconds up, then physics.', fly: { thrust: 8.6, tank: 6, refill: 0.6, air: 0 } },
   jet: { kind: 'pack', name: 'Icarus Mk II jet pack', price: 2600, blurb: 'A proper one. Hovers. The Mk I is why I have this hat and not the other hat.', fly: { thrust: 9.6, tank: 16, refill: 2, air: 0.12 } },
+
+  // ---- hired help (what they do is in src/game/helpers.js): as many as you like, as often as you like ----
+  lemming: { kind: 'help', name: 'A lemming', price: 60, again: true, hire: 1, blurb: 'Climbs. Gnaws. Finds the bits you missed. Has no idea what a mammoth is and is not going to be told.' },
+  lemmings: { kind: 'help', name: 'Half a dozen lemmings', price: 320, again: true, hire: 6, blurb: 'They work better in company. They do everything better in company. That is the trouble with lemmings.' },
+  plague: { kind: 'help', name: 'A plague of lemmings', price: 1400, again: true, hire: 30, blurb: 'Thirty. I counted twice and got thirty once. He will be bald by supper and you will not have lifted a finger.' },
 
   // ---- improvements ----
   sack: {

@@ -29,8 +29,14 @@ export function patchStandardMaterial(mat, {
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', `#include <common>\nvarying vec3 vWPos;\nvarying vec3 vWNormal;\n${vertexHead}`)
       .replace('#include <project_vertex>', `#include <project_vertex>
-        vWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;
-        vWNormal = normalize(mat3(modelMatrix) * objectNormal);
+        #ifdef USE_INSTANCING
+          // (one of many drawn at once: each has a place of its own)
+          vWPos = (modelMatrix * instanceMatrix * vec4(transformed, 1.0)).xyz;
+          vWNormal = normalize(mat3(modelMatrix) * mat3(instanceMatrix) * objectNormal);
+        #else
+          vWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;
+          vWNormal = normalize(mat3(modelMatrix) * objectNormal);
+        #endif
         ${extraVertex}`);
     let f = shader.fragmentShader
       .replace('#include <common>', `#include <common>
