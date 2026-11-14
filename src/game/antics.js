@@ -159,6 +159,7 @@ export class Antics {
     this.hint(FEATS[id], 7);
     this.quiet = 10;
     this.sound.coin(2);
+    if (this.says && (id === 'perched' || id === 'high')) this.says.heard(id);
   }
 
   /** Where his rear is, in the world. */
@@ -188,6 +189,7 @@ export class Antics {
       rig.rattle = behind ? 1 : 0;
       this.quiet = 0;
       this.say(pick(behind ? SAYS.fartNear : SAYS.fart), 6);
+      if (this.says) this.says.heard('fart');
       s.stats.farts = (s.stats.farts || 0) + 1;
     } else if (this.next.rumble <= 0) {
       this.next.rumble = between(35, 80);
@@ -209,6 +211,7 @@ export class Antics {
         for (let i = 0; i < 60; i++) this.puffs.emit('snow', 2.85 + Math.random() * 0.2, 0.3 + Math.random() * 0.3, (Math.random() - 0.5) * 0.3, between(2, 6), between(0, 1.5), between(-1.5, 1.5));
         this.quiet = 0;
         this.say(pick(SAYS.sneeze), 6);
+        if (this.says) this.says.heard('sneeze');
       }
     }
 
@@ -220,6 +223,7 @@ export class Antics {
         if (at >= 0.1) this.sound.trumpet();
         this.quiet = 0;
         this.say(line, 8);
+        if (this.says) this.says.heard('milestone', at);
         break;
       }
     }

@@ -12,6 +12,7 @@ import { buildGnome, buildStall } from './people/gnome.js';
 import { buildVulture, buildWigTable } from './people/vulture.js';
 import { UNCUT } from '../mammoth/groom.js';
 import { Finds } from './finds.js';
+import { Says } from './says.js';
 
 const $ = (id) => document.getElementById(id);
 const pick = (list) => list[Math.floor(Math.random() * list.length)];
@@ -149,6 +150,9 @@ export class Game {
 
     // what is under the coat, waiting to be found
     this.finds = new Finds({ mammoth, state: this.state, hint, sound });
+    // and what he has to say about it, and about everything else
+    this.says = new Says({ mammoth, rig, state: this.state, sound, shaving });
+    this.finds.onFind = (spot) => this.says.heard('find', spot.id);
 
     this.buildDialog();
     this.refresh();
@@ -194,6 +198,7 @@ export class Game {
     this.refresh();
     if (what.startsWith('bought:')) {
       const id = what.slice(7), item = ITEMS[id];
+      this.says.heard('bought', id);
       this.applyUpgrades();
       if (id === 'tonic') this.regrow();
       if (id === 'box') this.lucky();
@@ -214,6 +219,7 @@ export class Game {
     s.flags.pink = false; s.flags.done = false; s.flags.told = {};
     if (this.antics) this.antics.dye();
     this.hint('<strong>It all grew back.</strong> He is furious, and fluffy.', 6);
+    this.says.heard('regrow');
     s.dirty = true;
   }
 
@@ -245,6 +251,7 @@ export class Game {
         if (!b) return;
         el.classList.remove('show'); el.hidden = true;
         if (b.dataset.act === 'regrow') { this.regrow(); this.state.stats.tonics--; this.save(true); }
+        else this.says.heard('bald');
       });
     }
     this.save(true);
@@ -486,7 +493,7 @@ export class Game {
 
   sell() {
     const paid = this.state.sell(this.price());
-    if (paid > 0) { this.said = pick(SAYS.vulture.sold); this.pleased.vulture = 1; this.sound.coin(Math.min(8, 2 + Math.floor(paid / 20))); }
+    if (paid > 0) { this.said = pick(SAYS.vulture.sold); this.pleased.vulture = 1; this.sound.coin(Math.min(8, 2 + Math.floor(paid / 20))); this.says.heard('sold'); }
     else this.said = pick(SAYS.vulture.empty);
     this.fillDialog();
   }
@@ -518,6 +525,9 @@ export class Game {
 
     this.finds.update(dt, !elf || !!this.dialog || playing);
     if (this.antics) this.antics.update(dt, { elf, busy: !!this.dialog || playing });
+    // (he holds his tongue while a shop is open, a scene is playing or the ending is up, and until the legend has been told)
+    const cl = document.body.classList, finale = $('finale');
+    this.says.update(dt, { elf, busy: !!this.dialog || playing || !!(finale && !finale.hidden), seen: cl.contains('told') && !cl.contains('bare') });
     this.guide(dt, elf);
 
     // keep the haircut: it is the one thing that cannot be bought back (well, it can, for 150 gold)
@@ -558,6 +568,7 @@ export class Game {
   restart() {
     this.state.wipe();
     this.mammoth.setHaircut(null);
+    this.says.heard('newgame');
     this.shaving.setTool('scissors');
     this.applyUpgrades();
     if (this.antics) { this.antics.dress(); this.antics.dye(); }
