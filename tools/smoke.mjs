@@ -1,14 +1,10 @@
 // Drives the real page (not shot mode) through its controls and reports any
 // script errors. Slow in software rendering, so it uses a small window.
 //   node tools/smoke.mjs            (needs `npm run dev` running)
-import { createRequire } from 'node:module';
-const require = createRequire(import.meta.url);
-let chromium;
-try { ({ chromium } = require('playwright')); }
-catch { ({ chromium } = require('/opt/node-tools/node_modules/playwright')); }
+import { launch } from './browser.mjs';
 
 const base = process.env.BASE || 'http://localhost:5173/';
-const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+const browser = await launch();
 const page = await browser.newPage({ viewport: { width: 520, height: 300 } });
 page.setDefaultTimeout(300000);   // (a click waits for two frames, and without a graphics card a frame takes seconds)
 const errors = [];
@@ -19,6 +15,11 @@ const step = async (name, fn, wait = 2500) => {
   await page.waitForTimeout(wait);
   console.log(`ok: ${name}`);
 };
+// Keys that are held are held for so many frames as well as so long: without a graphics card a frame can take longer
+// than the key would be held, and a key pressed and let go between two frames does nothing.
+const frames = (n) => page.evaluate((count) => new Promise((done) => { let k = 0; const tick = () => (++k > count ? done() : requestAnimationFrame(tick)); requestAnimationFrame(tick); }), n);
+const holdFor = async (key, n) => { await page.keyboard.down(key); await frames(n); await page.keyboard.up(key); await frames(1); };
+const hold = async (key, ms, n = 2) => { await page.keyboard.down(key); await page.waitForTimeout(ms); await frames(n); await page.keyboard.up(key); await frames(1); };
 await page.goto(base + '?q=low&strands=20000&adapt=9&stats&sync&unlock&nosave&debug', { waitUntil: 'load' });
 await page.waitForFunction(() => document.body.classList.contains('ready'), null, { timeout: 240000 });
 // the legend is told over the opening shot; the controls come up when it ends
@@ -37,19 +38,16 @@ await step('detail low', () => page.selectOption('#detail', 'low'), 4000);
 await step('key 3', () => page.keyboard.press('Digit3'), 4000);
 await step('choose the shears', () => page.click('#tool-sheep'), 800);
 await step("elf's-eye view", () => page.click('#view-elf'), 3000);
-await step('walk', async () => { await page.keyboard.down('KeyW'); await page.waitForTimeout(1500); await page.keyboard.up('KeyW'); }, 1000);
+await step('walk', () => hold('KeyW', 1500), 1000);
 await page.screenshot({ path: 'shots/smoke_elf.png', timeout: 300000 });
 await step('key 1 (small bad scissors)', () => page.keyboard.press('Digit1'), 3000);
-await step('snip', async () => { await page.keyboard.down('Space'); await page.waitForTimeout(1500); await page.keyboard.up('Space'); }, 1000);
+await step('snip', () => hold('Space', 1500), 1000);
 await step('key 3 (garden clippers)', () => page.keyboard.press('Digit3'), 3000);
 await step('key 4 (electric shears)', () => page.keyboard.press('Digit4'), 3000);
-await step('run them', async () => { await page.keyboard.down('Space'); await page.waitForTimeout(2500); await page.keyboard.up('Space'); }, 1500);
+await step('run them', () => hold('Space', 2500), 1500);
 await step('key 5 (beard shaver)', () => page.keyboard.press('Digit5'), 3000);
-await step('run it', async () => { await page.keyboard.down('Space'); await page.waitForTimeout(2500); await page.keyboard.up('Space'); }, 1500);
-// up the ladder and down it; then the pack. (Counted in frames, not seconds: without a graphics card a frame can
-// take longer than a key would be held, and a key pressed and let go between two frames does nothing.)
-const frames = (n) => page.evaluate((count) => new Promise((done) => { let k = 0; const tick = () => (++k > count ? done() : requestAnimationFrame(tick)); requestAnimationFrame(tick); }), n);
-const holdFor = async (key, n) => { await page.keyboard.down(key); await frames(n); await page.keyboard.up(key); await frames(1); };
+await step('run it', () => hold('Space', 2500), 1500);
+// up the ladder and down it; then the pack
 await holdFor('KeyR', 3);
 const up = await page.evaluate(() => ({ height: +window.__game.rig.height.toFixed(2), ladder: !!window.__game.rig.ladder }));
 console.log(`ok: R (up the ladder): on it ${up.ladder}, ${up.height} m up`);
@@ -67,7 +65,7 @@ await page.screenshot({ path: 'shots/smoke_air.png', timeout: 300000 });
 await holdFor('KeyF', 2);
 await page.evaluate(() => { const { rig } = window.__game; rig.height = 0; rig.vy = 0; });
 await step('Q (the best thing owned for picking hair up)', () => page.keyboard.press('KeyQ'), 3000);
-await step('run it', async () => { await page.keyboard.down('Space'); await page.waitForTimeout(2500); await page.keyboard.up('Space'); }, 1500);
+await step('run it', () => hold('Space', 2500), 1500);
 await step('Q (back to cutting)', () => page.keyboard.press('KeyQ'), 3000);
 // the novelties: G takes one out, then the next, then puts them away; and one of them is used, in real frames
 const inHand = () => page.evaluate(() => { const s = window.__game.shaving; return s.next || s.tool.id; });
@@ -77,8 +75,10 @@ if ((await inHand()) !== cutter) errors.push('G took something out when there wa
 await page.evaluate(() => { const { game, rig } = window.__game; game.state.owned.add('feather'); game.state.owned.add('watch'); game.refresh(); rig.pos.x = 1.6; rig.pos.z = 1.15; rig.yaw = 0.8; rig.pitch = 0.25; });
 await step('G (the feather)', () => page.keyboard.press('KeyG'), 3000);
 if ((await inHand()) !== 'feather') errors.push('G did not take out the feather');
-await step('tickle him', async () => { await page.keyboard.down('Space'); await page.waitForTimeout(2500); await page.keyboard.up('Space'); }, 1500);
+await page.keyboard.down('Space'); await page.waitForTimeout(2500); await frames(3);
 const tickled = await page.evaluate(() => ({ on: window.__game.game.gags.on, progress: +window.__game.game.gags.progress.toFixed(2), label: document.querySelector('#aim span').textContent }));
+await page.keyboard.up('Space'); await frames(1);
+console.log('ok: tickle him');
 console.log(`  the feather: "${tickled.label}", ${Math.round(tickled.progress * 100)}% of the way`);
 if (!(tickled.progress > 0)) errors.push('holding the button with the feather on his leg did nothing');
 await step('G (the next: the watch)', () => page.keyboard.press('KeyG'), 3000);
@@ -105,3 +105,4 @@ const stats = await page.$eval('#stats', (el) => el.textContent);
 console.log('stats:', stats);
 console.log(errors.length ? 'ERRORS:\n' + errors.join('\n') : 'no script errors');
 await browser.close();
+process.exitCode = errors.length ? 1 : 0;

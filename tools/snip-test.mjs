@@ -7,15 +7,11 @@
 // frames", and the game advances a tenth of a second in each. The land is left
 // undrawn (?bare), which is most of what makes a frame slow here.
 //   node tools/snip-test.mjs            (needs `npm run dev` running; SHOTS=1 also saves pictures)
-import { createRequire } from 'node:module';
-const require = createRequire(import.meta.url);
-let chromium;
-try { ({ chromium } = require('playwright')); }
-catch { ({ chromium } = require('/opt/node-tools/node_modules/playwright')); }
+import { launch } from './browser.mjs';
 
 const base = process.env.BASE || 'http://localhost:5173/';
 const shots = !!process.env.SHOTS;   // SHOTS=1 also saves pictures
-const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+const browser = await launch();
 const page = await browser.newPage({ viewport: { width: 480, height: 270 } });
 page.setDefaultTimeout(600000);
 const errors = [];
@@ -204,3 +200,4 @@ console.log(`${drawn} frames in ${((Date.now() - started) / 1000).toFixed(0)} s:
 console.log('stats:', await page.$eval('#stats', (el) => el.textContent));
 console.log(errors.length ? 'ERRORS:\n' + errors.join('\n') : 'no script errors, every check passed');
 await browser.close();
+process.exitCode = errors.length ? 1 : 0;
