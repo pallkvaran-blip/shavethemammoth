@@ -247,6 +247,39 @@ function noteAll(attribute) {
   if (attribute.userData) attribute.userData.whole = true;
 }
 
+/** How far an eye can turn in its socket (radians). */
+const EYE_TURN = (34 * Math.PI) / 180;
+const Z_AXIS = new THREE.Vector3(0, 0, 1);
+
+/**
+ * The eye, unrolled: the pupil is at the pole of the ball (the top of this picture), the iris round it, and the rest
+ * is the white, which on a mammoth is not very white.
+ */
+function makeEyeTexture() {
+  const w = 256, h = 256, c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  const g = c.getContext('2d');
+  const row = (deg) => (deg / 180) * h;           // (degrees round from the pupil's middle)
+  const white = g.createLinearGradient(0, row(30), 0, row(110));
+  white.addColorStop(0, '#dccfb9'); white.addColorStop(0.5, '#bfae95'); white.addColorStop(1, '#6e5646');
+  g.fillStyle = white; g.fillRect(0, 0, w, h);
+  // the iris: amber, darker at its rim, streaked outwards from the pupil
+  const iris = g.createLinearGradient(0, row(13), 0, row(31));
+  iris.addColorStop(0, '#c4832a'); iris.addColorStop(0.55, '#8a531b'); iris.addColorStop(1, '#2a1608');
+  g.fillStyle = iris; g.fillRect(0, 0, w, row(31));
+  let seed = 7;
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  for (let i = 0; i < 90; i++) {
+    g.fillStyle = rnd() < 0.5 ? 'rgba(40,20,6,0.28)' : 'rgba(236,180,90,0.22)';
+    g.fillRect(rnd() * w, row(14), 1 + rnd() * 2, row(15));
+  }
+  g.fillStyle = '#050302'; g.fillRect(0, 0, w, row(14));          // the pupil
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = THREE.RepeatWrapping;
+  return tex;
+}
+
 export class Mammoth {
   static async create({ strands = 240000, cell = 0.025, a2c = true } = {}, progress = () => {}) {
     const m = new Mammoth();
@@ -334,11 +367,16 @@ export class Mammoth {
       attach(tusk, 'head');
     }
 
+    // The eyes: a ball each, with an amber iris and a pupil on the end of it that looks out (+z of the ball), and
+    // enough white round that to show which way he is looking. They follow whoever is watching (see look()).
     const eyeMat = patchStandardMaterial(new THREE.MeshPhysicalMaterial({
-      color: 0x0c0603, roughness: 0.08, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.04,
+      map: makeEyeTexture(), roughness: 0.08, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.04,
     }), { key: 'eye' });
+    m.eyes = [];
     for (const side of [1, -1]) {
-      const eye = new THREE.Mesh(new THREE.SphereGeometry(anat.eye.radius, 24, 16), eyeMat);
+      const ball = new THREE.SphereGeometry(anat.eye.radius, 28, 20);
+      ball.rotateX(Math.PI / 2);                 // (the pole, where the pupil is painted, to the front)
+      const eye = new THREE.Mesh(ball, eyeMat);
       // seat the eyeball in the skull: only a third of it shows
       const ep = [anat.eye.pos[0], anat.eye.pos[1], anat.eye.pos[2] * side], eg = [0, 0, 0];
       const ed = data.sdf.dist(ep[0], ep[1], ep[2]);
@@ -347,6 +385,10 @@ export class Mammoth {
       eye.position.set(ep[0] - eg[0] * sink, ep[1] - eg[1] * sink, ep[2] - eg[2] * sink);
       eye.name = 'eye';
       attach(eye, 'head');
+      // (straight out of the socket, and a little forward: where it looks when there is nobody to look at)
+      const out = new THREE.Vector3(eg[0] + 0.35, eg[1], eg[2]).normalize();
+      eye.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), out);
+      m.eyes.push({ mesh: eye, out, dir: out.clone() });
     }
 
     // toenails: horn plates set into the front of each foot
@@ -911,6 +953,31 @@ export class Mammoth {
     }
     this.hairsDrawn = hairs;
     this.coatDraws = draws;
+  }
+
+  /**
+   * His eyes follow whoever is watching: `at` is where they are (in the world). Each eye turns towards it as far as
+   * its socket lets it, quickly, as eyes do.
+   */
+  look(at, dt) {
+    if (!this.eyes) return;
+    const v = this._lookV || (this._lookV = new THREE.Vector3()), q = this._lookQ || (this._lookQ = new THREE.Quaternion());
+    const far = Math.cos(EYE_TURN), k = 1 - Math.exp(-dt * 9);
+    for (const e of this.eyes) {
+      const head = e.mesh.parent;
+      // the way to look, as the head sees it
+      e.mesh.getWorldPosition(v);
+      v.subVectors(at, v).normalize().applyQuaternion(head.getWorldQuaternion(q).invert());
+      // no further round than the socket allows: beyond that, as far that way as it goes
+      const c = v.dot(e.out);
+      if (c < far) {
+        v.addScaledVector(e.out, -c);                               // (the part of it across the socket)
+        if (v.lengthSq() < 1e-8) v.set(0, 1, 0).addScaledVector(e.out, -e.out.y);
+        v.normalize().multiplyScalar(Math.sin(EYE_TURN)).addScaledVector(e.out, far);
+      }
+      e.dir.lerp(v, dt > 0 ? k : 1).normalize();
+      e.mesh.quaternion.setFromUnitVectors(Z_AXIS, e.dir);
+    }
   }
 
   update(dt) {
