@@ -1,0 +1,52 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>measured views</title>
+<style>html,body{margin:0;height:100%;background:#777;overflow:hidden}canvas{position:fixed;inset:0;width:100%;height:100%;display:block}</style>
+<script type="importmap">{"imports":{"three":"./three/build/three.module.js","three/addons/":"./three/examples/jsm/"}}</script>
+</head><body><canvas id="c"></canvas><canvas id="g"></canvas>
+<script type="module">
+// A model seen square-on with no perspective, under a grid in its own units (the file's: y up, +z forward, +x his left).
+//   ?glb=..&dir=front|back|left|right|top&cx=&cy=&half=<half the height shown, metres>&step=<grid, metres>&mode=lit|base|clay
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+const q = new URLSearchParams(location.search), num = (k, d) => (q.has(k) ? +q.get(k) : d);
+const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('c'), antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(1); renderer.setSize(innerWidth, innerHeight, false);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+const scene = new THREE.Scene(); scene.background = new THREE.Color('#8d9199');
+scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
+const loader = new GLTFLoader(); loader.setMeshoptDecoder(MeshoptDecoder);
+const gltf = await loader.loadAsync(q.get('glb')); scene.add(gltf.scene);
+const mode = q.get('mode') || 'lit';
+gltf.scene.traverse((o) => { if (!o.isMesh) return; const m = o.material;
+  if (mode === 'base') o.material = new THREE.MeshBasicMaterial({ map: m.map, vertexColors: !!m.vertexColors && !m.map });
+  if (mode === 'clay') o.material = new THREE.MeshStandardMaterial({ color: 0xb9b4ac, roughness: 0.75 }); });
+const dir = q.get('dir') || 'front', half = num('half', 0.22), cx = num('cx', 0), cy = num('cy', 0.2), step = num('step', 0.01);
+const aspect = innerWidth / innerHeight;
+const cam = new THREE.OrthographicCamera(-half * aspect, half * aspect, half, -half, 0.01, 10);
+// across = the axis that runs to the right of the picture, and its sign
+const V = { front: { pos: [cx, cy, 3], up: [0, 1, 0], across: ['x', 1] }, back: { pos: [-cx, cy, -3], up: [0, 1, 0], across: ['x', -1] },
+  left: { pos: [3, cy, -cx], up: [0, 1, 0], across: ['z', -1] }, right: { pos: [-3, cy, cx], up: [0, 1, 0], across: ['z', 1] }, top: { pos: [cx, 3, -cy], up: [0, 0, -1], across: ['x', 1] } }[dir];
+cam.position.set(...V.pos); cam.up.set(...V.up);
+const t = new THREE.Vector3(...V.pos); if (dir === 'front') t.z = 0; if (dir === 'back') t.z = 0; if (dir === 'left' || dir === 'right') t.x = 0; if (dir === 'top') t.y = 0;
+cam.lookAt(t); cam.updateProjectionMatrix();
+renderer.render(scene, cam); renderer.getContext().finish();
+// the grid
+const g = document.getElementById('g'); g.width = innerWidth; g.height = innerHeight; const c = g.getContext('2d');
+const pxPer = innerHeight / (2 * half);
+c.font = '11px monospace'; c.textBaseline = 'top';
+const acrossMid = cx, upMid = cy;       // (what the middle of the picture is, along each of the picture's axes)
+for (let v = Math.ceil((upMid - half) / step) * step; v <= upMid + half; v += step) {
+  const y = innerHeight / 2 - (v - upMid) * pxPer, major = Math.abs(Math.round(v / step) % 5) === 0;
+  c.strokeStyle = major ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.16)'; c.beginPath(); c.moveTo(0, y); c.lineTo(innerWidth, y); c.stroke();
+  if (major) { c.fillStyle = '#fff'; c.fillText(v.toFixed(3), 2, y + 1); }
+}
+for (let v = Math.ceil((acrossMid - half * aspect) / step) * step; v <= acrossMid + half * aspect; v += step) {
+  const x = innerWidth / 2 + (v - acrossMid) * pxPer, major = Math.abs(Math.round(v / step) % 5) === 0;
+  c.strokeStyle = major ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.16)'; c.beginPath(); c.moveTo(x, 0); c.lineTo(x, innerHeight); c.stroke();
+  if (major) { c.fillStyle = '#ff0'; c.fillText((v * V.across[1]).toFixed(3), x + 2, 2); }
+}
+c.fillStyle = '#fff'; c.fillText(`${dir}: across = ${V.across[1] > 0 ? '+' : '-'}${V.across[0]} (yellow), up = ${dir === 'top' ? '-z' : 'y'} (white), grid ${step} m`, 4, innerHeight - 16);
+window.__shotReady = true;
+</script></body></html>

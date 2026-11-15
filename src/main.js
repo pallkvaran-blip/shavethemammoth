@@ -17,6 +17,8 @@ import { Hero } from './game/hero.js';
 import { Lift } from './game/lift.js';
 import { Antics } from './game/antics.js';
 import { startBaking } from './game/people/bakery.js';
+import { loadCast } from './game/people/cast.js';
+import { buildGnomeCast } from './game/people/gnome.cast.js';
 
 const q = new URLSearchParams(location.search);
 const num = (k, d) => (q.has(k) ? parseFloat(q.get(k)) : d);
@@ -510,6 +512,35 @@ async function start() {
   // the elf himself: seen from outside before the shaving starts, and whenever he has something new to show off
   hero = new Hero({ scene, camera, rig, shaving, terrain, mammoth, sound, baked: baked.elf });
   folkTimes.dressed = Math.round(performance.now() - dressFrom);
+
+  // ---- which Gnorman (dev) ----
+  // There are two of him: the one the page sculpts as it loads, and one cast from a sculpt made elsewhere and finished in
+  // Blender (people/cast.js), which is fetched the first time it is asked for. N, or the mark beside the purse, changes
+  // one for the other where he stands; ?gnorman=cast starts with the second. Which it was is remembered.
+  const folk = [hero.elf, game.gnome, game.vulture, game.table];
+  const gnormans = { sculpted: game.gnome, cast: null };
+  let changing = false;
+  const changeGnorman = async (to = game.gnome === gnormans.sculpted ? 'cast' : 'sculpted', quiet = false) => {
+    if (changing || !gnormans[to] && to !== 'cast') return;
+    changing = true;
+    try {
+      if (to === 'cast' && !gnormans.cast) {
+        if (!quiet) showHint('<strong>Dev.</strong> Fetching the other Gnorman…', 60);
+        gnormans.cast = buildGnomeCast(await loadCast('gnorman'));
+      }
+      const now = gnormans[to], was = game.wearGnome(now);
+      if (was !== now) { folk[folk.indexOf(was)] = now; nearStale = true; }
+      if (!shot && !q.has('nosave')) { try { localStorage.setItem('mammoth-gnorman', to); } catch { /* simply not kept */ } }
+      if (!quiet) showHint(to === 'cast' ? '<strong>Dev.</strong> This is the Gnorman made in Blender from a generated sculpt. <kbd>N</kbd> brings back the one the page sculpts.' : '<strong>Dev.</strong> This is Gnorman as the page sculpts him. <kbd>N</kbd> for the one made in Blender.', 7);
+    } catch (err) {
+      console.warn('the other Gnorman:', err);
+      if (!quiet) showHint('<strong>Dev.</strong> The other Gnorman could not be fetched.', 6);
+    } finally { changing = false; }
+  };
+  {
+    const kept = (() => { try { return localStorage.getItem('mammoth-gnorman'); } catch { return null; } })();
+    if (q.has('gnorman') ? q.get('gnorman') === 'cast' : (!shot && !q.has('nosave') && kept === 'cast')) await changeGnorman('cast', true);
+  }
   game.hero = hero;
   // Everything the people are made of is got ready behind the loading card. They are left out of the picture when they
   // are not in it; one first drawn later would hold everything up while its materials were made.
@@ -567,6 +598,7 @@ async function start() {
     if (progressEl) progressEl.hidden = !elf;
     if ($('purse')) $('purse').hidden = !elf;
     if ($('dev-gold')) $('dev-gold').hidden = !elf || !game.devTools;
+    if ($('dev-gnorman')) $('dev-gnorman').hidden = !elf || !game.devTools;
     if (elfButton) elfButton.textContent = elf ? 'Stop shaving' : 'Start shaving';
     if (elf) {
       if (!shot) sound.start();   // allowed now: this follows a click or a key press
@@ -628,7 +660,7 @@ async function start() {
     if (game.gags.shot && e.code !== 'Escape') { e.preventDefault(); if (!e.repeat) game.gags.skip(); return; }
     if (game.raid.playing && game.raid.play.cine && e.code !== 'Escape') { e.preventDefault(); if (!e.repeat) game.raid.skip(); return; }
     // talking to someone: E or Esc ends it, and nothing else is a command
-    if (game.dialog) { if (e.code === 'KeyE' || e.code === 'Escape') { e.preventDefault(); game.close(); } else if (e.code === 'KeyB' && !e.repeat) game.devGold(); return; }
+    if (game.dialog) { if (e.code === 'KeyE' || e.code === 'Escape') { e.preventDefault(); game.close(); } else if (e.code === 'KeyB' && !e.repeat) game.devGold(); else if (e.code === 'KeyN' && !e.repeat) changeGnorman(); return; }
     if (e.code.startsWith('Digit')) {
       const i = +e.code.slice(5) - 1;
       // with a tool in hand the number keys change it; otherwise they change the view
@@ -645,6 +677,8 @@ async function start() {
       game.swapLift();
     } else if (e.code === 'KeyB' && rig.mode === 'elf' && !e.repeat) {
       game.devGold();                    // (dev: gold enough for everything)
+    } else if (e.code === 'KeyN' && rig.mode === 'elf' && !e.repeat) {
+      changeGnorman();                   // (dev: the other Gnorman)
     } else if (e.code === 'Escape' && rig.mode === 'elf') {
       rig.leaveElf();
     } else if (e.code === 'KeyH') {
@@ -659,6 +693,7 @@ async function start() {
   });
   statsEl.hidden = !showStats;
   if ($('dev-gold')) $('dev-gold').addEventListener('click', () => game.devGold());
+  if ($('dev-gnorman')) $('dev-gnorman').addEventListener('click', () => changeGnorman());
   // (a click gets on with a scene that is playing, as any key does)
   window.addEventListener('pointerdown', () => { if (hero.playing) hero.skip(); else if (game.gags.shot) game.gags.skip(); else if (game.raid.playing) game.raid.skip(); });
 
@@ -840,7 +875,6 @@ async function start() {
 
   let shadowTris = 0;
   const count = renderer.info.render;
-  const folk = [hero.elf, game.gnome, game.vulture, game.table];
   game.raid.onMade = (men) => folk.push(...men);
   const frame = (stamp) => {
     // The time is the one the browser gives the frame, which keeps step with the screen: taken off the clock instead,

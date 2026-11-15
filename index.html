@@ -269,13 +269,13 @@
   }
   #purse #bag.full { color: var(--warn); }
   /* not part of the game: a dev button that fills the purse (a chalk mark beside the labels, not a label) */
-  #dev-gold, .sheet footer button.dev {
+  #dev-gold, #dev-gnorman, .sheet footer button.dev {
     appearance: none; cursor: pointer; font: inherit; font-weight: 600; font-size: 0.8rem; line-height: 1.2; letter-spacing: 0.05em; white-space: nowrap;
     color: var(--thread-dim); background: rgba(15, 12, 10, 0.45); border: 1px dashed var(--thread-faint); border-radius: 4px; padding: 3px 9px 4px;
   }
-  #dev-gold { pointer-events: auto; }
-  #dev-gold:hover, .sheet footer button.dev:hover { color: var(--thread); border-color: var(--thread-dim); background: rgba(15, 12, 10, 0.6); }
-  #dev-gold kbd { margin-right: 0.55em; }
+  #dev-gold, #dev-gnorman { pointer-events: auto; }
+  #dev-gold:hover, #dev-gnorman:hover, .sheet footer button.dev:hover { color: var(--thread); border-color: var(--thread-dim); background: rgba(15, 12, 10, 0.6); }
+  #dev-gold kbd, #dev-gnorman kbd { margin-right: 0.55em; }
   @media (max-width: 480px) { .sheet footer button.dev .wide { display: none; } }
   /* what is left in the pack's tank */
   #fuel { width: 8rem; height: 10px; border-radius: 3px; background: var(--felt); border: 1px solid var(--felt-lo); box-shadow: inset 0 0 0 1px rgba(243, 230, 200, 0.16); overflow: hidden; }
@@ -475,6 +475,7 @@
     <div class="readouts">
       <div id="purse" hidden><span id="gold">0 gold</span><span id="bag">0 g of 100 g</span></div>
       <button type="button" id="dev-gold" title="Dev: puts enough gold in the purse to buy everything on Gnorman’s list" hidden><kbd class="desk">B</kbd>Dev: gold for everything</button>
+      <button type="button" id="dev-gnorman" title="Dev: changes Gnorman for the one made in Blender from a generated sculpt, and back again" hidden><kbd class="desk">N</kbd>Dev: new Gnorman</button>
       <div id="fuel" role="img" aria-label="What is left in the tank" hidden><i></i></div>
       <div id="progress" hidden>Shorn 0.000%</div>
       <div id="stats" hidden></div>

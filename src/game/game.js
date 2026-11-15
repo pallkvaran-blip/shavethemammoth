@@ -576,6 +576,27 @@ export class Game {
     this.fillDialog();
   }
 
+  /**
+   * Change Gnorman for another figure of him (the one the page sculpts, or the one from a cast: people/gnome.cast.js).
+   * It stands where he stood, and is what the rest of the game talks to from now on. Returns the one it replaced.
+   */
+  wearGnome(figure) {
+    const was = this.gnome;
+    if (figure === was) return was;
+    figure.group.position.copy(was.group.position);
+    figure.group.quaternion.copy(was.group.quaternion);
+    figure.group.updateMatrixWorld(true);
+    was.group.parent.add(figure.group);
+    was.group.parent.remove(was.group);
+    // (what throws shadows is one list, shared with others who add to it: his parts are changed in it where it is)
+    const old = new Set(was.meshes);
+    for (let i = this.casters.length - 1; i >= 0; i--) if (old.has(this.casters[i])) this.casters.splice(i, 1);
+    this.casters.push(...figure.meshes);
+    this.people.gnome.parts[1] = figure;
+    this.gnome = figure;
+    return was;
+  }
+
   // ---- every frame --------------------------------------------------------------------------
 
   update(dt) {

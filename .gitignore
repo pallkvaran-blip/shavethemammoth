@@ -5,3 +5,5 @@ dist-artifact/
 *.log
 .DS_Store
 shots/
+__pycache__/
+tools/cast/ledger.jsonl

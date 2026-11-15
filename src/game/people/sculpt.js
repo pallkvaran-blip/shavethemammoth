@@ -358,8 +358,10 @@ export function coarsen(data, size) {
 }
 
 /**
- * Points scattered over a layer's surface, for things to grow from: `want(x, y, z, nx, ny, nz)` says how thickly
- * (0 for not at all, 1 for as thick as it gets). Returns up to `count` of { p: [x, y, z], n: [nx, ny, nz] }.
+ * Points scattered over a layer's surface, for things to grow from: `want(x, y, z, nx, ny, nz, a, b, c)` says how
+ * thickly at a face (0 for not at all, 1 for as thick as it gets), given its middle, the normal at its first corner
+ * and which three points its corners are. Returns up to `count` of { p: [x, y, z], n: [nx, ny, nz], of: [a, b, c],
+ * near: the one of those three it is nearest }.
  */
 export function scatter(data, count, want, seed = 1) {
   let s = seed >>> 0 || 1;
@@ -373,7 +375,7 @@ export function scatter(data, count, want, seed = 1) {
     const ux = P[b] - P[a], uy = P[b + 1] - P[a + 1], uz = P[b + 2] - P[a + 2], vx = P[c] - P[a], vy = P[c + 1] - P[a + 1], vz = P[c + 2] - P[a + 2];
     const area = 0.5 * Math.hypot(uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx);
     const mx = (P[a] + P[b] + P[c]) / 3, my = (P[a + 1] + P[b + 1] + P[c + 1]) / 3, mz = (P[a + 2] + P[b + 2] + P[c + 2]) / 3;
-    const w = area * Math.max(0, want(mx, my, mz, N[a], N[a + 1], N[a + 2]));
+    const w = area * Math.max(0, want(mx, my, mz, N[a], N[a + 1], N[a + 2], a / 3, b / 3, c / 3));
     total += w; share[t] = total;
   }
   const out = [];
@@ -388,7 +390,10 @@ export function scatter(data, count, want, seed = 1) {
     const w = 1 - u - v;
     const n = [N[a] * w + N[b] * u + N[c] * v, N[a + 1] * w + N[b + 1] * u + N[c + 1] * v, N[a + 2] * w + N[b + 2] * u + N[c + 2] * v];
     const l = Math.hypot(n[0], n[1], n[2]) || 1;
-    out.push({ p: [P[a] * w + P[b] * u + P[c] * v, P[a + 1] * w + P[b + 1] * u + P[c + 1] * v, P[a + 2] * w + P[b + 2] * u + P[c + 2] * v], n: [n[0] / l, n[1] / l, n[2] / l] });
+    out.push({
+      p: [P[a] * w + P[b] * u + P[c] * v, P[a + 1] * w + P[b + 1] * u + P[c + 1] * v, P[a + 2] * w + P[b + 2] * u + P[c + 2] * v], n: [n[0] / l, n[1] / l, n[2] / l],
+      of: [a / 3, b / 3, c / 3], near: (w >= u && w >= v ? a : u >= v ? b : c) / 3,
+    });
   }
   return out;
 }
