@@ -372,6 +372,9 @@ Settings > System > Display > Graphics.
   clock that it moves on itself (so that a machine with no graphics card, where a frame takes ten seconds, still
   films at 24 a second); `cards.mjs` draws the lettering in the game's typefaces; `make.py` (numpy, scipy,
   opencv, ffmpeg) cuts those and the stills in `docs/` together and makes the soundtrack from nothing.
+  The gifs (a cover for itch.io, and one for Reddit with a few words on it) are made the same way: `session.mjs`
+  records the shots listed in `gifshots.mjs` several to a sitting, `gifcards.mjs` draws the words, and `gif.py` cuts
+  them. The gifs themselves are not kept in the repository.
 - `tools/smoke.mjs` drives the live page through every control and reports script errors;
   `tools/intro-test.mjs` checks the opening: that the legend begins with the loading, that each line grows as it comes and waits to be clicked or keyed on, the booms, the start in first person with its one tip, and Esc;
   `tools/snip-test.mjs` picks up each tool in turn and cuts with real key presses;

@@ -7,3 +7,4 @@ dist-artifact/
 shots/
 __pycache__/
 tools/cast/ledger.jsonl
+trailer/*.gif
