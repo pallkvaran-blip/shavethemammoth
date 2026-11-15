@@ -24,18 +24,6 @@ const ladderDepth = new THREE.ShaderMaterial({
 });
 const LADDER = { patch: { key: 'ladder', bias: 0.03, extraUniforms: { uCutY: cutY }, fragmentHead: 'uniform float uCutY;', extraFragment: 'if (vWPos.y > uCutY) discard;' }, depth: ladderDepth };
 
-function spatter() {
-  // a painter's ladder: more paint on it than on anything he painted
-  return canvasTexture(64, 256, (g, w, h) => {
-    g.fillStyle = '#b08a5a'; g.fillRect(0, 0, w, h);
-    for (let i = 0; i < 90; i++) { g.strokeStyle = `rgba(60,36,14,${0.1 + Math.random() * 0.2})`; g.lineWidth = 0.6 + Math.random(); const x = Math.random() * w; g.beginPath(); g.moveTo(x, 0); g.lineTo(x + (Math.random() - 0.5) * 5, h); g.stroke(); }
-    for (let i = 0; i < 70; i++) {
-      g.fillStyle = ['#e8e2d2', '#7fb0c9', '#c9523f', '#e3c65a', '#e8e2d2'][i % 5];
-      g.beginPath(); g.ellipse(Math.random() * w, Math.random() * h, 1 + Math.random() * 4, 1 + Math.random() * 7, Math.random(), 0, 7); g.fill();
-    }
-  }, true);
-}
-
 function crateTexture() {
   return canvasTexture(128, 128, (g, w, h) => {
     g.fillStyle = '#b3251c'; g.fillRect(0, 0, w, h);
@@ -63,29 +51,6 @@ function buildLadders() {
     out.crate = M;
   }
   {
-    // the step ladder: two rails with treads up the front, two legs behind, a cap on top
-    const M = new Model('step-ladder', LADDER), c = ITEMS.step.climb;
-    const alu = M.mat(0xb9c0c6, { rough: 0.35, metal: 0.9 }), cap = M.mat(0xd9a521, { rough: 0.5, coat: 0.3 }), foot = M.mat(0x1c1d20, { rough: 0.8 });
-    const all = M.group, top = c.top, lean = c.lean;
-    for (const s of [-1, 1]) {
-      M.rod(all, alu, [s * 0.19, 0, 0], [s * 0.15, top, top * lean], 0.012);
-      M.rod(all, alu, [s * 0.19, 0, top * lean + 0.42], [s * 0.15, top, top * lean + 0.03], 0.01);
-      M.ball(all, foot, 0.016, [s * 0.19, 0.008, 0], [1, 0.6, 1.4]);
-      M.ball(all, foot, 0.016, [s * 0.19, 0.008, top * lean + 0.42], [1, 0.6, 1.4]);
-      M.rod(all, alu, [s * 0.175, top * 0.45, top * 0.45 * lean], [s * 0.175, top * 0.45, top * lean + 0.42 - 0.39 * 0.45], 0.004);      // the stay
-    }
-    for (let y = 0.2; y < top - 0.05; y += 0.2) M.box(all, alu, [0.36 - y * 0.07, 0.012, 0.07], [0, y, y * lean + 0.02]);
-    M.box(all, cap, [0.34, 0.03, 0.16], [0, top - 0.015, top * lean + 0.03]);
-    out.step = M;
-  }
-  {
-    const M = new Model('painters-ladder', LADDER), c = ITEMS.painter.climb;
-    const tex = spatter();
-    const wood = M.mat(0xffffff, { rough: 0.8, map: tex }), dowel = M.mat(0xffffff, { rough: 0.75, map: woodTexture() });
-    runged(M, wood, dowel, { top: c.top, lean: c.lean, wide: 0.32, every: 0.24, railR: 0.016, rungR: 0.011 });
-    out.painter = M;
-  }
-  {
     const M = new Model('fire-ladder', LADDER), c = ITEMS.fire.climb;
     const red = M.mat(0xb3211a, { rough: 0.45, coat: 0.5 }), steel = M.mat(0xd8dadd, { rough: 0.35, metal: 0.9 });
     runged(M, red, steel, { top: c.top, lean: c.lean, wide: 0.38, every: 0.26, railR: 0.02, rungR: 0.012 });
@@ -99,32 +64,6 @@ function buildLadders() {
 /** The packs, as worn: built about a point between the shoulder blades, +z out of his back... which is -z of the elf. */
 function buildPacks() {
   const out = {};
-  {
-    // two bottles of pop, upside down, on a belt
-    const M = new Model('pop-belt');
-    const glass = M.mat(0x2f7d3a, { rough: 0.12, coat: 1 }), label = M.mat(0xe9dfc8, { rough: 0.8 }), strap = M.mat(0x3a2414, { rough: 0.8 }), capM = M.mat(0xc9a13f, { rough: 0.3, metal: 1 });
-    for (const s of [-1, 1]) {
-      M.rod(M.group, glass, [s * 0.021, 0.03, -0.018], [s * 0.021, -0.022, -0.018], 0.016, 0.016);
-      M.rod(M.group, glass, [s * 0.021, -0.022, -0.018], [s * 0.021, -0.045, -0.018], 0.016, 0.006);
-      M.rod(M.group, label, [s * 0.021, 0.02, -0.018], [s * 0.021, -0.008, -0.018], 0.0168, 0.0168);
-      M.rod(M.group, capM, [s * 0.021, -0.045, -0.018], [s * 0.021, -0.05, -0.018], 0.007, 0.007);
-    }
-    const belt = M.add(M.group, new THREE.TorusGeometry(0.04, 0.004, 6, 22), strap, 'belt');
-    belt.rotation.x = Math.PI / 2; belt.position.set(0, 0.002, 0.03); belt.scale.set(1.1, 1.05, 1);
-    out.soda = { M, nozzles: [[-0.021, -0.05, -0.018], [0.021, -0.05, -0.018]], look: 'foam' };
-  }
-  {
-    // two leaf blowers and a rucksack
-    const M = new Model('blower-pack');
-    const orange = M.mat(0xd9661f, { rough: 0.5, coat: 0.3 }), dark = M.mat(0x1c1d20, { rough: 0.6 }), canvas = M.mat(0x6b6f4a, { rough: 0.95 });
-    M.box(M.group, canvas, [0.07, 0.07, 0.03], [0, 0, -0.016]);
-    for (const s of [-1, 1]) {
-      M.ball(M.group, orange, 0.02, [s * 0.036, 0.012, -0.03], [1, 1.1, 1]);
-      M.rod(M.group, dark, [s * 0.036, 0, -0.03], [s * 0.04, -0.07, -0.026], 0.011, 0.014);
-      M.rod(M.group, dark, [s * 0.036, 0.03, -0.03], [s * 0.036, 0.04, -0.03], 0.004);
-    }
-    out.blower = { M, nozzles: [[-0.04, -0.07, -0.026], [0.04, -0.07, -0.026]], look: 'air' };
-  }
   {
     // the real thing
     const M = new Model('jet-pack');
@@ -297,7 +236,7 @@ export class Lift {
     this.power += (want - this.power) * Math.min(1, dt * (want ? 14 : 6));
     if (this.power < 0.004) this.power = 0;
     if (this.voice) this.sound.motor(this.voice, this.power, 0, 0);
-    rig.shake = this.power * (this.voice === 'jet' ? 1 : this.voice === 'blower' ? 0.7 : 0.5);
+    rig.shake = this.power;
     const p = this.worn;
     if (p) {
       if (p.lamp) p.lamp.emissiveIntensity = 2 + 14 * this.power;

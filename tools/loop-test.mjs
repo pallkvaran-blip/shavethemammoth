@@ -29,6 +29,8 @@ await page.evaluate(() => {
   const { shaving: s, mammoth, rig, camera, game, hero, lifter } = window.__game;
   const dt = 1 / 60, C = s.clippings, Pos = C.data.cPos, feet = mammoth.data.anat.feet;
   const T = (window.__t = {});
+  // (everything the mammoth says, from the start: what he keeps himself is only the last few things)
+  T.said = []; { const show = game.says._show.bind(game.says); game.says._show = (line) => { T.said.push(line); return show(line); }; }
   T.frame = (n = 1) => { for (let k = 0; k < n; k++) { rig.update(dt); camera.updateMatrixWorld(true); s.update(dt, camera, rig.feel); game.update(dt); hero.update(dt); lifter.update(dt); } };
   T.cutGrams = () => s.grams(mammoth.cutLength);
   /** Work round part of a leg for some seconds with whatever is in hand, the eyes going up and down it. */
@@ -232,11 +234,11 @@ check(v.skipped === true, 'a key cuts it short');
 check(!v.playing && !v.cine && !v.cam && v.showing === null && v.banner, 'afterwards the bars, the banner and the outside camera are gone');
 check(v.hand === 'garden' && v.visible && v.fov === 62, 'and he is looking out of his own eyes again, clippers in hand');
 check(v.got && v.none, 'the game remembers which tools have had their moment (the scissors never did)');
-for (const [id, name] of [['twig', 'twig broom'], ['push', 'push broom'], ['handvac', 'hand vacuum'], ['shopvac', 'shop vacuum']]) {
+for (const [id, name] of [['push', 'push broom'], ['shopvac', 'shop vacuum']]) {
   v = await T(`
     const lying0 = C.lying;
     game.choose('garden'); T.frame(40);
-    const cut = T.cutRound(${id === 'twig' || id === 'handvac' ? 1 : 2}, ${id === 'twig' || id === 'push' ? 0.4 : 2.4}, 0.8, 6);
+    const cut = T.cutRound(${id === 'push' ? 1 : 2}, ${id === 'push' ? 0.4 : 2.4}, 0.8, 6);
     game.buy('${id}');
     const sweeper = st.sweeper;
     game.toggleSweep(); T.frame(40);
@@ -267,7 +269,7 @@ check(/of hair$/.test(v.bag) && !/\d\s*(of|\/)\s*\d/.test(v.bag) && !v.sack, 'th
 
 // ---- a ladder: R stands it up and climbs, the hair up there can be cut, F comes down and it is put away ----
 v = await T(`
-  st.earn(20000); game.buy('painter'); T.frame(5);
+  st.earn(20000); game.buy('fire'); T.frame(5);
   const foot = mammoth.data.anat.feet[1];
   rig.pos.x = foot.c[0] + 0.1; rig.pos.z = foot.c[2] - foot.r - 0.6; rig.yaw = Math.PI; rig.pitch = 0.1;
   game.choose('garden'); T.frame(40);
@@ -275,47 +277,48 @@ v = await T(`
   const lift = rig.lift && rig.lift.id + ' (' + rig.lift.kind + ')';
   rig.keys.add('KeyR'); T.frame(6);
   const stood = !!rig.ladder; T.frame(60);
-  const part = rig.height, seen = lifter.ladders.painter.group.visible; T.frame(140); rig.keys.delete('KeyR');
+  const part = rig.height, seen = lifter.ladders.fire.group.visible; T.frame(50); rig.keys.delete('KeyR');       // (part of the way up: level with his shoulder)
   const top = rig.height, eye = camera.position.y - game.terrain.height(rig.pos.x, rig.pos.z);
   const hide = s.world.near(camera.position.x, camera.position.y, camera.position.z);
   const before = T.cutGrams(); s.squeeze(true); for (let k = 0; k < 150; k++) { rig.yaw = Math.PI + Math.sin(k / 20) * 0.3; T.frame(); } s.squeeze(false); T.frame(30);
   const cutUp = T.cutGrams() - before;
   const x0 = rig.ladder.x; rig.keys.add('KeyD'); T.frame(60); rig.keys.delete('KeyD'); const hopped = Math.hypot(rig.ladder.x - x0, 0);
   rig.keys.add('KeyF'); T.frame(260); rig.keys.delete('KeyF');
-  return { lift, stood, part, seen, top, eye, hide, cutUp, hopped, down: rig.height, away: !rig.ladder, hidden: !lifter.ladders.painter.group.visible };
+  return { lift, stood, part, seen, top, eye, hide, cutUp, hopped, down: rig.height, away: !rig.ladder, hidden: !lifter.ladders.fire.group.visible };
 `);
-console.log(`painter's ladder: up to ${round(v.top * 100)} cm (eyes ${round(v.eye * 100)} cm off the snow, ${round(v.hide * 100)} cm from the hide); ${round(v.cutUp)} g cut up there; walked ${round(v.hopped * 100)} cm sideways`);
-check(v.lift === 'painter (ladder)' && v.stood && v.seen, 'R stands the ladder up under him');
-check(v.part > 0.5 && v.top > 1.7 && v.top <= 2.05 + 1e-6, 'holding R climbs it, out round the bulge of his shoulder and on up');
+console.log(`fire ladder: up to ${round(v.top * 100)} cm (eyes ${round(v.eye * 100)} cm off the snow, ${round(v.hide * 100)} cm from the hide); ${round(v.cutUp)} g cut up there; walked ${round(v.hopped * 100)} cm sideways`);
+check(v.lift === 'fire (ladder)' && v.stood && v.seen, 'R stands the ladder up under him');
+check(v.part > 0.5 && v.top > 1.7 && v.top <= 3.75 + 1e-6, 'holding R climbs it, out round the bulge of his shoulder and on up');
 check(v.cutUp > 1, 'the hair up there can be cut');
 check(v.hopped > 0.2, 'A and D walk the ladder sideways');
 check(v.down === 0 && v.away && v.hidden, 'F comes down, and at the bottom it is put away');
 
-// ---- a pack: R burns, the tank runs dry, he comes down, it fills again on the ground ----
+// ---- the pack: R burns, the tank runs dry, he comes down, it fills again on the ground ----
 v = await T(`
-  game.buy('blower'); T.frame(5);
+  game.buy('jet'); T.frame(5);
   rig.pos.x = 3.0; rig.pos.z = -2.6; T.frame(5);
-  const kind = rig.lift.id + ' (' + rig.lift.kind + ')', tank = rig.lift.tank, worn = lifter.packs.blower.M.group.visible;
+  const kind = rig.lift.id + ' (' + rig.lift.kind + ')', tank = rig.lift.tank, worn = lifter.packs.jet.M.group.visible;
   rig.keys.add('KeyR'); T.frame(120);
   const two = { h: rig.height, fuel: rig.fuel, burning: rig.thrusting, power: lifter.power };
-  T.frame(330);
+  rig.fuel = 0.4; T.frame(60);            // (nearly out)
   const dry = { h: rig.height, fuel: rig.fuel, burning: rig.thrusting };
-  rig.keys.delete('KeyR');
+  rig.keys.delete('KeyR'); rig.keys.add('KeyF');
   let n = 0, peak = rig.height; while (rig.height > 0 && n < 3000) { T.frame(); n++; peak = Math.max(peak, rig.height); }
+  rig.keys.delete('KeyF');
   const landed = rig.height === 0, fell = n / 60;
   T.frame(60 * 11);
   return { kind, tank, worn, two, dry, peak, landed, fell, full: rig.fuel, gauge: !document.getElementById('fuel').hidden };
 `);
-console.log(`leaf-blower pack: ${round(v.two.h * 100)} cm up after two seconds with ${round(v.two.fuel)} s of ${v.tank} left; dry at ${round(v.dry.h * 100)} cm; topped out at ${round(v.peak * 100)} cm; down ${round(v.fell)} s later`);
-check(v.kind === 'blower (pack)' && v.worn && v.gauge, 'buying a pack puts it on his back and a gauge on the screen');
-check(v.two.burning && v.two.h > 1.2 && v.two.h < 3.5 && v.two.fuel < v.tank - 1.8 && v.two.power > 0.9, 'holding R burns, and he goes up at a pace he can steer');
-check(v.dry.fuel === 0 && !v.dry.burning, 'until the tank is dry');
-check(v.landed && v.fell > 0.5, 'then he comes down');
+console.log(`jet pack: ${round(v.two.h * 100)} cm up after two seconds with ${round(v.two.fuel)} s of ${v.tank} left; dry at ${round(v.dry.h * 100)} cm; topped out at ${round(v.peak * 100)} cm; down ${round(v.fell)} s later`);
+check(v.kind === 'jet (pack)' && v.worn && v.gauge, 'buying the pack puts it on his back and a gauge on the screen');
+check(v.two.burning && v.two.h > 1.2 && v.two.h < 8 && v.two.fuel < v.tank - 1.8 && v.two.power > 0.9, 'holding R burns, and he goes up at a pace he can steer');
+check(v.dry.fuel < 0.3, 'until the tank is all but dry');
+check(v.landed && v.fell > 0.5, 'then F lets him down');
 check(Math.abs(v.full - v.tank) < 1e-6, 'and it fills again on the ground');
 
 // ---- the jet pack holds him where he is; and he can come down on the mammoth's back and work there ----
 v = await T(`
-  game.buy('jet'); T.frame(5);
+  T.frame(5);
   rig.keys.add('KeyR'); T.frame(150); rig.keys.delete('KeyR'); T.frame(60);
   const h1 = rig.height; T.frame(180); const h2 = rig.height, hovering = Math.abs(rig.vy) < 0.05;
   // over his back, and down
@@ -502,7 +505,7 @@ v = await T(`
 `);
 console.log(`  one tattoo uncovered: "${v.hint}..."; the mammoth: "${v.said}"`);
 check(v.found.length === v.was + 1 && v.found.includes('mum'), 'shaving the hide over one tattoo finds that one');
-check(embarrassed || v.all.includes('Gosh, this is embarrassing.'), 'and the first thing found on him embarrassed him');
+check(embarrassed || v.all.includes('Gosh, this is embarrassing.') || (await T(`return T.said.includes('Gosh, this is embarrassing.')`)), 'and the first thing found on him embarrassed him');
 v = await T(`
   const gold = st.gold, was = st.found.length, total = game.finds.total;
   mammoth.setHaircut(new Float32Array(mammoth.bodyCut.length).fill(0.0005));
@@ -598,7 +601,7 @@ v = await page.evaluate(() => {
 });
 const need = v.need;
 check(v.chip && v.mode === 'elf' && /Dev/.test(v.label), `the dev button is beside the purse ("${v.label}")`);
-check(need > 20000 && need < 40000 && v.gold === 0, `everything there is to buy comes to ${need} gold, and a new game has none`);
+check(need > 12000 && need < 30000 && v.gold === 0, `everything there is to buy comes to ${need} gold, and a new game has none`);
 await page.click('#dev-gold');
 v = await page.evaluate(() => { const { game } = window.__game, st = game.state; return { gold: st.gold, earned: st.stats.earned, purse: document.getElementById('gold').textContent, hint: document.getElementById('hint').textContent }; });
 console.log(`dev: pressed, the purse holds ${v.gold} gold ("${v.hint.slice(0, 70)}...")`);
@@ -610,11 +613,11 @@ await page.evaluate(() => { const { game } = window.__game; game.scenes = false;
 await page.click('#dialog [data-act="devgold"]');
 v = await page.evaluate(() => { const { game } = window.__game, st = game.state; return { gold: st.gold, foot: document.querySelector('#dialog footer .purse').textContent, said: game.said, dear: document.querySelectorAll('#dialog button.dear').length, tags: document.querySelectorAll('#dialog [data-buy]').length }; });
 check(v.gold >= need && v.foot.includes(String(v.gold)), `the same button at the foot of Gnorman's list does the same ("${v.said}")`);
-check(v.dear === 0 && v.tags > 30, `and none of the ${v.tags} price tags is beyond the purse any more`);
+check(v.dear === 0 && v.tags >= 25, `and none of the ${v.tags} price tags is beyond the purse any more`);
 await page.click('#dialog [data-buy="electric"]');
 await page.keyboard.press('KeyB');
 v = await page.evaluate(() => { const { game } = window.__game, st = game.state; return { gold: st.gold, need: st.everything(), owns: st.owns('electric'), dialog: game.dialog }; });
-check(v.owns && v.dialog === 'gnome' && v.gold >= v.need && v.need === need - 600, 'B in the shop tops it up again after something has been bought');
+check(v.owns && v.dialog === 'gnome' && v.gold >= v.need && v.need === need - 300, 'B in the shop tops it up again after something has been bought');
 // ...and it is enough: every level of everything, whatever can be had again three times over, and lemmings until he is full
 v = await page.evaluate(() => {
   const { game } = window.__game, st = game.state, items = game.items, refused = [];

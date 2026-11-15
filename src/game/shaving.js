@@ -9,13 +9,12 @@ import { buildSmallScissors } from './tools/scissors.js';
 import { buildSheepShears } from './tools/sheep.js';
 import { buildGardenClippers } from './tools/garden.js';
 import { buildElectricShears } from './tools/electric.js';
-import { buildBeardShaver } from './tools/shaver.js';
 import { buildSweepers } from './tools/sweepers.js';
 import { buildNovelties } from './tools/novelties.js';
 import { Clippings } from './clippings.js';
 
 /** The tools in the order of the number keys: by hand first, smallest to largest, then the electric ones. */
-export const TOOL_ORDER = ['scissors', 'sheep', 'garden', 'electric', 'shaver'];
+export const TOOL_ORDER = ['scissors', 'sheep', 'garden', 'electric'];
 
 const ease = (t) => t * t * (3 - 2 * t);
 /** Seconds to put a tool away, and to bring the next one up. */
@@ -28,7 +27,7 @@ export class Shaving {
     this.terrain = terrain;
     this.sound = sound;
     this.tools = {};
-    const defs = [buildSmallScissors, buildSheepShears, buildGardenClippers, buildElectricShears, buildBeardShaver].map((build) => build());
+    const defs = [buildSmallScissors, buildSheepShears, buildGardenClippers, buildElectricShears].map((build) => build());
     for (const def of [...defs, ...buildSweepers(), ...buildNovelties()]) {
       const t = new Tool(def);
       t.def.backAt = (u) => bladeBack(t.def.blade, u);
@@ -369,7 +368,7 @@ export class Shaving {
           if (off <= 0) continue;
           cut++;
           // what comes off falls as itself (a few locks a frame; the trimmings of stubble are dust, though they weigh something)
-          if (c.removed > 0.012 && shown < 6) {
+          if (c.removed > 0.012 && shown < (m.shower || 6)) {
             shown++;
             this.clippings.spawn(c, this.env, -r.forward.x * 0.05 + r.normal.x * 0.05, -r.forward.y * 0.05 + r.normal.y * 0.05, -r.forward.z * 0.05 + r.normal.z * 0.05, this.grams(off));
           } else this.clippings.credit(this.grams(off));

@@ -188,7 +188,10 @@ export class GameState {
     if (!d || d.v !== 3) return false;
     this.gold = +d.gold || 0;
     this.hair = +d.hair || 0;
-    this.owned = new Set(['scissors', 'hands', ...(Array.isArray(d.owned) ? d.owned.filter((id) => ITEMS[id]) : [])]);
+    // (what is no longer sold: whoever had one has the better thing it made way for)
+    const now = (id) => ({ shaver: 'electric', twig: 'push', handvac: 'shopvac', step: 'fire', painter: 'fire', soda: 'jet', blower: 'jet' })[id] || id;
+    for (const k of ['tool', 'sweeper', 'climber', 'pack']) d[k] = now(d[k]);
+    this.owned = new Set(['scissors', 'hands', ...(Array.isArray(d.owned) ? d.owned.map(now).filter((id) => ITEMS[id]) : [])]);
     this.levels = d.levels && typeof d.levels === 'object' ? d.levels : {};
     this.tool = this.owned.has(d.tool) ? d.tool : 'scissors';
     this.sweeper = this.owned.has(d.sweeper) ? d.sweeper : 'hands';

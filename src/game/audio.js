@@ -43,13 +43,9 @@ const VOICES = {
 // the note drops under a full load; whine: the motor's own note above it all.
 const MOTORS = {
   electric: { hum: 92, wave: 'sawtooth', body: [1400, 0.05], clatter: [2100, 0.8, 0.05], sag: 0.16, whine: [1240, 0.006] },
-  shaver: { hum: 168, wave: 'square', body: [2600, 0.011], clatter: [4300, 1.6, 0.012], sag: 0.34, whine: [3350, 0.0035] },
   // the vacuums: mostly rushing air, over a motor
-  handvac: { hum: 236, wave: 'sawtooth', body: [2400, 0.009], clatter: [3100, 0.35, 0.05], sag: 0.1, whine: [2950, 0.006] },
   shopvac: { hum: 118, wave: 'sawtooth', body: [900, 0.022], clatter: [1300, 0.3, 0.11], sag: 0.08, whine: [1420, 0.005] },
-  // the packs: two bottles of pop letting go, two leaf blowers, and something that should not be sold to elves
-  soda: { hum: 46, wave: 'triangle', body: [320, 0.006], clatter: [6400, 0.22, 0.2], sag: 0, whine: [880, 0.0008] },
-  blower: { hum: 134, wave: 'sawtooth', body: [1150, 0.04], clatter: [1750, 0.4, 0.15], sag: 0, whine: [1980, 0.006] },
+  // the pack: something that should not be sold to elves
   jet: { hum: 61, wave: 'sawtooth', body: [520, 0.06], clatter: [760, 0.28, 0.34], sag: 0, whine: [2700, 0.005] },
 };
 

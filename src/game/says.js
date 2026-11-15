@@ -70,18 +70,11 @@ const FOUND_ANY = ['Nobody was ever supposed to see that.', 'It seemed like a go
 const BOUGHT = {
   sheep: 'Shears. I am not a sheep. I want that on record.',
   garden: 'Garden clippers. I am not a hedge.',
-  shaver: 'It hums. I don’t like that it hums.',
   electric: 'Electric? Nobody said anything about electric.',
-  twig: 'You are sweeping me up. While I watch.',
-  push: 'A bigger broom. For more of me.',
-  handvac: 'Must you hoover while I am standing here?',
+  push: 'You are sweeping me up. While I watch.',
   shopvac: 'Point that somewhere else. Anywhere else.',
   crate: 'A milk crate. I am being shaved from a milk crate.',
-  step: 'Oh, good. Now you can reach my knees.',
-  painter: 'That ladder has paint on it. I hope it is paint.',
   fire: 'Is something on fire? Is it me?',
-  soda: 'Is that fizzy pop? Strapped to an elf?',
-  blower: 'It is very loud. I have enormous ears, you know.',
   jet: 'Elves were never meant to fly. Nor mammoths, but nobody tried.',
   feather: 'Is that a feather? Keep it away from my legs.',
   nosespray: 'I can smell menthol. I do not like where this is going.',
@@ -223,7 +216,11 @@ export class Says {
   heard(what, detail) {
     const s = this.state;
     switch (what) {
-      case 'find': this.say(s.found.length <= 1 && detail !== 'hello' ? FOUND_FIRST : FOUND[detail] || FOUND_ANY, { wait: 1.6 }); break;
+      case 'find':
+        // (the first thing found embarrasses him. If he was kept from saying so, in a shop or a scene, the second does)
+        if (!this.said.embarrassed && s.found.length <= 2 && detail !== 'hello') this.say(FOUND_FIRST, { wait: 1.6, first: true });
+        else this.say(FOUND[detail] || FOUND_ANY, { wait: 1.6 });
+        break;
       case 'bought': if (detail !== 'tonic') this.say(BOUGHT[detail], { wait: 0.8 }); break;
       case 'milestone': this.say(SO_FAR[detail], { key: 'far' + detail, wait: 6.5 }); break;
       case 'sold': if (!this.said.sold || Math.random() < 0.3) { this.said.sold = true; s.dirty = true; this.say(SOLD, { wait: 1 }); } break;
@@ -257,6 +254,7 @@ export class Says {
   }
 
   _show(line) {
+    if (line === FOUND_FIRST && !this.said.embarrassed) { this.said.embarrassed = true; this.state.dirty = true; }
     const el = this.el;
     this.now = { line, left: holdFor(line) };
     this.history.push(line);

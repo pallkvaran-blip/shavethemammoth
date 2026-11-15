@@ -67,48 +67,6 @@ function buildHands() {
   });
 }
 
-// ---- twig broom: a besom. A crooked stick with a bundle of twigs bound to the end ----
-function buildTwigBroom() {
-  const kit = new Kit('twig-broom', 0.03);
-  const wood = kit.patch(new THREE.MeshPhysicalMaterial({ map: woodTexture(), color: 0xb8956a, roughness: 0.75, metalness: 0 }));
-  const twigs = kit.patch(new THREE.MeshPhysicalMaterial({ map: bristleTexture('#5b4127', '#2c1d10', '#8a6a44'), roughness: 0.9, metalness: 0, side: THREE.DoubleSide }));
-  const twine = kit.patch(new THREE.MeshPhysicalMaterial({ color: 0xcbb78a, roughness: 0.85, metalness: 0 }));
-  const all = kit.upper;
-  handle(kit, all, wood, -0.06, 0.27, 0.0055);
-  // the bundle: twigs splaying out from the binding
-  const rnd = rngFrom(31), pieces = [];
-  for (let i = 0; i < 72; i++) {
-    const a = rnd() * Math.PI * 2, spread = 0.055 * Math.sqrt(rnd()), len = 0.1 + rnd() * 0.06;
-    const twig = new THREE.CylinderGeometry(0.0006, 0.0015, len, 5);
-    twig.rotateZ(-Math.PI / 2);
-    twig.translate(len / 2, 0, 0);
-    twig.rotateY(Math.atan2(Math.sin(a) * spread, len));
-    twig.rotateZ(Math.atan2(Math.cos(a) * spread, len));
-    twig.translate(0.262, 0, 0);
-    pieces.push(twig);
-  }
-  const bundle = new THREE.BufferGeometry();
-  const pos = [], uv = [], nor = [];
-  for (const p of pieces) { const g = p.toNonIndexed(); pos.push(...g.attributes.position.array); uv.push(...g.attributes.uv.array); nor.push(...g.attributes.normal.array); }
-  bundle.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  bundle.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
-  bundle.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
-  kit.add(all, bundle, twigs, 'twigs');
-  const bind = kit.add(all, new THREE.CylinderGeometry(0.0085, 0.0085, 0.016, 14), twine, 'binding');
-  bind.rotation.z = -Math.PI / 2; bind.position.x = 0.272;
-  const samples = [[0.39, 0, 0, 0.02], [0.33, 0, 0, 0.016], [0.2, 0, 0, 0.008], [0.08, 0, 0, 0.008]];
-  return sweeper('twig', kit, {
-    tip: 0.39, samples, voice: 'broom', nearer: 0.03, level: true,
-    hold: { pos: [0.07, -0.085, -0.03], tilt: SLOPE, yaw: (-9 * Math.PI) / 180, roll: 0, sway: 0.8 },
-    animate: (tool) => {
-      // each stroke: out to one side, drawn back across
-      const s = tool.swing || 0;
-      all.rotation.y = Math.sin(s * Math.PI * 2) * 0.22;
-      all.position.x = -Math.sin(s * Math.PI) * 0.035;
-    },
-  });
-}
-
 // ---- push broom: a long handle into a wide block of bristle ----
 function buildPushBroom() {
   const kit = new Kit('push-broom', 0.03);
@@ -138,41 +96,6 @@ function buildPushBroom() {
 /** Moulded plastic in a colour, scuffed. */
 function plastic(kit, colour, gloss = 0.3) {
   return kit.patch(new THREE.MeshPhysicalMaterial({ color: colour, metalness: 0, roughness: 0.5, clearcoat: gloss, clearcoatRoughness: 0.35 }));
-}
-
-// ---- hand vacuum: a fat little body, a loop of handle, a snout ----
-function buildHandVac() {
-  const kit = new Kit('hand-vacuum', 0.03);
-  const shell = plastic(kit, 0xd9482b), dark = plastic(kit, 0x1d1e22, 0.15);
-  const cup = kit.patch(new THREE.MeshPhysicalMaterial({ color: 0x9fb4b8, metalness: 0, roughness: 0.12, transmission: 0.6, thickness: 0.004, transparent: true, opacity: 0.55 }));
-  const lamp = kit.patch(new THREE.MeshStandardMaterial({ color: 0x1a0a04, emissive: 0xffb040, emissiveIntensity: 0, roughness: 0.4 }));
-  const all = kit.upper;
-  // the motor housing, then the clear dust cup, then the snout flattening to a slit
-  kit.add(all, skin([
-    { x: -0.01, y: 0, ry: 0.006, rz: 0.008, n: 2.2 }, { x: 0.005, y: 0, ry: 0.024, rz: 0.022, n: 2.6 }, { x: 0.05, y: 0.002, ry: 0.028, rz: 0.024, n: 2.6 }, { x: 0.085, y: 0.002, ry: 0.026, rz: 0.023, n: 2.6 },
-  ], 24, { capStart: true }), shell, 'vac-body');
-  kit.add(all, skin([
-    { x: 0.085, y: 0.002, ry: 0.0255, rz: 0.0225, n: 2.6 }, { x: 0.12, y: 0, ry: 0.022, rz: 0.021, n: 2.8 }, { x: 0.15, y: -0.004, ry: 0.015, rz: 0.021, n: 3 },
-  ], 24, { open: true }), cup, 'vac-cup');
-  kit.add(all, skin([
-    { x: 0.15, y: -0.004, ry: 0.0155, rz: 0.0215, n: 3 }, { x: 0.185, y: -0.009, ry: 0.009, rz: 0.024, n: 3.5 }, { x: 0.205, y: -0.012, ry: 0.0045, rz: 0.026, n: 4 },
-  ], 24), dark, 'vac-snout');
-  // the handle: a loop over the top
-  const loop = new THREE.TorusGeometry(0.026, 0.0055, 10, 22, Math.PI);
-  const grip = kit.add(all, loop, dark, 'vac-handle');
-  grip.position.set(0.035, 0.024, 0);
-  const led = kit.add(all, new THREE.SphereGeometry(0.002, 8, 6), lamp, 'vac-lamp');
-  led.position.set(0.07, 0.03, 0);
-  const samples = [[0.2, -0.012, 0, 0.012], [0.15, -0.004, 0, 0.022], [0.09, 0, 0, 0.027], [0.03, 0, 0, 0.027], [0.035, 0.05, 0, 0.008]];
-  return sweeper('handvac', kit, {
-    tip: 0.205, samples, voice: 'handvac', nearer: 0.03, motor: { spinUp: 0.25, spinDown: 0.6 },
-    hold: { pos: [0.04, -0.075, -0.1], tilt: (-22 * Math.PI) / 180, yaw: (-8 * Math.PI) / 180, roll: (6 * Math.PI) / 180, sway: 0.9 },
-    animate: (tool) => {
-      const p = tool.power, w = tool.buzz * Math.PI * 2, shake = p * 0.0005;
-      all.position.set(0, Math.sin(w * 43) * shake, Math.sin(w * 37 + 1) * shake);
-      lamp.emissiveIntensity = 8 * Math.min(1, p * 2);
-    },
-  });
 }
 
 // ---- shop vacuum: all that is seen of it is the wand, the floor nozzle, and the hose going off behind ----
@@ -213,9 +136,9 @@ function buildShopVac() {
   });
 }
 
-/** All five, weakest first. */
+/** All three, weakest first. */
 export function buildSweepers() {
-  return [buildHands(), buildTwigBroom(), buildPushBroom(), buildHandVac(), buildShopVac()];
+  return [buildHands(), buildPushBroom(), buildShopVac()];
 }
 
-export const SWEEPER_ORDER = ['hands', 'twig', 'push', 'handvac', 'shopvac'];
+export const SWEEPER_ORDER = ['hands', 'push', 'shopvac'];

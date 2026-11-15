@@ -68,7 +68,7 @@ NIGHT = np.zeros((H, W, 3), np.float32) + np.float32([9, 10, 13])
 F = lambda seconds: round(seconds * FPS)
 MONTAGE = [('gnorman', 24, (0.5, 0.52)), ('mortimer', 24, (0.42, 0.45)), ('you-got-clippers', 18, (0.5, 0.5)), ('ladder', 18, (0.5, 0.5)),
            ('electric-shears', 18, (0.5, 0.55)), ('lemmings-off', 12, (0.5, 0.6)), ('under-the-coat', 12, (0.5, 0.5)), ('tattoo', 12, (0.55, 0.45)),
-           ('pink', 12, (0.45, 0.5)), ('cavemen-rude', 12, (0.5, 0.55)), ('small-scissors', 6, (0.5, 0.6)), ('beard-shaver', 6, (0.5, 0.6)),
+           ('pink', 12, (0.45, 0.5)), ('cavemen-rude', 12, (0.5, 0.55)), ('small-scissors', 6, (0.5, 0.6)), ('in-hand', 6, (0.5, 0.6)),
            ('broom', 6, (0.5, 0.6)), ('coat-close-up', 6, (0.5, 0.5)), ('shears', 6, (0.5, 0.6)), ('cut-hair', 6, (0.5, 0.5))]
 CUT = [
     ('black', None, F(0.5), {}),

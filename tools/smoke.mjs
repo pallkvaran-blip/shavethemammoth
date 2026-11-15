@@ -21,13 +21,16 @@ const frames = (n) => page.evaluate((count) => new Promise((done) => { let k = 0
 const holdFor = async (key, n) => { await page.keyboard.down(key); await frames(n); await page.keyboard.up(key); await frames(1); };
 const hold = async (key, ms, n = 2) => { await page.keyboard.down(key); await page.waitForTimeout(ms); await frames(n); await page.keyboard.up(key); await frames(1); };
 await page.goto(base + '?q=low&strands=20000&adapt=9&stats&sync&unlock&nosave&debug', { waitUntil: 'load' });
+// (the legend waits to be clicked through: Esc goes past it, and the scene opens when it is made)
+await page.waitForFunction(() => document.body.classList.contains('telling'), null, { timeout: 60000 });
+await page.keyboard.press('Escape');
 await page.waitForFunction(() => document.body.classList.contains('ready'), null, { timeout: 240000 });
 // the legend is told on the loading screen; then the game opens in first person, and the controls come up
 const lines = await page.$$eval('#legend p', (ps) => ps.map((p) => p.textContent));
 console.log(`legend: ${lines.length} lines, ending "${lines[lines.length - 1]}"`);
 await page.waitForFunction(() => document.body.classList.contains('told'), null, { timeout: 60000 });
 if (!(await page.evaluate(() => document.body.classList.contains('elf')))) errors.push('the game did not open in first person');
-console.log('ok: the legend was told and the game opened in first person');
+console.log('ok: past the legend, the game opened in first person');
 await page.waitForTimeout(2500);
 await step('Esc (stand back and look at him)', () => page.keyboard.press('Escape'), 3000);
 await step('view 2', () => page.click('#view-1'));
@@ -47,8 +50,6 @@ await step('snip', () => hold('Space', 1500), 1000);
 await step('key 3 (garden clippers)', () => page.keyboard.press('Digit3'), 3000);
 await step('key 4 (electric shears)', () => page.keyboard.press('Digit4'), 3000);
 await step('run them', () => hold('Space', 2500), 1500);
-await step('key 5 (beard shaver)', () => page.keyboard.press('Digit5'), 3000);
-await step('run it', () => hold('Space', 2500), 1500);
 // up the ladder and down it; then the pack
 await holdFor('KeyR', 3);
 const up = await page.evaluate(() => ({ height: +window.__game.rig.height.toFixed(2), ladder: !!window.__game.rig.ladder }));

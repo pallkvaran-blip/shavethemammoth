@@ -32,11 +32,20 @@ const SAYS = {
   tusks: 'He has two. He is very proud.',
 };
 
+/** How far a point is from the skin of one length of his tail, and how far along it. */
+function tailNear(x, y, z, [a, b, r1, r2]) {
+  const ab = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], ap = [x - a[0], y - a[1], z - a[2]];
+  const t = Math.min(1, Math.max(0, (ap[0] * ab[0] + ap[1] * ab[1] + ap[2] * ab[2]) / (ab[0] * ab[0] + ab[1] * ab[1] + ab[2] * ab[2])));
+  return [Math.hypot(ap[0] - ab[0] * t, ap[1] - ab[1] * t, ap[2] - ab[2] * t) - (r1 + (r2 - r1) * t), t];
+}
+
 /** Whether a point of the hide (rest pose) is under the thong: the same sum the skin's shader does. */
 export function underThong(x, y, z) {
-  const t = THONG;
+  const t = THONG, t0 = tailNear(x, y, z, t.tail[0]), t1 = tailNear(x, y, z, t.tail[1]);
+  if (Math.min(t0[0], t1[0]) < t.bare) return false;                  // (his tail wears nothing)
   if (Math.abs(x - t.band) < t.wide) return true;
-  if (x > t.band + t.wide || x < t.end) return false;
+  if (t0[0] < t.ring) return true;                    // (the ring round the root of it)
+  if (x > t.band + t.wide) return false;
   const w = y > t.split ? t.strap * 0.8 + 0.9 * Math.max(0, x - (t.band - 0.3)) : t.strap + 0.5 * Math.max(0, x - (t.band - 0.5));
   return Math.abs(z) < w;
 }
