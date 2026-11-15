@@ -1,6 +1,6 @@
 {
  "about": "Every line of text in the game, by the key it has in the doc \"Shave the Mammoth: Game Text\" (https://claude.ai/artifact/UDhJP6iHabzjtx9QFA8vop), as it stood when the doc was filled. shown: the line as written in the doc ({braces} are filled in by the game, [E] is a key cap, **bold** is bold, (keyboard: ... / touch: ...) differs by device). file, line, raw: where it is in the source and exactly how it is written there, where it is one string. A line changed in the doc is put back by finding its key here. A key is a name, not a position: when a line is deleted, the keys after it stay as they are.",
- "version": 18,
+ "version": 19,
  "lines": {
   "page.title": {
    "shown": "Shave the Mammoth",
@@ -2696,10 +2696,6 @@
    "shown": "Stop shaving",
    "file": "src/main.js"
   },
-  "page.views": {
-   "shown": "The mammoth / In profile / Into the sun / The coat",
-   "file": "index.html"
-  },
   "page.sun": {
    "shown": "Sun",
    "file": "index.html"
@@ -2721,7 +2717,7 @@
    "file": "index.html"
   },
   "page.tool.hands": {
-   "shown": "Bare hands",
+   "shown": "Collect hair",
    "file": "index.html"
   },
   "page.tool.hands.tip": {

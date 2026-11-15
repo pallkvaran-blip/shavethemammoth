@@ -561,7 +561,7 @@ async function start() {
   const dressFrom = performance.now();
   game = new Game({
     scene, terrain, mammoth, shaving, rig, sound, hint: showHint, storage: !shot && !q.has('nosave'), baked,
-    dev: { unlock: shot || q.has('unlock'), gold: q.has('gold') ? num('gold', 0) : null, fresh: shot || q.has('fresh'), noscene: q.has('noscene'), tools: !(shot || q.has('nodev')), helpers: q.has('helpers') ? num('helpers', 0) : null },
+    dev: { unlock: shot || q.has('unlock'), gold: q.has('gold') ? num('gold', 0) : null, fresh: shot || q.has('fresh'), noscene: q.has('noscene'), tools: q.has('dev') && !shot, helpers: q.has('helpers') ? num('helpers', 0) : null },
   });
   // the elf himself: seen from outside before the shaving starts, and whenever he has something new to show off
   hero = new Hero({ scene, camera, rig, shaving, terrain, mammoth, sound, baked: baked.elf });

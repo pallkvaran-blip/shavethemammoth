@@ -9,3 +9,4 @@ __pycache__/
 tools/cast/ledger.jsonl
 trailer/*.gif
 trailer/covers/*-1260x1000.png
+release/

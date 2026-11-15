@@ -33,7 +33,6 @@ if (!(await page.evaluate(() => document.body.classList.contains('elf')))) error
 console.log('ok: past the legend, the game opened in first person');
 await page.waitForTimeout(2500);
 await step('Esc (stand back and look at him)', () => page.keyboard.press('Escape'), 3000);
-await step('view 2', () => page.click('#view-1'));
 await step('sun to 18 degrees', () => page.$eval('#sun', (el) => { el.value = '18'; el.dispatchEvent(new Event('input', { bubbles: true })); }), 4000);
 await page.screenshot({ path: 'shots/smoke_sun18.png', timeout: 300000 });
 await step('sun to 3 degrees', () => page.$eval('#sun', (el) => { el.value = '3'; el.dispatchEvent(new Event('input', { bubbles: true })); }), 4000);

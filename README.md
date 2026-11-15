@@ -167,17 +167,17 @@ Then open the address Vite prints (http://localhost:5173 by default).
 | Left mouse, or `Space` | Cut. Hold to keep cutting (an electric tool runs for as long as it is held). With a broom or a vacuum in hand, gather |
 | `W A S D`, `Shift`, mouse | Walk, run, look |
 | `1` to `4`, the mouse wheel, or the tool buttons | The cutting tools you own |
-| `Q` | Swap between cutting and picking up |
+| `Q`, or the **Collect hair** button | Swap between cutting and picking up |
 | `G` | Take out a novelty (again: the next one; after the last, the tool you were using). Point it where the label under the ring says, and hold the cut button |
-| `E` | Talk to Gnorman or Mortimer when standing at their stalls (`E` or `Esc` leaves) |
+| `E` | Talk to Gnorman or Mortimer when standing at their stalls (`E` or `Esc` leaves). Buying anything shuts Gnorman's shop and puts you back on the snow with it |
 | `R`, or the right mouse button | Up: stand the ladder where you are and climb it, or burn the jet pack |
 | `F` | Down. At the bottom of the ladder, puts it away |
 | `A` `D` on a ladder | Walk the ladder sideways |
-| `T` | With a ladder and a pack both, change which of them `R` works |
+| `T` | With a ladder and a pack both, change which of them `R` works. (A line in the corner reminds you of these keys when you have a ladder or a pack and have left it alone for five seconds) |
 | `M` | Sound on or off |
-| `B`, or the **Dev** button beside the purse and at the foot of either trader's list | For trying things out, and no part of the game: tops the purse up to enough gold for everything Gnorman sells (about 24,000 to begin with). It is not counted as earned |
+| `B`, or the **Dev** button (only when the page is opened with `?dev`) | For trying things out, and no part of the game: tops the purse up to enough gold for everything Gnorman sells (about 18,000 to begin with). It is not counted as earned |
 | Drag / scroll | Orbit and zoom (when not shaving) |
-| `1` `2` `3` `4` (when not shaving) | The mammoth, in profile, into the sun, the coat |
+| `1` `2` `3` `4` (when not shaving) | Four views of him: the whole mammoth, in profile, into the sun, the coat close up |
 | `H` | Hide or show the controls |
 | `P` | The numbers: frame rate and the rate being aimed for, how long a frame takes the script and (where the browser will say) the graphics card, resolution, hairs and triangles drawn, how far the detail has been turned down, and which graphics card is in use |
 | Sun slider, Detail menu | Height of the sun; Low, Medium, High, Ultra |
@@ -353,7 +353,7 @@ Settings > System > Display > Graphics.
   it, because without a graphics card frames are queued faster than they are drawn), `bare`
   (leave the land undrawn: most of what makes a frame slow without a graphics card),
   `debug` (exposes the game as `window.__game`), `unlock` (own everything, and no scenes; stills
-  always do), `gold=n`, `fresh` (ignore a kept game), `nosave` (keep nothing), `noscene`, `nodev` (no Dev button; stills never have it),
+  always do), `gold=n`, `fresh` (ignore a kept game), `nosave` (keep nothing), `noscene`, `dev` (the Dev button and its `B` key, which are otherwise not there),
   `scene=<tool>` with `st=<seconds>` (the scene for getting that tool, stopped at that moment),
   `lift=<ladder or pack>` with `up=<metres>` (start that far off the snow on it), `bald` (the
   whole coat off at once), `shave=x,y,z,r` (the coat off within r of a point; several separated
