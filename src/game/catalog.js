@@ -3,15 +3,16 @@
 //
 // How the prices were set. The whole coat is about 70 kg (17,500 gold). Of
 // that, 2 kg grows where it can be reached from the snow, another 5 kg within
-// reach of the milk crate, 22 kg more from the step ladder, 29 kg from the
-// painter's ladder, and the last 12 kg from the top of the fire ladder or the
-// air. Working steadily round a foreleg an elf takes about 2 grams a second
-// with the bad scissors, 3.5 with the shears and 4 with the garden clippers
+// reach of the milk crate, and the rest from the fire ladder or the air.
+// Working steadily round a foreleg an elf takes about 2 grams a second with
+// the bad scissors, 3.5 with the shears and 4 with the garden clippers
 // (tools/loop-test.mjs measures the first; all of them do better where the
-// hair is longer), and as much as the hands can sweep with the electric ones.
-// So: a pocketful (100 g, under a minute of bad scissors) buys the shears and
-// a broom; what grows near the ground pays for the first ladders and the
-// clippers; and after that each purchase opens up more mammoth than it cost.
+// hair is longer), and as much as he can run a comb 14 cm wide through with
+// the electric shears. So: a pocketful (100 g, under a minute of bad scissors)
+// buys the shears and the broom; what grows near the ground pays for the
+// crate, the ladder and the clippers; and after that each purchase opens up
+// more mammoth than it cost. There is one of each kind of thing and then a
+// better one, and the better one costs what the middling ones used to.
 // (The scissors were a quarter as good once, and three minutes of them bought
 // nothing. Nobody enjoyed it.)
 //
@@ -55,27 +56,20 @@ export const ITEMS = {
   scissors: { kind: 'cutter', name: 'Small bad scissors', price: 0, blurb: 'Yours already. I would not take them back.', got: 'They are small. They are bad. They are all you have.' },
   sheep: { kind: 'cutter', name: 'Shears', price: 15, blurb: 'Sprung steel. Three thousand years on sheep and not one thank-you note.', got: 'Sprung steel! Somewhere, a sheep shudders and does not know why.' },
   garden: { kind: 'cutter', name: 'Garden clippers', price: 120, blurb: 'For hedges. A mammoth is a hedge with opinions.', got: 'They are bigger than you are. This will be fine.' },
-  shaver: { kind: 'cutter', name: 'Beard shaver', price: 300, blurb: 'Takes him down to the skin, where the reading matter is. One careful owner. He is no longer with us.', got: 'It hums. It tickles. It takes him down to the skin, and whatever is written there.' },
-  electric: { kind: 'cutter', name: 'Electric shears', price: 600, blurb: 'A strip as wide as your head with every pass. Batteries included; his consent is not.', got: 'The power of a small kitchen appliance is yours.' },
+  electric: { kind: 'cutter', name: 'Electric shears', price: 300, blurb: 'Bigger than you are. A strip as wide as a doorway with every pass. Batteries included; his consent is not.', got: 'The power of a large kitchen appliance is yours.' },
 
   // ---- picking it up ----
   // (hands take a pinch at a time, `most` grams, from a small patch: it is what makes a broom worth ten gold)
   hands: { kind: 'sweeper', name: 'Bare hands', price: 0, blurb: 'You came with these. A pinch at a time.', sweep: { radius: 0.13, ahead: 0.22, every: 0.45, most: 1.5 } },
-  twig: { kind: 'sweeper', name: 'Twig broom', price: 10, blurb: 'A stick with ambitions. Sweeps a patch the size of a dinner plate.', sweep: { radius: 0.26, ahead: 0.3, every: 0.5 } },
-  push: { kind: 'sweeper', name: 'Push broom', price: 80, blurb: 'Half a metre of bristle. The widow who sold it to me said he died doing what he loved: sweeping.', sweep: { radius: 0.46, ahead: 0.42, every: 0.55 } },
-  handvac: { kind: 'sweeper', name: "Lil' Sucker hand vacuum", price: 350, blurb: 'It sucks, and that is the nicest thing anyone has said about it. Hold it down and wave it about.', sweep: { radius: 0.55, ahead: 0.5, pull: 3.2 } },
-  shopvac: { kind: 'sweeper', name: 'Hoovermax 9000 "Widowmaker"', price: 1000, blurb: 'Lifts hair from two paces. Do not point it at anything you are fond of.', sweep: { radius: 1.25, ahead: 0.95, pull: 5 } },
+  push: { kind: 'sweeper', name: 'Push broom', price: 10, blurb: 'Half a metre of bristle. The widow who sold it to me said he died doing what he loved: sweeping.', sweep: { radius: 0.46, ahead: 0.42, every: 0.55 } },
+  shopvac: { kind: 'sweeper', name: 'Hoovermax 9000 "Widowmaker"', price: 350, blurb: 'Lifts hair from two paces. Do not point it at anything you are fond of.', sweep: { radius: 1.25, ahead: 0.95, pull: 5 } },
 
   // ---- getting up there ----
   crate: { kind: 'ladder', name: 'Milk crate', price: 20, blurb: 'Stand on it. That is the whole product.', climb: { top: 0.45, lean: 0 } },
-  step: { kind: 'ladder', name: 'Step ladder', price: 90, blurb: 'Gets you to his knees, where the conversation is better.', climb: { top: 1.05, lean: 0.18 } },
-  painter: { kind: 'ladder', name: "Painter's ladder", price: 300, blurb: 'Reaches the belly. Spattered with paint and, I am told, the painter.', climb: { top: 2.05, lean: 0.2 } },
-  fire: { kind: 'ladder', name: 'Fire brigade ladder', price: 800, blurb: 'All the way to the top of his head. Fell off the back of a fire. Engine. Off the back of a fire engine.', climb: { top: 3.75, lean: 0.22 } },
+  fire: { kind: 'ladder', name: 'Fire brigade ladder', price: 90, blurb: 'All the way to the top of his head. Fell off the back of a fire. Engine. Off the back of a fire engine.', climb: { top: 3.75, lean: 0.22 } },
 
   // ---- with fire ----
-  soda: { kind: 'pack', name: 'Fizzy-pop rocket belt', price: 500, blurb: 'Two bottles and a belt. Shake well. Lands you on your arse about half the time, which is the fun half.', fly: { thrust: 12, tank: 1.4, refill: 0.35, air: 0 } },
-  blower: { kind: 'pack', name: 'Leaf-blower pack', price: 1200, blurb: 'Two leaf blowers and a rucksack. Loud enough to make him flinch. Six seconds up, then physics.', fly: { thrust: 8.6, tank: 6, refill: 0.6, air: 0 } },
-  jet: { kind: 'pack', name: 'Icarus Mk II jet pack', price: 2600, blurb: 'A proper one. Hovers. The Mk I is why I have this hat and not the other hat.', fly: { thrust: 9.6, tank: 16, refill: 2, air: 0.12 } },
+  jet: { kind: 'pack', name: 'Icarus Mk II jet pack', price: 500, blurb: 'A proper one. Hovers. The Mk I is why I have this hat and not the other hat.', fly: { thrust: 9.6, tank: 16, refill: 2, air: 0.12 } },
 
   // ---- hired help (what they do is in src/game/helpers.js): as many as you like, as often as you like ----
   lemming: { kind: 'help', name: 'A lemming', price: 60, again: true, hire: 1, blurb: 'Climbs. Gnaws. Finds the bits you missed. Has no idea what a mammoth is and is not going to be told.' },
@@ -99,14 +93,14 @@ export const ITEMS = {
 
   // ---- improvements ----
   suck: {
-    kind: 'upgrade', name: 'More suck', needs: ['handvac'], blurb: 'For either vacuum. I bore the pipe out with a spoon.',
+    kind: 'upgrade', name: 'More suck', needs: ['shopvac'], blurb: 'For the vacuum. I bore the pipe out with a spoon.',
     levels: [
       { name: 'More suck', price: 250, blurb: 'A third more reach.' },
       { name: 'Indecent suck', price: 600, blurb: 'Two thirds more reach. Hold on to your eyebrows.' },
     ],
   },
   tank: {
-    kind: 'upgrade', name: 'Bigger tank', needs: ['soda'], blurb: 'For any pack. More of whatever is in there.',
+    kind: 'upgrade', name: 'Bigger tank', needs: ['jet'], blurb: 'For the jet pack. More of whatever is in there.',
     levels: [
       { name: 'Bigger tank', price: 350, blurb: 'Half as long again in the air.' },
       { name: 'Irresponsible tank', price: 800, blurb: 'Twice as long in the air. Twice the crater.' },

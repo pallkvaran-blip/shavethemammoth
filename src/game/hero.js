@@ -25,7 +25,6 @@ const ACTS = {
   // bigger than he is: held like a barbell, for as long as his knees last
   garden: { hands: 'two', strain: [1.3, 3.6], fanfare: 'grand', glory: 1 },
   // it goes off in his hand
-  shaver: { hands: 'one', buzz: [1.7, 3.3], shake: 0.45, fanfare: 'grand', glory: 1 },
   electric: { hands: 'one', buzz: [1.7, 3.4], shake: 1, fanfare: 'grand', glory: 1.15 },
 };
 const T_LIFT = 0.28, T_UP = 0.8, T_ROUND = 4.3, T_END = 5.05;

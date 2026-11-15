@@ -21,7 +21,7 @@ const smooth = (t) => t * t * (3 - 2 * t);
 const clamp01 = (v) => Math.min(1, Math.max(0, v));
 const lerp = (a, b, t) => a + (b - a) * t;
 
-export const SIZE = 8.2;                       // how many times the size he was sculpted he stands
+export const SIZE = 4.8;                       // how many times the size he was sculpted he stands: a metre, less than a third of the mammoth
 const SPEAR = 0.262, GRIP = 0.118;            // the spear's length, and how far from its butt the hand at the back holds it (as sculpted)
 const THIGH = Math.hypot(HIP[0] - KNEE[0], HIP[1] - KNEE[1], HIP[2] - KNEE[2]), SHIN = Math.hypot(KNEE[1] - ANKLE[1], KNEE[2] - ANKLE[2]);
 

@@ -1,6 +1,6 @@
 {
  "about": "Every line of text in the game, by the key it has in the doc \"Shave the Mammoth: Game Text\" (https://claude.ai/artifact/UDhJP6iHabzjtx9QFA8vop), as it stood when the doc was filled. shown: the line as written in the doc ({braces} are filled in by the game, [E] is a key cap, **bold** is bold, (keyboard: ... / touch: ...) differs by device). file, line, raw: where it is in the source and exactly how it is written there, where it is one string. A line changed in the doc is put back by finding its key here. A key is a name, not a position: when a line is deleted, the keys after it stay as they are.",
- "version": 17,
+ "version": 18,
  "lines": {
   "page.title": {
    "shown": "Shave the Mammoth",
@@ -19,7 +19,7 @@
    "file": "index.html"
   },
   "page.skip": {
-   "shown": "(keyboard: Click or press any key to skip / touch: Tap to skip)",
+   "shown": "(keyboard: Click or press any key / touch: Tap to go on)",
    "file": "index.html"
   },
   "page.loading.0": {
@@ -368,35 +368,17 @@
    "raw": "Garden clippers. I am not a hedge.",
    "shown": "Garden clippers. I am not a hedge."
   },
-  "says.BOUGHT.shaver": {
-   "file": "src/game/says.js",
-   "line": 73,
-   "raw": "It hums. I don’t like that it hums.",
-   "shown": "It hums. I don’t like that it hums."
-  },
   "says.BOUGHT.electric": {
    "file": "src/game/says.js",
    "line": 74,
    "raw": "Electric? Nobody said anything about electric.",
    "shown": "Electric? Nobody said anything about electric."
   },
-  "says.BOUGHT.twig": {
-   "file": "src/game/says.js",
-   "line": 75,
-   "raw": "You are sweeping me up. While I watch.",
-   "shown": "You are sweeping me up. While I watch."
-  },
   "says.BOUGHT.push": {
    "file": "src/game/says.js",
    "line": 76,
-   "raw": "A bigger broom. For more of me.",
-   "shown": "A bigger broom. For more of me."
-  },
-  "says.BOUGHT.handvac": {
-   "file": "src/game/says.js",
-   "line": 77,
-   "raw": "Must you hoover while I am standing here?",
-   "shown": "Must you hoover while I am standing here?"
+   "raw": "You are sweeping me up. While I watch.",
+   "shown": "You are sweeping me up. While I watch."
   },
   "says.BOUGHT.shopvac": {
    "file": "src/game/says.js",
@@ -410,35 +392,11 @@
    "raw": "A milk crate. I am being shaved from a milk crate.",
    "shown": "A milk crate. I am being shaved from a milk crate."
   },
-  "says.BOUGHT.step": {
-   "file": "src/game/says.js",
-   "line": 80,
-   "raw": "Oh, good. Now you can reach my knees.",
-   "shown": "Oh, good. Now you can reach my knees."
-  },
-  "says.BOUGHT.painter": {
-   "file": "src/game/says.js",
-   "line": 81,
-   "raw": "That ladder has paint on it. I hope it is paint.",
-   "shown": "That ladder has paint on it. I hope it is paint."
-  },
   "says.BOUGHT.fire": {
    "file": "src/game/says.js",
    "line": 82,
    "raw": "Is something on fire? Is it me?",
    "shown": "Is something on fire? Is it me?"
-  },
-  "says.BOUGHT.soda": {
-   "file": "src/game/says.js",
-   "line": 83,
-   "raw": "Is that fizzy pop? Strapped to an elf?",
-   "shown": "Is that fizzy pop? Strapped to an elf?"
-  },
-  "says.BOUGHT.blower": {
-   "file": "src/game/says.js",
-   "line": 84,
-   "raw": "It is very loud. I have enormous ears, you know.",
-   "shown": "It is very loud. I have enormous ears, you know."
   },
   "says.BOUGHT.jet": {
    "file": "src/game/says.js",
@@ -1078,28 +1036,16 @@
    "shown": "They are bigger than you are. This will be fine.",
    "file": "src/game/catalog.js"
   },
-  "catalog.shaver.name": {
-   "shown": "Beard shaver",
-   "file": "src/game/catalog.js"
-  },
-  "catalog.shaver.blurb": {
-   "shown": "Takes him down to the skin, where the reading matter is. One careful owner. He is no longer with us.",
-   "file": "src/game/catalog.js"
-  },
-  "catalog.shaver.got": {
-   "shown": "It hums. It tickles. It takes him down to the skin, and whatever is written there.",
-   "file": "src/game/catalog.js"
-  },
   "catalog.electric.name": {
    "shown": "Electric shears",
    "file": "src/game/catalog.js"
   },
   "catalog.electric.blurb": {
-   "shown": "A strip as wide as your head with every pass. Batteries included; his consent is not.",
+   "shown": "Bigger than you are. A strip as wide as a doorway with every pass. Batteries included; his consent is not.",
    "file": "src/game/catalog.js"
   },
   "catalog.electric.got": {
-   "shown": "The power of a small kitchen appliance is yours.",
+   "shown": "The power of a large kitchen appliance is yours.",
    "file": "src/game/catalog.js"
   },
   "catalog.hands.name": {
@@ -1110,28 +1056,12 @@
    "shown": "You came with these. A pinch at a time.",
    "file": "src/game/catalog.js"
   },
-  "catalog.twig.name": {
-   "shown": "Twig broom",
-   "file": "src/game/catalog.js"
-  },
-  "catalog.twig.blurb": {
-   "shown": "A stick with ambitions. Sweeps a patch the size of a dinner plate.",
-   "file": "src/game/catalog.js"
-  },
   "catalog.push.name": {
    "shown": "Push broom",
    "file": "src/game/catalog.js"
   },
   "catalog.push.blurb": {
    "shown": "Half a metre of bristle. The widow who sold it to me said he died doing what he loved: sweeping.",
-   "file": "src/game/catalog.js"
-  },
-  "catalog.handvac.name": {
-   "shown": "Lil' Sucker hand vacuum",
-   "file": "src/game/catalog.js"
-  },
-  "catalog.handvac.blurb": {
-   "shown": "It sucks, and that is the nicest thing anyone has said about it. Hold it down and wave it about.",
    "file": "src/game/catalog.js"
   },
   "catalog.shopvac.name": {
@@ -1150,44 +1080,12 @@
    "shown": "Stand on it. That is the whole product.",
    "file": "src/game/catalog.js"
   },
-  "catalog.step.name": {
-   "shown": "Step ladder",
-   "file": "src/game/catalog.js"
-  },
-  "catalog.step.blurb": {
-   "shown": "Gets you to his knees, where the conversation is better.",
-   "file": "src/game/catalog.js"
-  },
-  "catalog.painter.name": {
-   "shown": "Painter's ladder",
-   "file": "src/game/catalog.js"
-  },
-  "catalog.painter.blurb": {
-   "shown": "Reaches the belly. Spattered with paint and, I am told, the painter.",
-   "file": "src/game/catalog.js"
-  },
   "catalog.fire.name": {
    "shown": "Fire brigade ladder",
    "file": "src/game/catalog.js"
   },
   "catalog.fire.blurb": {
    "shown": "All the way to the top of his head. Fell off the back of a fire. Engine. Off the back of a fire engine.",
-   "file": "src/game/catalog.js"
-  },
-  "catalog.soda.name": {
-   "shown": "Fizzy-pop rocket belt",
-   "file": "src/game/catalog.js"
-  },
-  "catalog.soda.blurb": {
-   "shown": "Two bottles and a belt. Shake well. Lands you on your arse about half the time, which is the fun half.",
-   "file": "src/game/catalog.js"
-  },
-  "catalog.blower.name": {
-   "shown": "Leaf-blower pack",
-   "file": "src/game/catalog.js"
-  },
-  "catalog.blower.blurb": {
-   "shown": "Two leaf blowers and a rucksack. Loud enough to make him flinch. Six seconds up, then physics.",
    "file": "src/game/catalog.js"
   },
   "catalog.jet.name": {
@@ -1355,7 +1253,7 @@
    "file": "src/game/catalog.js"
   },
   "catalog.suck.blurb": {
-   "shown": "For either vacuum. I bore the pipe out with a spoon.",
+   "shown": "For the vacuum. I bore the pipe out with a spoon.",
    "file": "src/game/catalog.js"
   },
   "catalog.suck.level1.name": {
@@ -1379,7 +1277,7 @@
    "file": "src/game/catalog.js"
   },
   "catalog.tank.blurb": {
-   "shown": "For any pack. More of whatever is in there.",
+   "shown": "For the jet pack. More of whatever is in there.",
    "file": "src/game/catalog.js"
   },
   "catalog.tank.level1.name": {
@@ -2752,17 +2650,11 @@
    "raw": "Two hands and the biggest bite.",
    "shown": "Two hands and the biggest bite."
   },
-  "tools.shaver.line": {
-   "file": "src/game/tools/shaver.js",
-   "line": 130,
-   "raw": "For the last millimetre: smooth on stubble, slow going in long hair.",
-   "shown": "For the last millimetre: smooth on stubble, slow going in long hair."
-  },
   "tools.electric.line": {
    "file": "src/game/tools/electric.js",
    "line": 192,
    "raw": "A comb, a cutter and a motor. Hold it down and push: a wide swath, a few millimetres from the skin.",
-   "shown": "A comb, a cutter and a motor. Hold it down and push: a wide swath, a few millimetres from the skin."
+   "shown": "A comb, a cutter and a motor the size of you. Hold it down and push: a swath as wide as a doorway, a few millimetres from the skin."
   },
   "main.newgame.done": {
    "shown": "**A new game.** His coat is back, your gold is gone, and you have the small bad scissors.",

@@ -346,11 +346,20 @@ export function placeTattoos(body) {
   });
 }
 
-/** Where he wears it (rest pose, metres): the band goes round him just ahead of the hind legs, the rest goes where a thong goes. */
-export const THONG = { band: -0.8, wide: 0.06, strap: 0.05, split: 1.9, end: -2.14 };       // (end: where his tail begins, which wears nothing)
+/**
+ * Where he wears it (rest pose, metres): the band goes round him just ahead of the hind legs; from the middle of his
+ * back a strap runs aft to his tail, goes round the root of it in a ring, and on down behind and under him, between
+ * his hind legs, to the band again. The tail itself wears nothing. (tail: the two lengths of it as anatomy.js has them:
+ * from, to, radius at each.)
+ */
+export const THONG = {
+  band: -0.8, wide: 0.06, strap: 0.05, split: 1.9, ring: 0.085, bare: 0.018,
+  tail: [[[-2.02, 1.93, 0], [-2.27, 1.52, 0], 0.105, 0.062], [[-2.27, 1.52, 0], [-2.31, 1.10, 0], 0.062, 0.04]],
+};
 
 /** For the skin's shader: uniforms, and the two functions that say what is inked or worn at a point of the hide. */
 export const TATTOO_COUNT = TATTOOS.length;
+const v3 = (v) => `vec3(${v.map((x) => x.toFixed(3)).join(', ')})`;
 export const TATTOO_GLSL = /* glsl */ `
 #define TATTOOS ${TATTOOS.length}
 uniform sampler2D uTatSheet;
@@ -383,19 +392,33 @@ vec4 tattooInk(vec3 p, vec3 n, vec3 dpx, vec3 dpy) {
   return ink;
 }
 
+// how far a point is from the skin of one length of his tail (x), and how far along that length it is (y: 0 to 1)
+vec2 tailNear(vec3 p, vec3 a, vec3 b, float r1, float r2) {
+  vec3 ab = b - a;
+  float t = clamp(dot(p - a, ab) / dot(ab, ab), 0.0, 1.0);
+  return vec2(length(p - a - ab * t) - mix(r1, r2, t), t);
+}
 // the thong: x is how much of it covers this point, y picks out its hems, z the stone on the back of it
 vec3 thongAt(vec3 p) {
-  const float band = ${THONG.band.toFixed(3)}, wide = ${THONG.wide.toFixed(3)}, strap = ${THONG.strap.toFixed(3)}, split = ${THONG.split.toFixed(2)}, end = ${THONG.end.toFixed(2)};
+  const float band = ${THONG.band.toFixed(3)}, wide = ${THONG.wide.toFixed(3)}, strap = ${THONG.strap.toFixed(3)}, split = ${THONG.split.toFixed(2)}, ringW = ${THONG.ring.toFixed(3)}, bare = ${THONG.bare.toFixed(3)};
   float db = abs(p.x - band);
   float onBand = 1.0 - smoothstep(wide - 0.003, wide, db);
-  // behind the band: a strap down the middle, widening to meet the band on top, and to a pouch underneath
+  // behind the band: a strap down the middle, widening to meet the band on top, and to a pouch underneath; it carries
+  // on over the back of him and under, all the way round
   float topSide = step(split, p.y);
   float w = mix(strap + 0.5 * max(0.0, p.x - (band - 0.5)), strap * 0.8 + 0.9 * max(0.0, p.x - (band - 0.3)), topSide);
-  float behind = step(p.x, band + wide) * step(end, p.x);
+  float behind = step(p.x, band + wide);
   float dz = abs(p.z);
   float onStrap = behind * (1.0 - smoothstep(w - 0.003, w, dz));
-  float cover = max(onBand, onStrap);
-  float hem = max(onBand * smoothstep(wide - 0.014, wide - 0.008, db), onStrap * (1.0 - onBand) * smoothstep(w - 0.014, w - 0.008, dz));
+  // where it meets his tail it parts and goes round the root of it; the tail itself is left bare
+  vec2 t0 = tailNear(p, ${v3(THONG.tail[0][0])}, ${v3(THONG.tail[0][1])}, ${THONG.tail[0][2].toFixed(3)}, ${THONG.tail[0][3].toFixed(3)});
+  vec2 t1 = tailNear(p, ${v3(THONG.tail[1][0])}, ${v3(THONG.tail[1][1])}, ${THONG.tail[1][2].toFixed(3)}, ${THONG.tail[1][3].toFixed(3)});
+  float onRing = 1.0 - smoothstep(ringW - 0.003, ringW, t0.x);      // (the root of it is the whole of its upper length: that is how far it lies against him)
+  float onTail = 1.0 - smoothstep(bare - 0.006, bare, min(t0.x, t1.x));
+  float cover = max(onBand, max(onStrap, onRing)) * (1.0 - onTail);
+  float hem = max(onBand * smoothstep(wide - 0.014, wide - 0.008, db), max(onStrap * (1.0 - onBand) * (1.0 - onRing) * smoothstep(w - 0.014, w - 0.008, dz),
+    onRing * (1.0 - onStrap) * smoothstep(ringW - 0.014, ringW - 0.008, t0.x)));
+  hem = max(hem, cover * (1.0 - smoothstep(bare + 0.004, bare + 0.012, min(t0.x, t1.x)))) * (1.0 - onTail);
   float stone = topSide * (1.0 - smoothstep(0.016, 0.02, length(vec2(p.x - band, p.z))));
   return vec3(cover, hem, stone);
 }

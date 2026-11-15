@@ -13,13 +13,14 @@ biggest fan and keeps a stall beside him. The more of the mammoth you can reach,
 more there is to cut, and the more of what is under the coat comes to light. He has
 tattoos. He is also wearing something.
 
-The game opens on its legend, told on the dark while the scene is being made, the way a
-film opens: three lines, one at a time, each coming up out of the dark, growing as it
-floats towards you and sweeping past, with a deep boom under it (where the browser lets a
-page make a sound before it has been touched; most do not). The last line is the largest,
-and red. Any key or a click skips it. Then the scene opens in first person: you are
-standing on the snow beside Gnorman's stall with the scissors in your hand and the whole
-mammoth in front of you. It keeps itself in the browser between visits.
+The game opens on its legend, told on the dark from the moment loading begins, the way a
+film opens: three lines, each coming up out of the dark and growing as it floats towards
+you, with a deep boom under it (the first may be silent: most browsers let a page make no
+sound until it has been clicked). Each stays until you click or press a key, which sweeps
+it past you and brings the next; the last is the largest, and red. After it the scene
+opens in first person, as soon as it is made: you are standing on the snow beside
+Gnorman's stall with the scissors in your hand and the whole mammoth in front of you.
+`Esc` goes past the whole legend. The game keeps itself in the browser between visits.
 
 ![The end of the legend: "That legend is you." in red blackletter on the dark](docs/legend.jpg)
 
@@ -122,9 +123,9 @@ Gnorman also hires out hunters. It does not go the way he says it will.
 | --- | --- | --- |
 | ![Small rusty scissors with plastic handles lying on the hide](docs/small-scissors.jpg) | ![Blade shears lying on the hide over a shorn patch](docs/shears.jpg) | ![Garden clippers lying on the hide over a shorn patch](docs/garden-clippers.jpg) |
 
-| Electric shears | Beard shaver |
-| --- | --- |
-| ![An electric shearing handpiece at the head of the strip it has cut up a foreleg](docs/electric-shears.jpg) | ![A small black beard trimmer on the hide, its button ring lit, bare skin behind it](docs/beard-shaver.jpg) |
+| Electric shears |
+| --- |
+| ![An electric shearing handpiece bigger than the elf holding it, its comb at the foot of a foreleg](docs/electric-shears.jpg) |
 
 The garden clippers in hand, before the first cut:
 
@@ -160,11 +161,12 @@ Then open the address Vite prints (http://localhost:5173 by default).
 
 | Input | What it does |
 | --- | --- |
-| Any key, a click or a tap during the opening or a scene | Skip it (the scene for a new tool, the look at where gold is coming out of him, the cave men) |
+| Any key, a click or a tap during the opening | The next line of the legend (`Esc`: past all of it) |
+| Any key, a click or a tap during a scene | Skip it (the scene for a new tool, the look at where gold is coming out of him, the cave men) |
 | `Esc`; then the **Start shaving** button, or `E` | Stop shaving and stand back to look at him from outside; go back to the snow with the tool last used. (The game starts on the snow) |
 | Left mouse, or `Space` | Cut. Hold to keep cutting (an electric tool runs for as long as it is held). With a broom or a vacuum in hand, gather |
 | `W A S D`, `Shift`, mouse | Walk, run, look |
-| `1` to `5`, the mouse wheel, or the tool buttons | The cutting tools you own |
+| `1` to `4`, the mouse wheel, or the tool buttons | The cutting tools you own |
 | `Q` | Swap between cutting and picking up |
 | `G` | Take out a novelty (again: the next one; after the last, the tool you were using). Point it where the label under the ring says, and hold the cut button |
 | `E` | Talk to Gnorman or Mortimer when standing at their stalls (`E` or `Esc` leaves) |
@@ -195,11 +197,11 @@ carry. Mortimer pays 25 gold the hundred grams. The whole coat is about 70 kg.
 
 | | Gold | |
 | --- | --- | --- |
-| Shears, garden clippers, beard shaver, electric shears | 15, 120, 300, 600 | Each cuts more, or closer, than the last. A minute of steady work round a leg: about 125 g with the bad scissors, 200 g with the shears, 240 g with the clippers (all of them more where the hair is longer), and as much as you can sweep with the electric ones |
-| Twig broom, push broom | 10, 80 | Gather what is under the head of the broom at each stroke |
-| Hand vacuum, shop vacuum; more suck | 350, 1000; 250, 600 | Hair flies up the nozzle from a distance |
-| Milk crate, step ladder, painter's ladder, fire brigade ladder | 20, 90, 300, 800 | Reach 0.45, 1.05, 2.05 and 3.75 m off the snow. He is 3.2 m at the top of his head |
-| Fizzy-pop rocket belt, leaf-blower pack, jet pack; bigger tanks | 500, 1200, 2600; 350, 800 | One short violent hop; six seconds of steady lift; a pack that holds you where you are. All fill up again on the ground. You can land on his back and work there |
+| Shears, garden clippers, electric shears | 15, 120, 300 | Each cuts more than the last. A minute of steady work round a leg: about 125 g with the bad scissors, 200 g with the shears, 240 g with the clippers (all of them more where the hair is longer), and with the electric shears a strip 14 cm wide, down to stubble, as fast as you can run |
+| Push broom | 10 | Gathers what is under its head at each stroke, where bare hands take a pinch |
+| Shop vacuum; more suck | 350; 250, 600 | Hair flies up the nozzle from two paces |
+| Milk crate, fire brigade ladder | 20, 90 | Reach 0.45 and 3.75 m off the snow. He is 3.2 m at the top of his head |
+| Jet pack; bigger tanks | 500; 350, 800 | Holds you where you are in the air, and fills up again on the ground. You can land on his back and work there |
 | A lemming, half a dozen, a plague of thirty | 60, 320, 1400 | Hired help. They run from the stall to the nearest foot, climb, and gnaw off whatever hair is left, wherever it is, down to stubble; what they cut falls on the snow for you to pick up. One gnaws under a gram a second. Hire as many as you like, as often as you like: he has room for 240 |
 | Cave men | 150 | Four of them, with spears. See above. No refunds, as often as you like |
 | Tickling feather, nose spray, belly scratcher, toenail varnish, tarot cards, trunk plunger, acupuncture needles, tusk shiner, hypnotist's watch | 25, 35, 45, 50, 60, 70, 100, 120, 160 | Each is used once: on a leg, the end of his trunk, his belly, his toenails, in front of his face, his trunk again, anywhere at all (thrown), a tusk, and in front of his face. They pay 80, 110, 140, 130, 170, 190, 280, 320 and 440 gold, which comes out of his coat, his trunk, his bottom, his mouth, his eyes, his ears, the top of his head, the end of a tusk, and (as an egg) his bottom again, and has to be picked up by walking over it |
@@ -211,8 +213,7 @@ carry. Mortimer pays 25 gold the hundred grams. The whole coat is about 70 kg.
 **Under the coat** there are twenty-two tattoos and a pink thong, drawn on the hide and
 visible only where the hair is off. Each is announced when all of it is uncovered (97%
 of the hair over it gone; the thong, which is a good deal larger, at 30%),
-and Gnorman pays for the gossip. The beard shaver is the tool that makes them easy to
-read.
+and Gnorman pays for the gossip.
 
 **Gold from a mammoth.** A novelty goes in your hand when you buy it (`G` takes it
 out again later). A ring in the middle of the picture and a label under it say where
@@ -259,17 +260,12 @@ the coat.
 | Small bad scissors | 11 cm, blades 5 cm | The pair from the back of a kitchen drawer: blunt, spotted with rust, one point snapped off, a rivet so loose the blades rattle. A bite two fingers wide. Nine locks in ten between the blades are cut; the tenth folds over and slips out. What is cut is chewed off a little unevenly, one stroke in seven sticks part way, and they are slow to open again. (They were smaller and much worse once: it took minutes of them to afford anything, and nothing they cut could be seen to be gone) |
 | Shears | 17 cm, blades 9.5 cm | Blade shears, as used on sheep for centuries: one strip of spring steel, two broad blades and a bow at the back. One hand, a quick squeeze, and the bow throws them open again with a quiver. A clean cut, closest to the skin of the three |
 | Garden clippers | 27 cm, blades 13.5 cm | Hedge shears held in both hands. The biggest bite of the hand tools, and a heavier, slower stroke |
-| Electric shears | 18 cm, comb 5.5 cm | A cordless shearing handpiece: a comb of thirteen teeth that slides along the skin, and a four-pointed cutter thrown from side to side across it. No stroke: hold it on, lay it on the hide and push. It takes a strip the width of the comb, leaves three to five millimetres of stubble, and is hard to outrun |
-| Beard shaver | 9 cm, head 2.4 cm | A small trimmer from beside a bathroom mirror. The only tool that leaves bare skin. On stubble it glides; in a full coat its little motor labours, its note sags, and hair it is pushed past faster than it can cut is left standing |
+| Electric shears | 45 cm, comb 14 cm | Made for somebody much bigger than an elf, and the best thing he will ever own: it takes a strip as wide as a doorway, down to stubble, as fast as he can run, and does not bog down. A cordless shearing handpiece: a comb of thirteen teeth that slides along the skin, and a four-pointed cutter thrown from side to side across it. No stroke: hold it on, lay it on the hide and push. It takes a strip the width of the comb, leaves three to five millimetres of stubble, and is hard to outrun |
 
 A smaller tool also lets the elf lean in closer: the eyes stop 11.5 cm from the hide
-with the scissors, 12 cm with the beard shaver, 19 cm with either kind of shears and
-25 cm with the clippers. Changing tool, the hands draw one back out of sight and
-come up with the other.
-
-The quick way to a clean shave is in two passes: the electric shears to take the
-coat off, then the beard shaver over the stubble. Where the hide has been shaved
-right down it shows smooth and a little pinker, without the dark dots of cut hairs.
+with the scissors, 19 cm with the shears, 25 cm with the clippers and 36 cm with the
+electric shears. Changing tool, the hands draw one back out of sight and come up with
+the other.
 
 The blades part the hair they lie in: hair that would pass through a blade is
 pushed off it, either out past its back or into the gap, where it is cut with the
@@ -321,7 +317,7 @@ Settings > System > Display > Graphics.
 | Cut hair | `src/game/clippings.js`, `furMaterial.js` | A cut copies the strand (and the pose of the skin and the wind at that moment) into a pool drawn by a variant of the fur shader, which grows the same hairs and keeps only the part beyond the cut. That part is then moved as one rigid piece: it falls, turns, flutters, slides off the mammoth and is laid flat on the snow |
 | Sound | `src/game/audio.js` | Synthesised with the Web Audio API: blades sliding and meeting, hair parting, boots in snow, wind that follows the gusts on screen, coins, a fanfare for a new tool, the packs, and the mammoth's own noises. Each tool has its own voice: the clippers' wooden handles knock, the shears ring and twang as the bow opens them, the scissors tick, rattle and squeak. The electric tools hum for as long as they run, with the clatter of the cutter in step, and their note sags under load |
 | The game | `src/game/game.js`, `state.js`, `catalog.js` | What is owned, the gold, the hair carried, the two shops, the advice given once each when it is first needed, and what is kept in the browser between visits. The haircut is kept twice: lock by lock, which is exact but only fits a coat of the same detail, and point by point of the hide, which fits any. `catalog.js` is everything Gnorman sells, with a note on how the prices were set from measured cutting rates |
-| Picking up | `src/game/tools/sweepers.js`, `clippings.js` | Hands, two brooms and two vacuums are tools like the others, held the same way; the brooms keep to the ground whichever way the eyes are turned. Each fallen piece carries the grams it stands for. A vacuum pulls pieces up its nozzle one by one |
+| Picking up | `src/game/tools/sweepers.js`, `clippings.js` | Hands, a broom and a vacuum are tools like the others, held the same way; the broom keeps to the ground whichever way the eyes are turned. Each fallen piece carries the grams it stands for. A vacuum pulls pieces up its nozzle one by one |
 | The elf | `src/game/people/elf.recipe.js`, `elf.js`, `src/game/hero.js` | The player's character: sculpted, skinned and dressed (see the next row but one). He can hold a thing up in one hand or two, strain under it, be shaken by it and be let down by it. Looked out of, only his shadow is drawn. `hero.js` plays the scene for a new tool: where he stands (clear of the stall or the mammoth), what he does with each tool, the light behind it, and the camera's path once round him and back into his head |
 | The traders | `src/game/people/gnome.recipe.js`, `gnome.js`, `vulture.recipe.js`, `vulture.js`, `model.js` | Gnorman and his stall, Mortimer and his table (whose wigs are hair, like his toupee); they turn to watch whoever comes by. A beard goes with the chin it grows from, but what lies on the belly stays lying there when the head turns |
 | How people are made | `src/game/people/sculpt.js`, `bake.js`, `bakery.js`, `bake.worker.js`, `rig.js`, `figure.js`, `materials.js`, `strands.js`, `locks.js`, `feathers.js`, `plumes.js` | A figure is designed in a `*.recipe.js`: bones, layers of solids (the mammoth's own kit of ellipsoids and round cones, with rings, boxes and flat blades added), what is painted on the skin, where hair and feathers grow and how. `bake.js` turns that into meshes (with skin weights, occlusion, thinness and round-and-along coordinates for each point), strands and feathers; it is plain arithmetic, and `bakery.js` runs it on a worker for each figure, falling back to the page itself a piece at a time. `rig.js` and `figure.js` hang the result on bones; each layer is kept twice, once with a fifth of the faces, and beyond a few metres that one is drawn, and hair with fewer and wider strands (nobody can tell at that size, and three people at full detail cost as much to draw as a fair part of a mammoth). `materials.js` is skin (pores, freckles, light that soaks in and comes through thin parts), knitting (stocking stitch and ribbing, stripes by the row, pictures by the stitch), felt, corduroy, leather, horn and eyes, each worked out per pixel from where the point is on the figure at rest. `locks.js` draws hair as the mammoth's is drawn; `plumes.js` draws a feather on a strip a few faces long |
@@ -329,11 +325,11 @@ Settings > System > Display > Graphics.
 | Under the coat | `src/mammoth/tattoos.js`, `bodyMaterial.js`, `src/game/finds.js` | Twenty-two tattoos drawn in code on one sheet of ink, each projected onto the hide where it belongs (found by walking in from outside until the skin is met); and a thong, which is a formula. The skin's shader shows both only where the hair is off. Bare hide is a pavement of cracked plates, as an elephant's is |
 | Antics | `src/game/antics.js` | What he does while he is being shaved, what he can be made to wear, the remarks at each milestone, and the end |
 | Novelties | `src/game/gags.js`, `src/game/tools/novelties.js`, `src/game/coins.js` | Each novelty is a tool like the others as far as the hands are concerned (a model, a way of holding it, small spheres that keep it out of the mammoth), with nothing to cut: `gags.js` is asked each frame whether it is pointed at the part of him it is for (a line from the eyes to the hide, the end of his trunk, a tusk taken as a string of balls, or simply where the elf is standing), fills the ring while it is used, and then plays out what comes of it as a list of things to happen at given seconds: a pose for him to take (his tail up, his ears out, his head back: these are laid over what he does anyway), a line for him to say at once, a sound, gold from a named place, and where the camera goes to watch. The camera is not put where the elf would be standing in the way. Coins are one mesh drawn many times: thrown, turning over, bounced off him (his own collider) and off the snow, lying flat or stuck in it on edge, each glinting now and then; an elf within reach has them. The spray uses the lemmings' map of him to find the locks rooted near where it lands |
-| Cave men | `src/game/raid.js`, `src/game/people/caveman.js`, `caveman.recipe.js` | A cave man is sculpted and baked like the other people, at their size, and stood in the world eight times larger (the sculpting was worked out for things twenty centimetres tall); hair is as much thicker as he is bigger. One bake serves all four: they differ in size, in the colour of skin, hair and pelt, and in which hair they have. His legs are driven by a wheel that turns with the ground he covers (a walk and a run are the same stride with different numbers), and his hips are as high as his longer leg leaves them. His arms are not posed: the spear is put where the rest of him has decided it should be (over the shoulder at a run, levelled, or stood on its butt), and each arm is turned at the shoulder and the elbow until its hand is on it. The scene is a list of times: who is where, what is said, and where the camera stands for each part. While they are there the mammoth's shadow map takes in more of the snow in front of him and is drawn every frame (they cover metres a second); the elf's own map leaves each of them out unless he is standing over it |
+| Cave men | `src/game/raid.js`, `src/game/people/caveman.js`, `caveman.recipe.js` | A cave man is sculpted and baked like the other people, at their size, and stood in the world nearly five times larger (a metre tall: less than a third of the mammoth) (the sculpting was worked out for things twenty centimetres tall); hair is as much thicker as he is bigger. One bake serves all four: they differ in size, in the colour of skin, hair and pelt, and in which hair they have. His legs are driven by a wheel that turns with the ground he covers (a walk and a run are the same stride with different numbers), and his hips are as high as his longer leg leaves them. His arms are not posed: the spear is put where the rest of him has decided it should be (over the shoulder at a run, levelled, or stood on its butt), and each arm is turned at the shoulder and the elbow until its hand is on it. The scene is a list of times: who is where, what is said, and where the camera stands for each part. While they are there the mammoth's shadow map takes in more of the snow in front of him and is drawn every frame (they cover metres a second); the elf's own map leaves each of them out unless he is standing over it |
 | Hired help | `src/game/helpers.js`, `src/game/people/lemming.recipe.js` | The hide is covered with places to stand a hand's width apart, each knowing its neighbours along the surface and the locks rooted on its bit of hide. A few of these are counted again every frame (whoever did the cutting), and every half second each is told how many steps it is from the nearest with hair left; a lemming with nothing to gnaw where it stands steps to a neighbour that is nearer, preferring the less crowded, so they spread out over a full coat and converge on what is left of a thin one. Gnawing is the same cut the tools make, a lock at a time, the longer the slower, and the hair falls as theirs does (a dozen pieces a second between all of them, each standing for whatever else came off). A lemming is sculpted and baked like the people, but has no bones: a body and a head that nods on it, drawn many at once, with all its faces only near the eye; one more drawing of all of them casts their shadows. They ride on him as his skin does, breathing and all |
 | What he says | `src/game/says.js` | His lines, and when he says them: the rest of the game tells him what has happened, and he answers when there is a moment, never twice in a few seconds and never over a shop or a scene. The bubble is a label in the page, put each frame where his mouth is on the screen; when that is out of the picture it keeps to the middle of the nearest edge and points. His voice is a few low syllables from `audio.js` |
 | Picture | `src/gfx/post.js` | HDR rendering, bloom, light shafts, a film-style tone curve that keeps colour in the highlights, vignette and grain |
-| Opening | `index.html`, `src/main.js` | The legend is told on the loading screen while the scene is being made: each line is one CSS animation (up out of the dark, growing, then past), started together with delays, so that it goes on moving while the page is busy making a mammoth; the booms are put down on the sound's own clock for the same reason. The scene opens when the telling and the making are both done, in first person at a fixed lookout beside the stall (`?orbit` opens on the old view from outside and its camera move instead). The first tip waits for it |
+| Opening | `index.html`, `src/main.js` | The legend is told on the loading screen, beginning as soon as its lettering has arrived and not when the scene is made: each line is one CSS animation (up out of the dark, then growing for as long as it is left), so that it goes on moving while the page is busy making a mammoth, and a click or a key sweeps it past and starts the next. The scene opens when the telling and the making are both done, in first person at a fixed lookout beside the stall (`?orbit` opens on the old view from outside and its camera move instead). The first tip waits for it |
 | What is laid over the scene | `index.html` | The game is about wool, so its furniture is haberdashery: patches of dark felt sewn on with cream thread, the chosen item on a woven label, prices on paper swing tags, gold as brass, keys to press as brass buttons, and a loading bar that is two rows of knitting worked a stitch at a time with the needle still in. Each trader's list hangs under his own valance (Gnorman's striped awning, something blacker for Mortimer). Three hands of lettering, all from the same family tree: Jacquard 24, a blackletter drawn for the loom, for the words worked in cross-stitch (the name of the game, the name over a shop, what he just got); Grenze Gotisch for the legend and anything said with a straight face; Grenze for everything else. The signs in the scene are painted in the same hands, so `main.js` waits for the lettering before anything is drawn with it. The tab's icon, drawn in the page itself, is his head with one strip of it shorn |
 
 ## Developer notes
@@ -342,7 +338,7 @@ Settings > System > Display > Graphics.
   `node tools/shot.mjs shots/a.png "shot&q=high&view=2" 1600 900` (needs `npm run dev` running).
   Useful query options: `q` (detail), `view`, `cam=x,y,z,tx,ty,tz`, `fov`, `el` (sun height),
   `az` (sun bearing), `t` (time offset), `stats`, `elf=x,z,yaw,pitch` (start with a tool in
-  hand), `tool=scissors|sheep|garden|electric|shaver` (which one), `snips=n` with `snipyaw`
+  hand), `tool=scissors|sheep|garden|electric` (which one), `snips=n` with `snipyaw`
   and `snippitch` (take n strokes, turning between them; an electric tool is run that far
   instead), `look=yaw,pitch`, `open` (blade angle, 0 to 1), `warm=n` (advance n
   frames first), `cutdisc=x,y,z,nx,ny,nz,r` (shear everything crossing a disc),
@@ -377,7 +373,7 @@ Settings > System > Display > Graphics.
   films at 24 a second); `cards.mjs` draws the lettering in the game's typefaces; `make.py` (numpy, scipy,
   opencv, ffmpeg) cuts those and the stills in `docs/` together and makes the soundtrack from nothing.
 - `tools/smoke.mjs` drives the live page through every control and reports script errors;
-  `tools/intro-test.mjs` checks the opening: the legend's lines one at a time on the loading screen, each growing as it comes, the booms, the start in first person with its one tip, and the ways of skipping;
+  `tools/intro-test.mjs` checks the opening: that the legend begins with the loading, that each line grows as it comes and waits to be clicked or keyed on, the booms, the start in first person with its one tip, and Esc;
   `tools/snip-test.mjs` picks up each tool in turn and cuts with real key presses;
   `tools/collide-test.mjs` puts the elf in 3,000 places with each tool and measures whether
   any part of it ends up inside the mammoth or the snow, and whether a tool being put away

@@ -33,11 +33,11 @@ const T = { speak: 7.3, doubt: 8.5, sorry: 10.4, each: 1.55, leave: 16.6, bye: 1
 
 /** Where the camera is for each part of it: [from this second, where it stands, what it looks at (or 'men': the middle of them), its angle]. */
 const SHOTS = [
-  [0, [10.8, 1.15, 6.6], 'men', 42],
-  [4.5, [10.6, 0.95, -0.9], [2.7, 2.15, 0.1], 36],
+  [0, [10.8, 0.8, 6.6], 'men', 34],
+  [4.5, [10.2, 0.62, -0.9], [2.7, 2.0, 0.1], 36],
   [T.speak - 0.15, [7.0, 2.45, 2.3], [2.35, 2.3, 0], 26],
-  [T.sorry - 0.5, [2.0, 4.4, 0.6], [5.9, 0.9, -0.2], 44],          // (from over his head: what he sees of them)
-  [T.leave + 0.4, [1.2, 1.5, 8.8], [7.2, 1.25, -1.2], 40],
+  [T.sorry - 0.5, [2.0, 4.4, 0.6], [5.9, 0.55, -0.2], 36],          // (from over his head: what he sees of them)
+  [T.leave + 0.4, [1.2, 1.5, 8.8], [7.2, 0.9, -1.2], 36],
 ];
 
 /** Labels for what people say, each hung over somebody's head (the mammoth has his own: see says.js). */
@@ -212,7 +212,7 @@ export class Raid {
       let d = back - s.face;
       d = Math.atan2(Math.sin(d), Math.cos(d));
       face = s.face + d * turn;
-      speed = 1.25 * (c.size / 8.2) * smooth(clamp01((since - 0.5) / 0.8));
+      speed = 1.25 * (c.size / 6) * smooth(clamp01((since - 0.5) / 0.8));
       if (!c.away) c.away = { d: 0 };
       c.away.d += speed * this._dt;
       const l = Math.hypot(c.from.x - s.x, c.from.z - s.z) || 1;
@@ -234,7 +234,7 @@ export class Raid {
       cam.target.set(0, 0, 0);
       for (const c of this.men) cam.target.add(c.group.position);
       cam.target.multiplyScalar(1 / this.men.length);
-      cam.target.y += 1.05;
+      cam.target.y += 0.62;
       // ...drawing back towards him as they arrive, so that he is in the picture when they get there
       const k = smooth(span(t, 2.2, 4.4));
       cam.target.x += (4.6 - cam.target.x) * k * 0.55; cam.target.z += (0 - cam.target.z) * k * 0.4;

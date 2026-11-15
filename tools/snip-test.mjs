@@ -145,39 +145,6 @@ check(now.bare === was.bare, 'but nothing shaved to the skin');
 check(now.power < 0.1, 'and they run down when the key is let go');
 if (shots) await page.screenshot({ path: 'shots/snip_b.png', timeout: 300000 });
 
-// ---- beard shaver, over the same strip: stubble down to bare skin ----
-was = now;
-await page.mouse.wheel(0, 120);
-await frames(7);
-now = await state();
-check(now.tool === 'shaver' && now.lit === 'shaver' && now.up, 'one notch on is the beard shaver');
-await moveRound(0);   // the same strip, from as close as the shaver allows
-mid = await runUp(12, 0.5);
-check(mid.power > 0.9 && mid.flat, 'held, it runs, lying on the hide');
-// its strip is narrow, and in this sparse test coat may hold a lock or none: go over the breadth of the stubble, at once, to see what it does to it
-await page.evaluate(() => {
-  const { shaving: s, rig, camera } = window.__game;
-  const yaw = rig.yaw;
-  for (const off of [-0.16, -0.08, 0, 0.08, 0.16]) {
-    rig.yaw = yaw + off; rig.pitch = -0.05;
-    s._mouthAt.valid = false;
-    for (let i = 0; i < 60; i++) {
-      rig.pitch += 0.008; rig.update(1 / 60); camera.updateMatrixWorld(true);
-      s.tool.away = 0; s.tool.place(1, camera, rig.feel, s.world);
-      s.snipNow(camera);
-    }
-  }
-  rig.yaw = yaw; rig.pitch = 0.14; rig.update(1 / 60); camera.updateMatrixWorld(true);
-  s.tool.power = 0;
-});
-await frames(3);
-now = await state();
-say('beard shaver', now);
-check(now.bare > was.bare, 'over the stubble it leaves bare skin');
-check(now.short < was.short, 'which is to say there is less stubble than there was');
-check(now.reach < 13, 'and the elf has come closer still');
-if (shots) await page.screenshot({ path: 'shots/snip_c.png', timeout: 300000 });
-
 // ---- the wheel goes round: past the last tool is the first; and changing twice before the hands are back up ends on the last choice ----
 await page.mouse.wheel(0, 120);
 await frames(7);

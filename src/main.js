@@ -24,60 +24,84 @@ const shot = q.has('shot');   // dev: render a still and stop (see tools/shot.mj
 const $ = (id) => document.getElementById(id);
 const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
-// The game opens on its legend, told on the dark while the scene is being made: three lines, one at a time, each
-// coming up out of the dark towards whoever is watching, with a boom under it (where the browser will let a page
-// make a sound before anybody has touched it: most will not). The scene opens when the telling and the making are
-// both done. Any key or click skips the telling. (Dev stills and dev starts go without; ?legend=n holds line n.)
+// The game opens on its legend, told on the dark while the scene is being made: three lines, each coming up out of
+// the dark towards whoever is watching, with a boom under it (where the browser will let a page make a sound: before
+// anybody has touched it, most will not; after the first click, all do). The first comes as soon as there is lettering
+// to set it in; each of the others when the one before is clicked away (or any key is pressed). After the last, the
+// scene opens, as soon as it is made. Esc goes past the lot. (Dev stills and dev starts go without; ?legend=n holds line n.)
 const legendLines = [...document.querySelectorAll('#legend p')];
 const tellLegend = legendLines.length > 0 && (shot ? q.has('legend') : !q.has('cam') && !q.has('elf') && !q.has('nolegend'));
-const LEGEND = { first: 0.5, line: 3.4, last: 4.4 };      // seconds: before the first line; each line's turn; the last one's
 /** dev stills: hold line i of the legend (-1: none). */
 const say = (i) => legendLines.forEach((p, k) => p.classList.toggle('on', k === i));
-// (the listeners go on now, not when the scene is ready: the legend can be skipped while the scene is still being made)
-const legend = { skipped: false, over: !tellLegend || shot, told: !tellLegend || shot, onEnd: null, hush: null, timers: [] };
+// (the listeners go on now, not when the scene is ready: the legend is told while the scene is still being made)
+const legend = { skipped: false, over: !tellLegend || shot, told: !tellLegend || shot, onEnd: null, at: -1, since: 0, sound: null };
 function endTelling() {
-  legend.timers.forEach(clearTimeout);
   document.body.classList.remove('telling');
   $('legend')?.classList.remove('telling');
   if (legend.onEnd) legend.onEnd();
 }
-function skipLegend(e) {
+/**
+ * The boom under the line that is showing, if it has not had it. (A sound that has only just been let begin, by the
+ * click that brought the line, is not running yet: this is asked again when it is.)
+ */
+function boomNow() {
+  const sound = legend.sound;
+  if (!sound || legend.over || legend.told || legend.skipped || legend.at < 0 || legend.boomed === legend.at) return;
+  sound.start();
+  if (sound.boom(legend.at === legendLines.length - 1 ? 1 : 0.8)) legend.boomed = legend.at;
+}
+/** The line showing is swept past whoever is watching, and (if there is one) the next comes. */
+function nextLine() {
+  const was = legendLines[legend.at];
+  if (was) {
+    const cs = getComputedStyle(was), from = cs.transform === 'none' ? '' : cs.transform;
+    was.classList.remove('now');
+    if (reducedMotion || !was.animate) was.style.opacity = 0;
+    else was.animate([{ opacity: 1, transform: from || 'scale(1)' }, { opacity: 0, transform: `${from} scale(2.3)`, filter: 'blur(5px)' }], { duration: 460, easing: 'ease-in', fill: 'forwards' });
+  }
+  legend.at++;
+  legend.since = performance.now();
+  const p = legendLines[legend.at];
+  if (!p) { legend.told = true; endTelling(); return; }
+  p.classList.add('now');
+  boomNow();
+}
+function onLegend(e) {
   if (legend.over) return;
   if (e.type === 'keydown') {
     if (e.ctrlKey || e.metaKey || e.altKey || /^(Shift|Control|Alt|Meta|Tab|CapsLock|F\d+)$/.test(e.key)) return;   // not meant for the game
-    e.stopImmediatePropagation();   // this press only skips: it is not also a command
+    e.stopImmediatePropagation();   // this press only turns the page: it is not also a command
     e.preventDefault();
+    if (e.repeat) return;
   }
   if (legend.skipped || legend.told) return;
-  legend.skipped = true;
-  if (legend.hush) legend.hush();
-  endTelling();
+  if (e.type === 'keydown' && e.key === 'Escape') {            // past the lot
+    legend.skipped = true;
+    legendLines.forEach((p) => p.classList.remove('now'));
+    if (legend.sound) legend.sound.hush();
+    endTelling();
+    return;
+  }
+  if (legend.at < 0 || performance.now() - legend.since < 350) return;   // (nothing to turn yet; or a second click of a double one)
+  nextLine();
 }
-/** Tell it (once the lettering has arrived). `sound` booms under each line if it is allowed to. */
+/** Begin telling it (once the lettering has arrived). `sound` booms under each line if it is allowed to. */
 function tell(sound) {
-  if (legend.over || legend.skipped || legend.at) return;
-  legend.at = performance.now();
-  const at = (k) => LEGEND.first + k * LEGEND.line, n = legendLines.length;
-  legendLines.forEach((p, k) => { p.style.animationDelay = `${at(k).toFixed(2)}s`; p.style.animationDuration = `${(k === n - 1 ? LEGEND.last : LEGEND.line).toFixed(2)}s`; });
+  if (legend.over || legend.skipped || legend.at >= 0) return;
+  legend.sound = sound;
+  sound.start();
+  sound.ctx?.addEventListener('statechange', boomNow);
   $('legend').classList.add('telling');
   document.body.classList.add('telling');
-  // the booms: put down on the sound's own clock (a page busy making a mammoth keeps poor time), counted from the
-  // frame the lines set off on; if the sound is not running yet, they are put down when it is, in case it is let
-  sound.start();
-  legend.hush = () => sound.hush();
-  const drum = () => {
-    if (legend.drummed || legend.skipped || legend.told || !legend.began || sound.ctx?.state !== 'running') return;
-    legend.drummed = true;
-    const gone = (performance.now() - legend.began) / 1000;
-    legendLines.forEach((p, k) => { const w = at(k) - gone; if (w > -0.3) sound.boom(k === n - 1 ? 1 : 0.8, Math.max(0, w)); });
-  };
-  requestAnimationFrame((t) => { legend.began = t; drum(); });
-  sound.ctx?.addEventListener('statechange', drum);
-  legend.timers.push(setTimeout(() => { legend.told = true; endTelling(); }, (at(n - 1) + LEGEND.last) * 1000));
+  nextLine();
 }
 if (!legend.over) {
-  window.addEventListener('keydown', skipLegend, true);
-  $('loading').addEventListener('pointerdown', skipLegend);
+  // (on the window, ahead of everything else: by the time the last line is reached the game is there underneath, with
+  // its own ideas about what a click is for; and the click that ends the legend is not also a click on anything)
+  window.addEventListener('keydown', onLegend, true);
+  window.addEventListener('pointerdown', (e) => { if (!legend.over) { e.stopImmediatePropagation(); onLegend(e); } }, true);
+  const swallow = (e) => { if (!legend.over || performance.now() - legend.endedAt < 400) { e.stopImmediatePropagation(); e.preventDefault(); } };
+  for (const ev of ['mousedown', 'mouseup', 'click', 'pointerup']) window.addEventListener(ev, swallow, true);
 }
 
 // What each detail setting asks for. The scene then tunes itself further at
@@ -123,6 +147,8 @@ const lettering = (() => {
   const all = document.fonts && document.fonts.load ? Promise.all(FACES.map((f) => document.fonts.load(f).catch(() => null))) : Promise.resolve();
   return Promise.race([all, new Promise((done) => setTimeout(done, 3500))]).then(() => { document.body.classList.add('fonts'); });
 })();
+const sound = new Sound();
+lettering.then(() => tell(sound));       // (the legend starts with the loading, not part way through it)
 
 const setProgress = (p, label) => {
   const bar = $('bar'), text = $('status');
@@ -239,8 +265,6 @@ async function start() {
   if (q.has('nofur')) mammoth.setCoatVisible(false);
   if (q.has('allhairs')) mammoth.allHairs = true;   // dev: see Mammoth.updateCoat
   // the tools, and the hair they cut
-  const sound = new Sound();
-  lettering.then(() => tell(sound));
   const shaving = new Shaving({ scene, mammoth, terrain, sound, a2c: Q.samples > 0, tool: q.get('tool') || 'scissors' });
   if (q.has('cutdisc')) {
     // dev: ?cutdisc=x,y,z,nx,ny,nz,radius[;...] shears everything crossing a disc
@@ -623,7 +647,7 @@ async function start() {
   window.addEventListener('pointerdown', firstTouch, true);
   if (firstPerson) rig.enterElf(LOOKOUT);
   if (q.has('elf')) {
-    // dev: start at snow level with a tool in hand, e.g. ?elf=x,z,yaw,pitch (and ?tool=scissors|sheep|garden|electric|shaver)
+    // dev: start at snow level with a tool in hand, e.g. ?elf=x,z,yaw,pitch (and ?tool=scissors|sheep|garden|electric)
     rig.enterElf();
     const e = q.get('elf').split(',').map(Number);
     if (e.length >= 2 && !Number.isNaN(e[1])) rig.pos.set(e[0], 0, e[1]);
@@ -725,9 +749,10 @@ async function start() {
     if (told) return;
     told = true;
     legend.over = true;
+    legend.endedAt = performance.now();
     say(-1);
     document.body.classList.add('told');
-    window.removeEventListener('keydown', skipLegend, true);
+    window.removeEventListener('keydown', onLegend, true);
     if (!shot && rig.mode === 'elf') toolHint();
   };
   const reveal = () => {
@@ -828,6 +853,7 @@ async function start() {
   }
   // dev: ?raid=<seconds> has the cave men sent for, and shows the scene that many seconds in
   if (q.has('raid')) {
+    game.says.greeted = true;                      // (he has other things to say just now)
     await game.raid._make();
     document.body.classList.add('told');
     if (rig.mode === 'elf') rig.update(1 / 30);

@@ -4,6 +4,9 @@
 // from side to side across it by the motor in the handle. 18 cm over all, with
 // a comb 5.5 cm wide.
 //
+// In the game it is two and a half times that: 45 cm of machine with a comb 14 cm wide, held by an elf of 20 cm.
+// It was made for somebody else, and it is the best thing he will ever own.
+//
 // It has no stroke. Hold the switch and it runs, and whatever the comb is
 // pushed into comes off a few millimetres from the skin.
 //
@@ -13,6 +16,7 @@
 import * as THREE from 'three';
 import { Kit, loft, skin, join, steelTextures, canvasTexture, rngFrom, smoothstep, lerp } from '../tool.js';
 
+const SIZE = 2.5;                               // how many times the size it is made below it is in the hand
 const TIP = 0.100;                              // origin to the points of the comb, metres
 const TEETH = 13;
 const TOOTH = 0.017;                            // length of a comb tooth
@@ -138,7 +142,7 @@ function knurlTexture() {
 }
 
 export function buildElectricShears() {
-  const kit = new Kit('electric-shears', 0.05);
+  const kit = new Kit('electric-shears', 0.11);
   const tex = steelTextures({ seed: 409, tone: '#9da1a6', rust: 0.04 });
   const body = bodyTextures();
   const knurl = knurlTexture();
@@ -153,7 +157,9 @@ export function buildElectricShears() {
 
   // Everything hangs from one group, which shivers when the motor runs; the
   // cutter and the fork that drives it hang from another inside it.
-  const all = kit.upper, moving = new THREE.Group();
+  const all = new THREE.Group(), moving = new THREE.Group();
+  all.scale.setScalar(SIZE);
+  kit.upper.add(all);
   all.add(moving);
   kit.add(all, combGeometry(), steel, 'electric-comb');
   kit.add(moving, cutterGeometry(), bright, 'electric-cutter');
@@ -181,35 +187,39 @@ export function buildElectricShears() {
     for (const k of [-1, -0.5, 0, 0.5, 1]) fixedSamples.push([x, 0.0022, k * (hw - 0.0022), 0.0022]);
   }
   fixedSamples.push([0.050, 0.0112, 0.0075, 0.0098], [0.050, 0.0112, -0.0075, 0.0098], [0.038, 0.0124, 0, 0.0106], [0.045, top + 0.004, 0, 0.0066]);
-  for (const x of [0.022, 0.006, -0.012, -0.030, -0.048, -0.064, -0.0745]) {
+  // (of the handle, only what is in front of the hand: at this size the rest of it is behind and below him, where it
+  // would catch on the snow and on the mammoth's feet and hold the comb off the skin)
+  for (const x of [0.022, 0.006]) {
     const r = BODY.reduce((best, b) => (Math.abs(b.x - x) < Math.abs(best.x - x) ? b : best)).ry;
     fixedSamples.push([x, axisY(x), 0, r + 0.0004]);
   }
 
+  const K = SIZE;
   return {
     id: 'electric',
     name: 'Electric shears',
-    blurb: 'A comb, a cutter and a motor. Hold it down and push: a wide swath, a few millimetres from the skin.',
+    blurb: 'A comb, a cutter and a motor the size of you. Hold it down and push: a swath as wide as a doorway, a few millimetres from the skin.',
     seed: 41,
     kit,
     halfThick: 0,
     open: 0,
-    tip: TIP,
+    tip: TIP * K,
     // the head and comb, for the hair to part round: two halves, one either side of the middle
-    blade: { from: 0.056, to: TIP, back0: 0, back1: 0, exp: 1, edge: HALF[2], point: 0 },
-    part: { above: 0.034, below: 0.012 },
+    blade: { from: 0.056 * K, to: TIP * K, back0: 0, back1: 0, exp: 1, edge: HALF[2] * K, point: 0 },
+    part: { above: 0.034 * K, below: 0.012 * K },
     pivotClear: 0,
     cutInner: 0,
     leverSamples: [],
-    fixedSamples,
-    // in the right hand, comb leading
-    hold: { pos: [0.02, -0.086, -0.128], tilt: 0, yaw: (-5 * Math.PI) / 180, roll: (5 * Math.PI) / 180, sway: 1 },
-    lie: { tip: 0.0026, pivot: 0.0026 },         // the sole of the comb rides flat, this far off the skin
-    reach: 0.19,
-    // up to speed in a tenth of a second; 260 locks of full-length hair a second (at High detail: the comb's width at about half a metre a second) before it bogs down
-    motor: { spinUp: 0.09, spinDown: 0.28, rate: 260, long: 0.03, light: 0.12 },
-    // hair is taken as its roots pass between the teeth, just short of their points
-    mouth: { from: 0.081, to: 0.097, half: HALF[2], above: 0.008, below: 0.008 },
+    fixedSamples: fixedSamples.map((f) => f.map((v) => v * K)),
+    // in both hands, comb leading: most of what he can see
+    hold: { pos: [0.03, -0.17, -0.3], tilt: 0, yaw: (-4 * Math.PI) / 180, roll: (4 * Math.PI) / 180, sway: 1 },
+    lie: { tip: 0.004, pivot: 0.004 },           // the sole of the comb rides flat, this far off the skin
+    reach: 0.36,
+    // up to speed in a tenth of a second, and it does not bog down: 4,000 locks of full-length hair a second (at High
+    // detail), which is the comb's whole width through the thickest of him as fast as an elf can run
+    motor: { spinUp: 0.09, spinDown: 0.28, rate: 4000, long: 0.03, light: 0.05, shower: 22 },      // (shower: how many locks a frame are seen to fall)
+    // hair is taken as its roots pass under the comb, from its heel to the points of its teeth
+    mouth: { from: 0.062 * K, to: 0.099 * K, half: HALF[2] * K, above: 0.05, below: 0.05 },      // (deep, for a comb this wide laid on something round)
     cut: { below: 0, min: 0.003, chance: 1, ragged: 0 },
     voice: 'electric',
     animate: (tool) => {
@@ -218,7 +228,7 @@ export function buildElectricShears() {
       // drawn at a rate the eye (and the frame rate) can make something of.
       moving.position.z = p > 0.02 ? Math.sin(w * 21.3) * 0.0034 * Math.min(1, p * 1.5) : 0.0021;
       // the whole handpiece shivers with it, and harder when it labours
-      const shake = p * (0.00018 + 0.0004 * tool.load);
+      const shake = p * (0.00018 + 0.0004 * tool.load) * SIZE;
       all.position.set(0, Math.sin(w * 37.1) * shake, Math.sin(w * 29.3 + 1) * shake * 0.6);
       lamp.emissiveIntensity = 9 * Math.min(1, p * 2);
     },
