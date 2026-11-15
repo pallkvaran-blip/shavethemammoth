@@ -371,6 +371,11 @@ Settings > System > Display > Graphics.
   saving and loading (gold left lying on the snow included), and the Dev button (that what it gives
   really does buy everything on the list). It steps the game itself rather than waiting for
   frames, so it is quick.
+- The trailer (`trailer/shave-the-mammoth-trailer.mp4`, a minute long, in the manner of a film about the end of
+  the world) is made by `tools/trailer/`: `rec.mjs` records a moving shot of the game frame by frame against a
+  clock that it moves on itself (so that a machine with no graphics card, where a frame takes ten seconds, still
+  films at 24 a second); `cards.mjs` draws the lettering in the game's typefaces; `make.py` (numpy, scipy,
+  opencv, ffmpeg) cuts those and the stills in `docs/` together and makes the soundtrack from nothing.
 - `tools/smoke.mjs` drives the live page through every control and reports script errors;
   `tools/intro-test.mjs` checks the opening: the legend's lines one at a time on the loading screen, each growing as it comes, the booms, the start in first person with its one tip, and the ways of skipping;
   `tools/snip-test.mjs` picks up each tool in turn and cuts with real key presses;
