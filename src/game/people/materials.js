@@ -337,6 +337,195 @@ const KINDS = {
   },
 };
 
+// ---- a figure made elsewhere (cast.js) ----
+// One material over all of him. His colour, how rough he is and the shape of his creases are pictures; which part is
+// skin, which wool, which felt comes with every point (two sets of four shares), and each part is given the grain of
+// its kind as the sculpted figures' materials give it, worked out from where the point is on him at rest. So he keeps
+// what the pictures are good at (a nose that is redder at the end, a hat with a seam) and loses what they are bad at:
+// looked at from a hand's breadth, a picture is a blur, and stitches worked out are still stitches.
+const CAST_COLOR = /* glsl */ `
+  float px = footprint();
+  float skinW = vTint.x, knitW = vTint.y, feltW = vTint.z, leatherW = vTint.w, clothW = vRegB.x, foamW = vRegB.y, hairW = vRegB.z, metalW = vRegB.w;
+  float woolly = max(max(knitW, feltW), clothW);
+  vec3 base = diffuseColor.rgb;
+  float grainH = 0.0;                       // the height of the grain here, metres, for the normal
+  if (skinW > 0.02) {
+    float fine = 1.0 - smoothstep(0.00012, 0.0006, px);
+    vec3 pore = cells3(vRest * 1000.0);
+    base *= mix(1.0, (0.95 + 0.1 * fbm3(vRest * 90.0)) * mix(1.0, 0.95 + 0.05 * smoothstep(0.1, 0.5, pore.x), fine), skinW);
+    grainH += skinW * ((smoothstep(0.0, 0.45, pore.x) - 0.5) * 0.00003 * fine + (fbm3(vRest * vec3(260.0, 700.0, 260.0)) - 0.5) * 0.00005 * (1.0 - smoothstep(0.0003, 0.0015, px)));
+  }
+  if (feltW > 0.02) {
+    float fine = 1.0 - smoothstep(0.0003, 0.0015, px);
+    float fib = fbm3(vRest * vec3(1.0, 0.35, 1.0) / 0.0009) * 0.6 + fbm3(vRest.zxy * vec3(0.35, 1.0, 1.0) / 0.0009 + 5.0) * 0.4;
+    base *= mix(1.0, mix(1.0, 0.82 + 0.36 * fib, fine), feltW);
+    grainH += feltW * (fib - 0.5) * 0.0009 * fine;
+  }
+  if (leatherW > 0.02) {
+    float fine = 1.0 - smoothstep(0.12, 0.5, px / 0.0009);
+    vec3 gr = cells3(vRest / 0.0009);
+    float crack = smoothstep(0.02, 0.14, gr.y - gr.x);
+    base *= mix(1.0, mix(1.0, 0.72 + 0.28 * crack, fine), leatherW);
+    grainH += leatherW * mix(0.8, crack * (0.75 + 0.25 * gr.z), fine) * 0.0009 * 0.22;
+  }
+  if (knitW > 0.02) {
+    // His jumper is knitted here, stitch by stitch, as the other Gnorman's is: the generator's picture of knitting is a
+    // blur close to, and its lettering a guess. Only its shape is kept (and so its folds, in the light).
+    vec2 kuv = castKnit(vRest, floor(vLimb + 0.5));
+    vec2 kp = vec2(kuv.x / uFolkA.x, kuv.y / uFolkA.y);
+    float limb = floor(vLimb + 0.5);
+    // ribbing at the hem and at the cuffs, in the darker wool
+    float ribbed = limb < 0.5 ? 1.0 - smoothstep(0.119, 0.122, vRest.y) : smoothstep(-0.001, 0.002, kuv.y - 0.3 - (limb < 1.5 ? uFolkB.z : uFolkB.w));
+    vec3 st = ribbed > 0.5 ? ribbing(kp, 2.0) : stocking(kp);
+    float seen = 1.0 - smoothstep(0.1, 0.42, px / uFolkA.x);
+    float knitH = mix(0.55, st.x, seen);
+    vec3 wool = uKnit;
+    // stripes change colour between rows, as knitting does
+    wool = mix(wool, uFolkC, step(1.0 - uFolkA.w, fract(st.y / uFolkA.z + uFolkB.y)) * (1.0 - ribbed));
+    wool = mix(wool, uKnit * 0.86, ribbed);
+    #ifdef FOLK_MAP
+    if (limb < 0.5) {
+      // each stitch is one colour: the picture's, where that stitch's middle falls in it
+      vec3 mid = vec3((floor(kp.x) + 0.5) * uFolkA.x, (st.y + 0.5) * uFolkA.y, 0.0);
+      vec4 near = folkPicture(mid, 1.0, 0.0), far = folkPicture(vec3(kuv, 0.0), 1.0, -1.0);
+      vec4 pic = mix(far, near, seen);
+      wool = mix(wool, pic.rgb, pic.a);
+    }
+    #endif
+    float each = fract(sin(dot(floor(kp), vec2(12.9898, 78.233))) * 43758.5453);
+    wool *= mix(1.0, 0.9 + 0.2 * each, seen);
+    wool *= mix(1.0, 0.86 + 0.14 * sin(st.z * 16.0 + kp.x * 3.0), seen * 0.7);
+    wool *= mix(0.86, mix(0.55, 1.0, smoothstep(0.0, 0.6, st.x)), seen);
+    wool *= 0.94 + 0.12 * fbm3(vRest * 1400.0);
+    base = mix(base, wool, knitW);
+    grainH += knitW * knitH * uFolkA.x * 0.26;
+  }
+  if (clothW > 0.02) {
+    // corduroy: cords running up his legs, in the trousers' own blue (the generator's is nearly black)
+    // (let go well before a cord is as narrow as a dot of the screen: fine lines that nearly fit the dots shimmer)
+    float seen = 1.0 - smoothstep(0.07, 0.26, px / 0.0036);
+    float cord = 0.5 + 0.5 * cos(atan(vRest.z, vRest.x) * 0.075 / 0.0036 * 6.28318);
+    vec3 cloth = uCloth * 0.9 * mix(1.0, 0.88 + 0.16 * cord, seen) * (0.93 + 0.14 * fbm3(vRest * 80.0));
+    base = mix(base, cloth, clothW);
+    grainH += clothW * mix(0.6, cord, seen) * 0.0036 * 0.3;
+  }
+  if (foamW > 0.02) {
+    // foam: pitted all over
+    float fine = 1.0 - smoothstep(0.0004, 0.002, px);
+    vec3 pit = cells3(vRest / 0.0022);
+    float hole = 1.0 - smoothstep(0.08, 0.3, pit.x) * 1.0;
+    base *= mix(1.0, 1.0 - 0.25 * hole * step(0.55, pit.z), foamW * fine);
+    grainH -= foamW * hole * step(0.55, pit.z) * 0.00035 * fine;
+  }
+  // (what is under his beard is in the beard's shadow)
+  base *= mix(1.0, 0.62, hairW);
+  // The pictures were made of him standing in a soft light, and some of that light's shadow is in them: each kind of
+  // thing is brought back up to about what it would be with none.
+  base *= skinW * 1.28 + knitW + feltW * vec3(1.3, 1.08, 1.05) + leatherW * 1.25 + clothW + foamW * 1.05 + hairW + metalW * 1.3;
+  diffuseColor.rgb = base;
+`;
+const CAST_SURFACE = /* glsl */ `
+  // how rough each part is: what the picture says, pulled most of the way to what that kind of thing is
+  float kindRough = skinW * 0.52 + knitW * 0.92 + feltW * 0.96 + leatherW * 0.5 + clothW * 0.88 + foamW * 0.95 + hairW * 0.85 + metalW * 0.32;
+  roughnessFactor = clamp(mix(roughnessFactor, kindRough, 0.7) + 0.1 * (fbm3(vRest * 300.0) - 0.5) * (skinW + leatherW), 0.12, 1.0);
+  metalnessFactor = metalW;
+`;
+const CAST_NORMAL = /* glsl */ `
+  // (the generator's creases in his jumper and trousers are mostly its guesses at knitting and lettering: let go)
+  normal = normalize(mix(normal, nonPerturbedNormal, 0.85 * max(knitW, clothW)));
+  normal = bumped(normal, grainH);
+`;
+// where a point of his jumper is in its knitting: metres round, and along, the limb it is on
+const CAST_HEAD = /* glsl */ `
+varying vec4 vRegB;
+varying float vLimb;
+uniform vec3 uKnit;
+uniform vec3 uCloth;
+uniform vec3 uArmL[2];
+uniform vec3 uArmR[2];
+vec2 castKnit(vec3 p, float limb) {
+  // (round his body from his right side, so that the row ends meet under that arm)
+  if (limb < 0.5) return vec2(atan(p.z, p.x) * 0.09, p.y);
+  vec3 a = limb < 1.5 ? uArmL[0] : uArmR[0], b = limb < 1.5 ? uArmL[1] : uArmR[1];
+  vec3 d = normalize(b - a), q = p - a;
+  float t = dot(q, d);
+  vec3 r = q - d * t, e1 = normalize(cross(d, vec3(0.0, 0.0, 1.0))), e2 = cross(d, e1);
+  return vec2(atan(dot(r, e1), -dot(r, e2)) * 0.022, t + 0.3);
+}
+`;
+const CAST_MATERIAL = /* glsl */ `
+  #ifdef USE_SHEEN
+    // (the bloom on wool is the colour of the wool, mostly)
+    material.sheenColor = mix(material.sheenColor, min(vec3(1.0), material.diffuseColor * 2.4), 0.6) * woolly;
+  #endif
+  #ifdef USE_CLEARCOAT
+    material.clearcoat *= skinW * 0.35 + leatherW;
+  #endif
+`;
+const CAST_LIGHT = /* glsl */ `
+  {
+    vec3 nw = normalize(vWNormal);
+    float ndl = dot(nw, uSunDir);
+    if (skinW > 0.02) {
+      // light goes a little way into skin and comes out round the corner, redder for the trip; and straight through an ear
+      float wrapped = clamp((ndl + 0.5) / 1.5, 0.0, 1.0);
+      float extra = max(0.0, wrapped * wrapped - max(ndl, 0.0));
+      reflectedLight.directDiffuse += material.diffuseColor * uSunColor * extra * vec3(1.0, 0.42, 0.3) * 1.15 * sv * 0.75 * skinW;
+      float thin = vShade.y;
+      if (thin > 0.02) {
+        float back = clamp(-ndl * 0.8 + 0.35, 0.0, 1.0);
+        float lit = sunVisibility(vWPos + uSunDir * 0.02, 160.0, 0.02, 0.012, ign(gl_FragCoord.xy));
+        reflectedLight.directDiffuse += material.diffuseColor * uSunColor * back * thin * lit * vec3(1.0, 0.27, 0.14) * 2.2 * skinW;
+      }
+    }
+    // wool, felt, cloth: light gets in among the fibres, so the edge of a shadow on them is soft
+    float soft = max(woolly, hairW);
+    float wrapped = clamp((ndl + 0.4) / 1.4, 0.0, 1.0);
+    reflectedLight.directDiffuse += material.diffuseColor * uSunColor * max(0.0, wrapped - max(ndl, 0.0)) * sv * 0.5 * soft;
+  }
+  reflectedLight.directDiffuse += material.diffuseColor * lampLight(vWPos, normalize(vWNormal));
+`;
+
+/**
+ * The material of a figure made elsewhere (see cast.js).
+ * @param pictures  { base, normal, orm }: its colour; the shape of its creases; and how much sky each point sees (red),
+ *                  how rough it is (green) and how much of it is metal (blue)
+ * @param opts.knit      { color, second, stitch: [width, height] in metres, stripe: rows to a pair of stripes, share of
+ *                       the second colour, start: where in a stripe the rows begin }
+ * @param opts.arms      { L: [shoulder, wrist], R: [shoulder, wrist] }, each [x, y, z]: which way his sleeves run
+ * @param opts.cuff      how much of the end of a sleeve is ribbed cuff, metres
+ * @param opts.cloth     the colour of his trousers
+ * @param opts.picture   { map, at, u, v } as for folkMaterial's knitting: lettering worked into his jumper
+ */
+export function castMaterial(pictures, { knit = {}, arms, cuff = 0.012, cloth = 0x2c3f66, picture = null, ...rest } = {}) {
+  const m = new THREE.MeshPhysicalMaterial({
+    map: pictures.base, normalMap: pictures.normal, roughnessMap: pictures.orm, aoMap: pictures.orm, aoMapIntensity: 0.55,
+    roughness: 1, metalness: 0, sheen: 0.6, sheenRoughness: 0.6, sheenColor: 0xf0c9a8, clearcoat: 0.35, clearcoatRoughness: 0.35, ...rest,
+  });
+  m.defines = { ...(m.defines || {}), FOLK_SCULPTED: 1 };
+  const stitch = knit.stitch || [0.0026, 0.002];
+  const uniforms = {
+    uFolkA: { value: new THREE.Vector4(stitch[0], stitch[1], knit.stripe ?? 22, knit.share ?? 0.5) },
+    // (a cuff is the last so much of a sleeve, however long the sleeve)
+    uFolkB: { value: new THREE.Vector4(0, knit.start ?? 0, Math.hypot(...arms.L[1].map((v, a) => v - arms.L[0][a])) - cuff, Math.hypot(...arms.R[1].map((v, a) => v - arms.R[0][a])) - cuff) },
+    uFolkC: { value: new THREE.Color(knit.second ?? 0xe9dcc0) },
+    uKnit: { value: new THREE.Color(knit.color ?? 0x8f3a1f) }, uCloth: { value: new THREE.Color(cloth) },
+    uArmL: { value: arms.L.map((p) => new THREE.Vector3(...p)) }, uArmR: { value: arms.R.map((p) => new THREE.Vector3(...p)) },
+  };
+  if (picture) {
+    m.defines.FOLK_MAP = 1;
+    const over = (e) => { const l2 = e[0] * e[0] + e[1] * e[1] + e[2] * e[2]; return new THREE.Vector3(e[0] / l2, e[1] / l2, e[2] / l2); };
+    Object.assign(uniforms, { uFolkMap: { value: picture.map }, uFolkMapO: { value: new THREE.Vector3(...picture.at) }, uFolkMapU: { value: over(picture.u) }, uFolkMapV: { value: over(picture.v) } });
+  }
+  m.userData.folk = uniforms;
+  return patchStandardMaterial(m, {
+    key: `folk-cast${picture ? '-pic' : ''}`, bias: 0.012, radius: 0.012, offset: 0.004, taps: 8, extraUniforms: uniforms,
+    vertexHead: VERT_HEAD + 'attribute vec4 aRegB;\nvarying vec4 vRegB;\nattribute float aLimb;\nvarying float vLimb;\n', extraVertex: VERT_BODY + '  vRegB = aRegB; vLimb = aLimb;\n',
+    fragmentHead: LAMP + LIB + CAST_HEAD,
+    fragmentColor: CAST_COLOR, fragmentSurface: CAST_SURFACE, fragmentNormal: CAST_NORMAL, fragmentMaterial: CAST_MATERIAL, fragmentLight: CAST_LIGHT,
+  });
+}
+
 /**
  * A material for part of a figure.
  * @param kind   'skin' | 'knit' | 'felt' | 'cloth' | 'leather' | 'plain' | 'eye'

@@ -632,6 +632,40 @@ check(v.refused.length === 0 && v.left.length === 0 && v.gold >= 0, `everything 
 check(v.helpers === 240 && v.tags === 'box,cavemen,tonic', `down to a full complement of lemmings; all that still has a price is what can be had again (${v.tags})`);
 await page.evaluate(() => window.__game.game.close());
 
+// ---- the other Gnorman (dev): the one made in Blender from a generated sculpt, fetched when asked for ----
+v = await page.evaluate(() => {
+  const { game, rig } = window.__game, b = document.getElementById('dev-gnorman');
+  window.__sculpted = game.gnome;
+  return { chip: !!b && !b.hidden && b.offsetWidth > 0, label: b ? b.textContent : '', mode: rig.mode, bones: game.gnome.rig.list.length };
+});
+check(v.chip && v.mode === 'elf', `a mark for the other Gnorman is beside the purse ("${v.label}")`);
+await page.keyboard.press('KeyN');
+await page.waitForFunction(() => window.__game.game.gnome !== window.__sculpted, null, { timeout: 300000 });
+v = await page.evaluate(() => {
+  const { game } = window.__game, f = game.gnome, was = window.__sculpted, dt = 1 / 60;
+  // (some of a second of him: he turns his head, waves, blinks; nothing may come out as not-a-number)
+  let bad = 0;
+  for (let k = 0; k < 90; k++) { f.update(dt, k * dt, 0.8, 1, k > 45 ? 1 : 0); }
+  f.group.updateMatrixWorld(true);
+  for (const b of f.rig.list) for (const e of b.matrixWorld.elements) if (!Number.isFinite(e)) bad++;
+  const hair = f.meshes.filter((m) => m.name === 'locks');
+  return {
+    hint: document.getElementById('hint').textContent, inScene: !!f.group.parent, oldOut: !was.group.parent, bones: f.rig.list.length, bad,
+    where: f.group.position.distanceTo(was.group.position), casting: game.casters.filter((m) => f.meshes.includes(m)).length, meshes: f.meshes.length,
+    stale: game.casters.filter((m) => was.meshes.includes(m)).length, hair: hair.length, skinned: hair.every((m) => m.isSkinnedMesh), turned: +f.rig.bones.head.rotation.y.toFixed(2),
+    points: f.meshes[0].geometry.attributes.position.count, his: game.people.gnome.parts[1] === f,
+  };
+});
+console.log(`gnorman: the cast has ${v.points} points on ${v.bones} bones, ${v.hair} pieces of hair; "${v.hint.slice(0, 60)}..."`);
+check(v.inScene && v.oldOut && v.where < 1e-6 && /Blender/.test(v.hint), 'N fetches him and stands him where Gnorman stood');
+check(v.casting === v.meshes && v.stale === 0, 'his parts throw the shadows, and the old one\u2019s no longer do');
+check(v.hair === 5 && v.skinned && v.bad === 0 && v.turned > 0.5, 'he turns to look, and his hair goes with his bones');
+check(v.his, 'and the stall is his');
+await page.keyboard.press('KeyN');
+await page.waitForFunction(() => window.__game.game.gnome === window.__sculpted, null, { timeout: 60000 });
+v = await page.evaluate(() => { const { game } = window.__game; return { back: !!window.__sculpted.group.parent, casting: game.casters.filter((m) => window.__sculpted.meshes.includes(m)).length, meshes: window.__sculpted.meshes.length }; });
+check(v.back && v.casting === v.meshes, 'N again brings back the one the page sculpts');
+
 console.log(errors.length ? 'ERRORS:\n' + errors.join('\n') : 'no script errors');
 await browser.close();
 process.exitCode = errors.length ? 1 : 0;

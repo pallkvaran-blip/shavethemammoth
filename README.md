@@ -63,6 +63,46 @@ All of that is some seconds of arithmetic for each of them. It is done on thread
 its own while the land and the mammoth are being made, so the wait is hardly longer
 for it; where a page does not allow threads it is done between frames instead.
 
+### The other Gnorman (a trial)
+
+| ![The Gnorman the page sculpts beside the one cast from a generated sculpt, from in front](docs/gnorman-cast-front.jpg) | ![The same two, close to: a ball of a nose and a nose with nostrils](docs/gnorman-cast-face.jpg) |
+| --- | --- |
+| ![The two of them from behind, each with #1 FAN knitted across his back](docs/gnorman-cast-back.jpg) | ![Each of them behind his counter, as the elf sees him](docs/gnorman-cast-stall.jpg) |
+
+In each picture the Gnorman on the left is the one described above; the one on the right is a
+trial of making the people another way. Press `N` in the game (or the second **Dev** mark beside
+the purse) to change one for the other where he stands; `?gnorman=cast` starts with the second.
+
+He was made in three stages. A picture of the first Gnorman was given to an image generator to be
+drawn again as a far more finished character, front and back
+(`tools/cast/gnorman/reference/`). Those two pictures were given to a generator of 3D models
+(Rodin, through Replicate), which returned a sculpt of a million faces with pictures of its colour.
+And that was finished in Blender, by script (`tools/cast/`): stood at the game's size, thinned to
+60,000 faces with a texture layout of its own, the sculpt's colour, roughness, creases and shading
+baked across, every point sorted by what it is made of and given its bones, and room made for eyes.
+
+What he keeps of the generator's is his shape and, on his hat, face, belt, boots and foam hand,
+his colour. The rest is the game's own, because it is better: his jumper is knitted here stitch by
+stitch with the same words across the back (the generator's lettering was a smear, and its
+knitting a blur close to); his trousers are corduroy; his eyes are balls with lids that shut; his
+skin is one clean colour with the blood showing in the right places and only the sculpt's fine
+lines kept; and his beard, moustache, eyebrows and hair are strands, grown on the lumps the sculpt
+has for them and going with his bones as they do. Each part has the grain of its kind worked out
+as the other people's have (pores, felt, leather, foam), so he is sharp from a hand's breadth.
+
+What it costs: he is four files, 2.0 MB together, fetched only when he is asked for (the other
+Gnorman is nothing to fetch and four seconds of arithmetic; this one is ready in under half a
+second). What is not as good: he is one skin over everything, so a sleeve cannot slide over a
+wrist; the stripes of his sleeves do not meet those of his body at the shoulder; and the model's
+makers were asked for one pose, so he could not walk. Made for this trial with two generated
+pictures and one generated sculpt.
+
+To make him again from what is kept here (the thinned mesh and its baked pictures; the
+million-face sculpt itself is too big to keep): `pip install bpy scipy opencv-python-headless`,
+then `python tools/cast/step3_figure.py tools/cast/gnorman/low src/game/people/casts/gnorman`.
+From a new sculpt: `step1_stand.py` and `step2_low.py` first; `picture.py` and `make3d.py` ask the
+generators (they want `REPLICATE_API_TOKEN` in the environment).
+
 ## Under the coat
 
 ![A patch shaved on his flank, showing a butcher's chart and a heart with MUM across it](docs/under-the-coat.jpg)
@@ -169,6 +209,7 @@ Then open the address Vite prints (http://localhost:5173 by default).
 | `T` | With a ladder and a pack both, change which of them `R` works |
 | `M` | Sound on or off |
 | `B`, or the **Dev** button beside the purse and at the foot of either trader's list | For trying things out, and no part of the game: tops the purse up to enough gold for everything Gnorman sells (about 25,000 to begin with). It is not counted as earned |
+| `N`, or the second **Dev** mark beside the purse | For trying things out: changes Gnorman for the one cast from a generated sculpt (see The other Gnorman), and back. He is fetched the first time |
 | Drag / scroll | Orbit and zoom (when not shaving) |
 | `1` `2` `3` `4` (when not shaving) | The mammoth, in profile, into the sun, the coat |
 | `H` | Hide or show the controls |
@@ -350,7 +391,7 @@ Settings > System > Display > Graphics.
   it, because without a graphics card frames are queued faster than they are drawn), `bare`
   (leave the land undrawn: most of what makes a frame slow without a graphics card),
   `debug` (exposes the game as `window.__game`), `unlock` (own everything, and no scenes; stills
-  always do), `gold=n`, `fresh` (ignore a kept game), `nosave` (keep nothing), `noscene`, `nodev` (no Dev button; stills never have it),
+  always do), `gold=n`, `fresh` (ignore a kept game), `nosave` (keep nothing), `noscene`, `nodev` (no Dev button; stills never have it), `gnorman=cast` (the other Gnorman from the start; `gnorman=sculpted` for the first whatever was kept),
   `scene=<tool>` with `st=<seconds>` (the scene for getting that tool, stopped at that moment),
   `lift=<ladder or pack>` with `up=<metres>` (start that far off the snow on it), `bald` (the
   whole coat off at once), `shave=x,y,z,r` (the coat off within r of a point; several separated
@@ -396,12 +437,19 @@ Settings > System > Display > Graphics.
   time for a frame. It draws nothing, so it says nothing of how long a graphics card would take.
 - `dev/body.html` shows the bare body from four sides, for working on the anatomy.
 - `dev/folk.html` shows one of the people (or all three) on bare snow under the game's own sky,
-  for working on them: `who=elf|gnome|vulture|all`, `cam`, `fov`, `el`, `az`, `turn` (degrees),
+  for working on them: `who=elf|gnome|gnome2|vulture|all` (`gnome2` is the cast Gnorman), `cam`, `fov`, `el`, `az`, `turn` (degrees),
+  `look` (radians: which way a visitor is, for the traders to turn to) and `pleased` (0 to 1),
   `bare` (no hair or feathers), and for the elf his poses (`lift`, `two`, `strain`, `buzz`, `sad`,
   `proud`, `walk`, `carry`, each 0 to 1). On the game itself, `nothreads` has the people made on
   the page instead of on workers.
 - `npm run build:artifact` writes a single page (`dist-artifact/shave-the-mammoth.html`)
-  that loads three.js from a CDN.
+  that loads three.js from a CDN, and beside it `dist-artifact/assets/`: the cast Gnorman's four
+  files, which the page fetches only when he is asked for and which are published beside it.
+- `tools/cast/` is how a figure made elsewhere is got ready for the game (see The other Gnorman):
+  three steps in Blender's Python, a small client for the generators, and `view/`, two plain
+  viewers for judging a model file (`viewer.html`: from any side, lit, as bare clay or as wire;
+  `measure.html`: square-on with no perspective under a grid in metres, for reading off where his
+  eyes and shoulders are). `src/game/people/cast.js` reads the result; `gnome.cast.js` dresses it.
 
 ## What comes next
 
@@ -411,5 +459,7 @@ Settings > System > Display > Graphics.
 4. The people: they are sculpted and dressed in code, which makes them sharp at any distance and costs nothing to
    download, but nobody has drawn them. Faces that change shape (theirs move by their bones, lids and brows only),
    fingers, cloth and hair that swing, and the stall and table brought up to the standard of who stands at them
-   would each be worth having. Models made by an artist could be loaded in their place: what the game asks of a
-   figure is small (a group, its meshes, and a function to call each frame).
+   would each be worth having. Sculpts made elsewhere can now stand in for them (see The other Gnorman, who is one):
+   what the game asks of a figure is small (a group, its meshes, and a function to call each frame). The next step
+   that way is a figure that has to move a great deal, the elf, which wants a sculpt made in a neutral pose and
+   weights that hold up at a shoulder and a knee.
