@@ -287,10 +287,12 @@ export class Shaving {
       }
       const off = this.mammoth.applyCut(c);
       if (off <= 0) continue;
-      if (this.ptr % this.every !== 0) { this.clippings.credit(this.grams(off)); continue; }
+      // (yield: the first scissors are paid over the odds for what they cut, so that the game gets going)
+      const worth = this.grams(off) * (how.yield || 1);
+      if (this.ptr % this.every !== 0) { this.clippings.credit(worth); continue; }
       // the blade that reached it nudges it towards the middle
       const s = c.phi > 0 ? -0.12 : 0.12;
-      this.clippings.spawn(c, this.env, sx * s, sy * s, sz * s, this.grams(off));
+      this.clippings.spawn(c, this.env, sx * s, sy * s, sz * s, worth);
     }
   }
 

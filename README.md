@@ -13,14 +13,15 @@ biggest fan and keeps a stall beside him. The more of the mammoth you can reach,
 more there is to cut, and the more of what is under the coat comes to light. He has
 tattoos. He is also wearing something.
 
-The game opens on its legend, told on the dark from the moment loading begins, the way a
-film opens: three lines, each coming up out of the dark and growing as it floats towards
-you, with a deep boom under it (the first may be silent: most browsers let a page make no
-sound until it has been clicked). Each stays until you click or press a key, which sweeps
-it past you and brings the next; the last is the largest, and red. After it the scene
-opens in first person, as soon as it is made: you are standing on the snow beside
-Gnorman's stall with the scissors in your hand and the whole mammoth in front of you.
-`Esc` goes past the whole legend. The game keeps itself in the browser between visits.
+The game loads first, behind a brass bar and a figure. When it is ready it asks for a
+click, and that click begins the legend, the way a film opens: three lines, each coming up
+out of the dark and growing as it floats towards you, with a deep bass boom under it. Each
+stays until you click or press a key, which sweeps it past you and brings the next; the
+last is the largest, and red. After it the scene opens in first person: you are standing
+on the snow beside Gnorman's stall with the scissors in your hand and the whole mammoth in
+front of you. The first click also takes the mouse pointer, so that you can look about and
+walk as soon as the scene opens. `Esc` goes past the whole legend. The game keeps itself in
+the browser between visits.
 
 ![The end of the legend: "That legend is you." in red blackletter on the dark](docs/legend.jpg)
 
@@ -197,7 +198,7 @@ carry. Mortimer pays 25 gold the hundred grams. The whole coat is about 70 kg.
 
 | | Gold | |
 | --- | --- | --- |
-| Shears, garden clippers, electric shears | 15, 120, 300 | Each cuts more than the last. A minute of steady work round a leg: about 125 g with the bad scissors, 200 g with the shears, 240 g with the clippers (all of them more where the hair is longer), and with the electric shears a strip 14 cm wide, down to stubble, as fast as you can run |
+| Shears, garden clippers, electric shears | 15, 120, 300 | Each cuts more than the last. A minute of steady work round a leg: about 150 g with the bad scissors (which are paid over the odds for what they cut), 200 g with the shears, 240 g with the clippers (all of them more where the hair is longer), and with the electric shears a strip 14 cm wide, down to stubble, as fast as you can run |
 | Push broom | 10 | Gathers what is under its head at each stroke, where bare hands take a pinch |
 | Shop vacuum; more suck | 350; 250, 600 | Hair flies up the nozzle from two paces |
 | Milk crate, fire brigade ladder | 20, 90 | Reach 0.45 and 3.75 m off the snow. He is 3.2 m at the top of his head |

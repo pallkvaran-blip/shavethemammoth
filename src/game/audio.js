@@ -447,26 +447,27 @@ export class Sound {
     const ctx = this.ctx, t = ctx.currentTime + when;
     this.booms = (this.booms || 0) + 1;
     if (!this.drum) { this.drum = ctx.createGain(); this.drum.connect(this.master); }
-    // the body of it: a low note that drops from a thud to a rumble, bent a little so that small speakers hear it too
-    const o = ctx.createOscillator(), bend = ctx.createWaveShaper(), g = ctx.createGain();
-    const curve = new Float32Array(257);
-    for (let i = 0; i < 257; i++) curve[i] = Math.tanh(2.6 * (i / 128 - 1));
-    bend.curve = curve;
-    o.type = 'sine';
-    o.frequency.setValueAtTime(96, t); o.frequency.exponentialRampToValueAtTime(40, t + 0.45); o.frequency.exponentialRampToValueAtTime(30, t + 2.6);
-    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.5 * how, t + 0.015);
-    g.gain.exponentialRampToValueAtTime(0.2 * how, t + 0.5); g.gain.exponentialRampToValueAtTime(0.0001, t + 2.8);
-    o.connect(bend); bend.connect(g); g.connect(this.drum);
-    o.start(t); o.stop(t + 2.9);
-    // the skin of it, and the air it moves
-    const hit = ctx.createOscillator(), hg = ctx.createGain();
-    hit.type = 'triangle'; hit.frequency.setValueAtTime(190, t); hit.frequency.exponentialRampToValueAtTime(58, t + 0.2);
-    hg.gain.setValueAtTime(0.22 * how, t); hg.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
-    hit.connect(hg); hg.connect(this.drum); hit.start(t); hit.stop(t + 0.32);
+    // A film's boom is bass and little else: a sub note that drops and hangs for seconds, driven hard enough to put
+    // harmonics on it (small speakers have nothing at 40 Hz to say, but they can say its octaves), a thump of very
+    // low noise at the front, and a long dark tail.
+    const curve = new Float32Array(513);
+    for (let i = 0; i < 513; i++) curve[i] = Math.tanh(3.4 * (i / 256 - 1));
+    const drive = ctx.createWaveShaper(); drive.curve = curve; drive.oversample = '2x';
+    const dark = ctx.createBiquadFilter(); dark.type = 'lowpass'; dark.frequency.setValueAtTime(900, t); dark.frequency.exponentialRampToValueAtTime(110, t + 1.6); dark.Q.value = 0.5;
+    const out = ctx.createGain(); out.gain.value = 1.15 * how;
+    drive.connect(dark); dark.connect(out); out.connect(this.drum);
+    for (const [f0, f1, level, fall, long] of [[62, 34, 1.0, 0.5, 4.2], [124, 68, 0.38, 0.35, 2.2], [38, 27, 0.8, 0.9, 4.6]]) {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(f0 * 1.6, t); o.frequency.exponentialRampToValueAtTime(f0, t + 0.06); o.frequency.exponentialRampToValueAtTime(f1, t + fall + 0.06);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(level, t + 0.012);
+      g.gain.exponentialRampToValueAtTime(level * 0.45, t + 0.7); g.gain.exponentialRampToValueAtTime(0.0001, t + long);
+      o.connect(g); g.connect(drive); o.start(t); o.stop(t + long + 0.1);
+    }
     const air = ctx.createBufferSource(), low = ctx.createBiquadFilter(), ag = ctx.createGain();
-    air.buffer = this.noise; air.loop = true; low.type = 'lowpass'; low.frequency.setValueAtTime(320, t); low.frequency.exponentialRampToValueAtTime(70, t + 1.4);
-    ag.gain.setValueAtTime(0.0001, t); ag.gain.exponentialRampToValueAtTime(0.3 * how, t + 0.02); ag.gain.exponentialRampToValueAtTime(0.0001, t + 1.6);
-    air.connect(low); low.connect(ag); ag.connect(this.drum); air.start(t); air.stop(t + 1.7);
+    air.buffer = this.noise; air.loop = true; low.type = 'lowpass'; low.frequency.setValueAtTime(160, t); low.frequency.exponentialRampToValueAtTime(45, t + 2.2); low.Q.value = 0.7;
+    ag.gain.setValueAtTime(0.0001, t); ag.gain.exponentialRampToValueAtTime(1.6, t + 0.02); ag.gain.exponentialRampToValueAtTime(0.25, t + 0.5); ag.gain.exponentialRampToValueAtTime(0.0001, t + 3.2);
+    air.connect(low); low.connect(ag); ag.connect(drive); air.start(t); air.stop(t + 3.3);
     return true;
   }
 

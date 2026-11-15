@@ -178,10 +178,10 @@ export function buildSmallScissors() {
     lie: { tip: 0.005, pivot: 0.009 },
     reach: 0.145,
     // stiff to close and slow to open, and one stroke in seven they stick part way
-    stroke: { delay: 0.05, speed0: 1.8, accel: 62, max: 7, shut: 0.05, shutHeld: 0.085, open: 0.18, kick: 0.3, catch: { chance: 0.14, time: 0.09 } },
+    stroke: { delay: 0.035, speed0: 2.2, accel: 80, max: 8.5, shut: 0.04, shutHeld: 0.06, open: 0.13, kick: 0.3, catch: { chance: 0.08, time: 0.08 } },
     // nine locks in ten of what lies between the blades are cut; the others fold over and slip out, and what is cut is cut a little ragged
     // (lying on the hide they take the whole tuft: what is under the blades, and what hangs across them for a finger's breadth above)
-    cut: { below: 0.024, above: 0.03, min: 0.007, chance: 0.9, ragged: 0.006 },
+    cut: { below: 0.04, above: 0.05, min: 0.007, chance: 0.95, ragged: 0.006, reach: 1.5, yield: 1.6 },
     voice: 'scissors',
     // the loose rivet: the blades never lie true, and they shiver after every stroke and with every step
     animate: (tool) => {
