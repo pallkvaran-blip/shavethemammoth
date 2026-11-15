@@ -90,7 +90,7 @@ lines kept; and his beard, moustache, eyebrows and hair are strands, grown on th
 has for them and going with his bones as they do. Each part has the grain of its kind worked out
 as the other people's have (pores, felt, leather, foam), so he is sharp from a hand's breadth.
 
-What it costs: he is four files, 2.0 MB together, fetched only when he is asked for (the other
+What it costs: he is four files, 2.3 MB together, fetched only when he is asked for (the other
 Gnorman is nothing to fetch and four seconds of arithmetic; this one is ready in under half a
 second). What is not as good: he is one skin over everything, so a sleeve cannot slide over a
 wrist; the stripes of his sleeves do not meet those of his body at the shoulder; and the model's

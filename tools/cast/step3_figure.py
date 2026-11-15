@@ -315,8 +315,10 @@ for name, arr in arrays.items():
     blobs.append(arr.tobytes()); off += arr.nbytes
 head_bytes = json.dumps({**header, 'arrays': table}).encode(); head_bytes += b' ' * ((-len(head_bytes)) % 8)
 raw = b'FIG2' + struct.pack('<I', len(head_bytes)) + head_bytes + b''.join(blobs)
-with open(out / 'gnorman.figz', 'wb') as f:
-    f.write(gzip.compress(raw, 9, mtime=0))
-print(f'figure: {len(src)} points, {len(index)} triangles, {len(raw) / 1e6:.2f} MB of numbers, {(out / "gnorman.figz").stat().st_size / 1e6:.2f} MB squeezed')
+# (squeezed, and then spelt out in letters: a file of plain text is served by anything that serves a page, where a file
+# of bytes of no known kind is refused by some)
+import base64
+(out / 'gnorman.fig.txt').write_bytes(base64.b64encode(gzip.compress(raw, 9, mtime=0)))
+print(f'figure: {len(src)} points, {len(index)} triangles, {len(raw) / 1e6:.2f} MB of numbers, {(out / "gnorman.fig.txt").stat().st_size / 1e6:.2f} MB squeezed and spelt out')
 
 print('done in', round(time.time() - t0), 's')
