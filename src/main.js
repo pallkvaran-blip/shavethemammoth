@@ -102,7 +102,9 @@ if (!legend.over) {
   // its own ideas about what a click is for; and the click that ends the legend is not also a click on anything)
   window.addEventListener('keydown', onLegend, true);
   window.addEventListener('pointerdown', (e) => { if (!legend.over) { e.stopImmediatePropagation(); onLegend(e); } }, true);
-  const swallow = (e) => { if (!legend.over || performance.now() - legend.endedAt < 400) { e.stopImmediatePropagation(); e.preventDefault(); } };
+  // (stopped, but not prevented: a mouse press that is prevented does not give the page the keyboard, and inside a
+  // frame, as on a games site, he could then not walk until he had clicked again)
+  const swallow = (e) => { if (!legend.over || performance.now() - legend.endedAt < 400) e.stopImmediatePropagation(); };
   for (const ev of ['mousedown', 'mouseup', 'click', 'pointerup']) window.addEventListener(ev, swallow, true);
 }
 
@@ -777,8 +779,9 @@ async function start() {
     // (everything is loaded: without a legend the scene opens; with one, it waits for a click to begin, which is
     // also what lets the page make a sound and take the pointer, and opens when the legend has been told)
     if (legend.told || legend.skipped) { open(); return; }
-    legend.onEnd = () => { rig.frozen = false; open(); };
+    legend.onEnd = () => { rig.frozen = false; try { window.focus(); canvas.focus({ preventScroll: true }); } catch { /* as above */ } open(); };
     legend.take = () => {
+      try { window.focus(); canvas.focus({ preventScroll: true }); } catch { /* it has the keyboard or it has not */ }
       if (document.pointerLockElement === canvas || !window.matchMedia?.('(hover: hover)').matches) return;
       try { const req = canvas.requestPointerLock?.(); if (req && req.catch) req.catch(() => {}); } catch { /* a click in the game takes it instead */ }
     };
