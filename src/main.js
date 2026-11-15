@@ -74,7 +74,8 @@ function onLegend(e) {
     e.preventDefault();
     if (e.repeat) return;
   }
-  if (legend.skipped || legend.told) return;
+  if (legend.skipped || legend.told || !legend.ready) return;      // (not loaded yet: there is nothing to begin)
+  if (e.key !== 'Escape' && legend.take) legend.take();            // (the pointer: his from the first click on, so that the game opens with it already taken)
   if (e.type === 'keydown' && e.key === 'Escape') {            // past the lot
     legend.skipped = true;
     legendLines.forEach((p) => p.classList.remove('now'));
@@ -82,7 +83,8 @@ function onLegend(e) {
     endTelling();
     return;
   }
-  if (legend.at < 0 || performance.now() - legend.since < 350) return;   // (nothing to turn yet; or a second click of a double one)
+  if (legend.at < 0) { tell(sound); return; }                  // (the click to begin)
+  if (performance.now() - legend.since < 350) return;          // (the second click of a double one)
   nextLine();
 }
 /** Begin telling it (once the lettering has arrived). `sound` booms under each line if it is allowed to. */
@@ -148,12 +150,11 @@ const lettering = (() => {
   return Promise.race([all, new Promise((done) => setTimeout(done, 3500))]).then(() => { document.body.classList.add('fonts'); });
 })();
 const sound = new Sound();
-lettering.then(() => tell(sound));       // (the legend starts with the loading, not part way through it)
 
 const setProgress = (p, label) => {
   const bar = $('bar'), text = $('status');
-  // (the rows of knitting are worked that far: whole stitches only)
-  if (bar) bar.style.width = `${Math.round(Math.min(1, p) * Math.floor(bar.parentElement.clientWidth / 14)) * 14}px`;
+  if (bar) bar.style.width = `${(Math.min(1, p) * 100).toFixed(1)}%`;
+  if ($('pct')) $('pct').textContent = `${Math.round(Math.min(1, p) * 100)}%`;
   if (text && label) text.textContent = label;
 };
 
@@ -773,8 +774,17 @@ async function start() {
       if (intro) rig.setView(startView, 6.5);
       endLegend();
     };
-    // (the scene is ready: it waits for the end of the legend, if that is still being told)
-    if (legend.told || legend.skipped) open(); else legend.onEnd = open;
+    // (everything is loaded: without a legend the scene opens; with one, it waits for a click to begin, which is
+    // also what lets the page make a sound and take the pointer, and opens when the legend has been told)
+    if (legend.told || legend.skipped) { open(); return; }
+    legend.onEnd = () => { rig.frozen = false; open(); };
+    legend.take = () => {
+      if (document.pointerLockElement === canvas || !window.matchMedia?.('(hover: hover)').matches) return;
+      try { const req = canvas.requestPointerLock?.(); if (req && req.catch) req.catch(() => {}); } catch { /* a click in the game takes it instead */ }
+    };
+    rig.frozen = true;                    // (he does not look about while it is told)
+    legend.ready = true;
+    document.body.classList.add('loaded');
   };
 
   if (q.has('debug')) window.__game = { shaving, mammoth, rig, sound, camera, renderer, PUT_AWAY, game, hero, lifter, antics, U, state: game.state, folkTimes, scene, sky, terrain, grass, rocks, post, shadowNear, shadowElf, shadowFar, nearCasters, pace, levels, get level() { return adaptLevel; }, dev: {} };   // dev: poke at the game from the console

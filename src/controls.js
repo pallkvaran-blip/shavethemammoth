@@ -73,11 +73,11 @@ export class CameraRig {
       // let go again at once, or nothing in the shop could be clicked)
       if (locked && this.busy && this.mode === 'elf') { this.locked = true; document.exitPointerLock(); return; }
       // leaving the lock (Esc) ends the walk, but only if we ever had it
-      if (!locked && this.locked && this.mode === 'elf' && !this.busy) this.leaveElf();
+      if (!locked && this.locked && this.mode === 'elf' && !this.busy && !this.frozen) this.leaveElf();
       this.locked = locked;
     });
     const look = (dx, dy, k) => {
-      if (this.busy || this.cine) return;
+      if (this.busy || this.cine || this.frozen) return;      // (frozen: the game has not begun: see the legend in main.js)
       this.yaw -= dx * k;
       this.pitch = THREE.MathUtils.clamp(this.pitch - dy * k, -1.2, 1.45);
     };

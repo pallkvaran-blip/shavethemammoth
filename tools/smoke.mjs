@@ -22,7 +22,7 @@ const holdFor = async (key, n) => { await page.keyboard.down(key); await frames(
 const hold = async (key, ms, n = 2) => { await page.keyboard.down(key); await page.waitForTimeout(ms); await frames(n); await page.keyboard.up(key); await frames(1); };
 await page.goto(base + '?q=low&strands=20000&adapt=9&stats&sync&unlock&nosave&debug', { waitUntil: 'load' });
 // (the legend waits to be clicked through: Esc goes past it, and the scene opens when it is made)
-await page.waitForFunction(() => document.body.classList.contains('telling'), null, { timeout: 60000 });
+await page.waitForFunction(() => document.body.classList.contains('loaded'), null, { timeout: 240000 });
 await page.keyboard.press('Escape');
 await page.waitForFunction(() => document.body.classList.contains('ready'), null, { timeout: 240000 });
 // the legend is told on the loading screen; then the game opens in first person, and the controls come up

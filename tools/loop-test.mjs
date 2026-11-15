@@ -142,9 +142,9 @@ check(/^scissors:[^,]*, sweep:Collect hair$/.test(v.shown), 'only the scissors a
 check(v.two === false, 'key 2 does nothing: the shears are not owned yet');
 
 // ---- cut ----
-v = await T(`const g = T.cutRound(0, 0.3, Math.PI / 2, 60); return { g, lying: C.lying, snips: s.snips }`);
+v = await T(`const cut = T.cutRound(0, 0.3, Math.PI / 2, 60), g = cut * (s.tool.def.cut.yield || 1); return { g, lying: C.lying, snips: s.snips }`);      // (the first scissors' hair is worth more than it weighs)
 console.log(`bad scissors, a minute round the foreleg: ${round(v.g)} g cut in ${v.snips} strokes; ${round(v.lying)} g lying on the snow`);
-check(v.g > 60 && v.g < 220, 'a minute with the bad scissors cuts most of a pocketful (and less than the shears would)');
+check(v.g > 110 && v.g < 420, 'a minute with the bad scissors cuts most of a pocketful (and less than the shears would)');
 check(Math.abs(v.lying - v.g) < 0.02 * v.g + 0.05, 'every gram cut is lying about to be picked up');
 const cutFirst = v.g;
 // ...and the mammoth has something to say about being cut

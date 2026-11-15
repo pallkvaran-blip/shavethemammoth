@@ -680,7 +680,7 @@ export class Tool {
     out.forward = (out.forward || new THREE.Vector3()).set(e[0], e[1], e[2]).normalize();
     out.normal = (out.normal || new THREE.Vector3()).set(e[4], e[5], e[6]).normalize();
     out.side = (out.side || new THREE.Vector3()).set(e[8], e[9], e[10]).normalize();
-    out.radius = def.tip - 0.003;
+    out.radius = (def.tip - 0.003) * (def.cut.reach || 1);      // (reach: a tool that takes the tuft a little beyond its points)
     out.inner = def.cutInner;
     out.halfAngle = this.angle / 2;
     // lying on the hide, the stroke takes everything between the blades and the skin, and the hair lying across them
