@@ -295,6 +295,17 @@
   #fuel i { display: block; height: 100%; background: linear-gradient(180deg, #fff1c4, var(--brass) 55%); transform-origin: left center; }
   #fuel.low i { background: var(--warn); }
   body:not(.elf) #fuel { display: none; }
+  /* a reminder of the keys for the ladder or the pack, when he has one and has left it alone for a few seconds */
+  #lift-keys {
+    font-weight: 600; font-size: 0.9rem; line-height: 1.2; color: var(--thread-dim); white-space: nowrap;
+    background: rgba(15, 12, 10, 0.5); border: 1px solid var(--felt-lo); border-radius: 4px; padding: 3px 10px 4px;
+    opacity: 0; transition: opacity 0.6s ease;
+  }
+  #lift-keys.show { opacity: 1; }
+  #lift-keys:empty, body:not(.elf) #lift-keys { display: none; }
+  #lift-keys kbd { margin-right: 0.3em; }
+  #lift-keys i { font-style: normal; margin: 0 0.5em; color: var(--thread-faint); }
+  @media (hover: none) { #lift-keys { display: none; } }     /* (by touch there are buttons for it) */
   /* by touch, a ladder or a pack brings two more buttons */
   .touch #rise, .touch #sink { display: none; }
   body.lift .touch #rise, body.lift .touch #sink { display: block; }
@@ -491,6 +502,7 @@
       <div id="purse" hidden><span id="gold">0 gold</span><span id="bag">0 g of hair</span></div>
       <button type="button" id="dev-gold" title="Dev: puts enough gold in the purse to buy everything on Gnorman’s list" hidden><kbd class="desk">B</kbd>Dev: gold for everything</button>
       <div id="fuel" role="img" aria-label="What is left in the tank" hidden><i></i></div>
+      <div id="lift-keys" aria-live="off"></div>
       <div id="progress" hidden>Shorn 0.000%</div>
       <div id="stats" hidden></div>
     </div>
@@ -505,12 +517,6 @@
       <button type="button" id="sink" aria-label="Hold to come down">Down</button>
     </div>
     <div class="bottom">
-      <div class="panel views" role="group" aria-label="Views">
-        <button type="button" id="view-0" data-view="0" aria-pressed="true">The mammoth</button>
-        <button type="button" id="view-1" data-view="1" aria-pressed="false">In profile</button>
-        <button type="button" id="view-2" data-view="2" aria-pressed="false">Into the sun</button>
-        <button type="button" id="view-3" data-view="3" aria-pressed="false">The coat</button>
-      </div>
       <div class="panel settings">
         <label for="sun">Sun
           <input type="range" id="sun" min="2" max="30" step="0.5" value="6.5" aria-label="Height of the sun above the horizon">
@@ -533,7 +539,7 @@
         <button type="button" id="tool-garden" data-tool="garden" aria-pressed="true"><kbd>3</kbd>Garden clippers</button>
         <button type="button" id="tool-electric" data-tool="electric" aria-pressed="false"><kbd>4</kbd>Electric shears</button>
         <button type="button" id="tool-shaver" data-tool="shaver" aria-pressed="false"><kbd>5</kbd>Beard shaver</button>
-        <button type="button" id="tool-sweep" data-tool="sweep" aria-pressed="false" title="Pick up the hair you have cut"><kbd>Q</kbd><span>Bare hands</span></button>
+        <button type="button" id="tool-sweep" data-tool="sweep" aria-pressed="false" title="Pick up the hair you have cut"><kbd>Q</kbd><span>Collect hair</span></button>
         <button type="button" id="tool-gag" data-tool="gag" aria-pressed="false" title="Take out a novelty" hidden><kbd>G</kbd><span>Novelties</span></button>
       </div>
       <button type="button" id="view-elf" class="start" aria-pressed="false">Start shaving</button>

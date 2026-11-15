@@ -229,6 +229,9 @@ export class Game {
       }
       if (item.kind === 'ladder') this.tell = `<strong>${item.name}.</strong> <span class="desk">Press <kbd>R</kbd> to stand it up where you are and climb; <kbd>F</kbd> comes down, <kbd>A</kbd> and <kbd>D</kbd> walk it sideways.</span><span class="nomouse">Hold Up to stand it where you are and climb.</span> He is taller than it is.`;
       if (item.kind === 'pack') this.tell = `<strong>${item.name}.</strong> <span class="desk">Hold <kbd>R</kbd> or the right mouse button to burn.</span><span class="nomouse">Hold Up to burn.</span> It fills up again on the ground. You can land on him.${this.state.climber ? ' <span class="desk"><kbd>T</kbd> swaps back to the ladder.</span>' : ''}`;
+      // (and that is the shop shut: whatever was bought, he is back on the snow with it, and what wants explaining is
+      // explained on the way out)
+      if (this.dialog) this.close();
     }
   }
 
@@ -255,7 +258,7 @@ export class Game {
     else if (r < 0.82) { const g = 30 + Math.floor(Math.random() * 41); s.earn(g); this.said = `${g} gold! Somebody’s purse. Finders keepers. Do not look at the initials.`; }
     else if (r < 0.94) { const got = s.pick(100); this.said = `Hair! ${Math.round(got)} grams of it. Not his. Do not ask whose.`; }
     else { s.earn(250); this.said = 'TWO HUNDRED AND FIFTY GOLD. I did not know that was in there. I want it noted that I did not know.'; }
-    this.fillDialog();
+    this.tell = `<strong>Mystery box.</strong> ${this.said}`;
   }
 
   /** Bald. The legend is fulfilled; say so, and ask what next. */
@@ -357,7 +360,7 @@ export class Game {
     for (const b of document.querySelectorAll('[data-tool]')) {
       const id = b.dataset.tool;
       if (id === 'sweep') {
-        b.lastChild.textContent = ITEMS[s.sweeper].name;
+        b.lastChild.textContent = 'Collect hair';          // (with whatever he has for it: hands, a broom, a vacuum)
         b.setAttribute('aria-pressed', String(!!this.shaving.tools[now].def.sweep));
       } else if (id === 'gag') {
         // (one button for all the novelties: it names the one in hand, or says how many there are to take out)
@@ -599,10 +602,33 @@ export class Game {
     const cl = document.body.classList, finale = $('finale');
     this.says.update(dt, { elf, busy: !!this.dialog || playing || !!(finale && !finale.hidden), seen: cl.contains('told') && !cl.contains('bare') });
     this.guide(dt, elf);
+    this.liftKeys(dt, elf);
 
     // keep the haircut: it is the one thing that cannot be bought back (well, it can, for 150 gold)
     this.saveIn -= dt;
     if (this.saveIn <= 0) { this.saveIn = 5; this.save(false); }
+  }
+
+  /**
+   * A reminder, in the corner, of the keys for the ladder or the pack: shown when he has one and has not touched it for
+   * a few seconds, gone the moment he does.
+   */
+  liftKeys(dt, elf) {
+    const el = this._liftEl === undefined ? (this._liftEl = $('lift-keys')) : this._liftEl;
+    if (!el) return;
+    const rig = this.rig, lift = rig.lift, s = this.state;
+    const using = !!rig.ladder || rig.height > 0.02 || rig.thrusting || rig.keys.has('KeyR') || rig.keys.has('KeyF');
+    this.liftIdle = using || !lift ? 0 : (this.liftIdle || 0) + dt;
+    const show = elf && !!lift && this.liftIdle > 5 && !this.dialog && !(this.hero && this.hero.playing) && !this.raid.playing;
+    if (lift) {
+      const both = !!(s.climber && s.pack), what = `${lift.kind}${both ? '+' : ''}`;
+      if (el.dataset.what !== what) {
+        el.dataset.what = what;
+        el.innerHTML = (lift.kind === 'pack' ? '<kbd>R</kbd>fly<i>·</i><kbd>F</kbd>down' : '<kbd>R</kbd>climb<i>·</i><kbd>F</kbd>down')
+          + (both ? `<i>·</i><kbd>T</kbd>${lift.kind === 'pack' ? 'ladder' : 'jet pack'}` : '');
+      }
+    } else if (el.dataset.what) { el.dataset.what = ''; el.textContent = ''; }
+    el.classList.toggle('show', show);
   }
 
   /** A word of advice, once each, when it is first needed: how the hair turns into gold and the gold into tools. */
