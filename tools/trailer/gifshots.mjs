@@ -69,4 +69,48 @@ export const SESSIONS = {
       { name: 'got', frames: 30, skip: 9, setup: (d) => d.g.game.buy('electric') },
     ],
   },
+  // for the cover: him, alarmed (eyes wide, head back, ears out), as the elf sees him from the height of his face,
+  // with what the elf is holding in the corner of the picture. One frame each.
+  cover: {
+    query: 'elf=5.0,0.0,1.5708,0.0&tool=scissors&unlock&noscene',
+    segments: [
+      { name: 'scissors', frames: 1, skip: 10,
+        setup: (d) => {
+          const g = d.g, m = g.mammoth;
+          // wide eyes: bigger, and with more white round a smaller iris
+          const old = m.eyes[0].mesh.material.map, c = document.createElement('canvas'); c.width = c.height = 256;
+          const x = c.getContext('2d'), row = (deg) => (deg / 180) * 256;
+          const white = x.createLinearGradient(0, row(18), 0, row(110)); white.addColorStop(0, '#f4eee2'); white.addColorStop(0.6, '#d8cbb4'); white.addColorStop(1, '#7a6250');
+          x.fillStyle = white; x.fillRect(0, 0, 256, 256);
+          const iris = x.createLinearGradient(0, row(7), 0, row(19)); iris.addColorStop(0, '#c98a30'); iris.addColorStop(0.6, '#8a531b'); iris.addColorStop(1, '#2a1608');
+          x.fillStyle = iris; x.fillRect(0, 0, 256, row(19));
+          x.fillStyle = '#050302'; x.fillRect(0, 0, 256, row(8));
+          const tex = new old.constructor(c); tex.colorSpace = old.colorSpace; tex.wrapS = old.wrapS;
+          m.eyes[0].mesh.material.map = tex; m.eyes[0].mesh.material.needsUpdate = true;
+          for (const e of m.eyes) e.mesh.scale.setScalar(2.1);
+          // head up and back, ears out
+          const update = m.update.bind(m);
+          m.update = (dt) => { update(dt); m.bone('neck').rotation.z += 0.07; m.bone('head').rotation.z += 0.16; m.bone('ear_R').rotation.y = -0.55; m.bone('ear_L').rotation.y = 0.55; };
+          d.view = (x, z, up, pitch, fov, tx = 2.4, tz = 0) => { d.elf(x, z, d.towards(x, z, tx, tz), pitch); g.rig.height = up; g.rig.vy = 0; g.camera.fov = fov; g.camera.updateProjectionMatrix(); };
+        },
+        direct: (d) => { for (const e of d.g.mammoth.eyes) e.mesh.scale.setScalar(2.7); d.view(4.5, 2.25, 2.25, 0.03, 36, 2.35, 0.45); } },
+      { name: 'low', frames: 1, skip: 3, direct: (d) => d.view(4.4, 2.5, 0, 0.74, 52, 2.3, 0.3) },
+      { name: 'shears-side', frames: 1, skip: 10, setup: (d) => d.g.game.choose('electric'), direct: (d) => d.view(4.75, 2.0, 2.3, 0.0, 36, 2.35, 0.45) },
+      // (not as he is in the game: both eyes brought round to the front of his face, where a drawing would put them)
+      { name: 'front', frames: 1, skip: 10,
+        setup: (d) => {
+          const g = d.g, m = g.mammoth, sdf = m.data.sdf, r = m.restPos('head');
+          g.game.choose('scissors');
+          m.eyes.forEach((e, i) => {
+            const side = i === 0 ? 1 : -1, y = 2.74, z = 0.2 * side;
+            let x = 3.5; while (x > 1.6 && sdf.dist(x, y, z) > 0) x -= 0.01;
+            e.mesh.position.set(x + 0.13 - r[0], y - r[1], z - r[2]);
+            e.out.set(1, -0.05, 0.12 * side).normalize();
+            e.mesh.scale.setScalar(4.4);
+          });
+        },
+        direct: (d) => d.view(5.4, 0.5, 2.3, 0.04, 36, 2.6, 0) },
+      { name: 'front-low', frames: 1, skip: 3, direct: (d) => d.view(4.9, 0.9, 0.5, 0.5, 46, 2.6, 0) },
+    ],
+  },
 };

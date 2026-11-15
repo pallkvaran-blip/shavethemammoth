@@ -64,7 +64,7 @@ for (const [n, seg] of session.segments.entries()) {
       window.__blind = i < -1;                 // (the last frame before the shot is drawn, so that everything is where it should be)
       window.__segs[n].direct(window.__d, i, Math.max(0, i) / Math.max(1, frames - 1));
       window.__step();
-      return i < 0 ? '' : document.querySelector('canvas').toDataURL('image/jpeg', 0.94);
+      return i < 0 ? '' : document.querySelector('canvas').toDataURL('image/jpeg', 0.97);
     }, [n, i, seg.frames]);
     if (i >= 0) fs.writeFileSync(path.join(dir, `${String(i).padStart(4, '0')}.jpg`), Buffer.from(url.split(',')[1], 'base64'));
   }
