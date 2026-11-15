@@ -1,4 +1,4 @@
-// What the player has: gold, the hair in the sack, what has been bought, how
+// What the player has: gold, the hair he is carrying, what has been bought, how
 // far the shave has got. Kept in the browser between visits, so that closing
 // the page does not grow the coat back.
 import { ITEMS, MOST_HELP } from './catalog.js';
@@ -73,9 +73,6 @@ export class GameState {
   owns(id) { return this.owned.has(id); }
   level(id) { return this.levels[id] || 0; }
 
-  /** How much the sack holds, grams. */
-  get capacity() { return [100, 350, 1200, 5000][Math.min(3, this.level('sack'))]; }
-  get room() { return Math.max(0, this.capacity - this.hair); }
 
   /** What something costs now (an upgrade costs more each time), or Infinity if there is no more of it to buy. */
   price(id) {
@@ -146,9 +143,9 @@ export class GameState {
     this.changed('used:' + id);
   }
 
-  /** Put hair in the sack; returns how many grams fitted. */
+  /** Hair picked up (there is no limit to what he can carry); returns the grams. */
   pick(grams) {
-    const take = Math.min(grams, this.room);
+    const take = Math.max(0, grams);
     if (take > 0) { this.hair += take; this.stats.picked += take; this.changed('hair'); }
     return take;
   }

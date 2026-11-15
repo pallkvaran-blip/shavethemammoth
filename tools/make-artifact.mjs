@@ -1,7 +1,7 @@
 // Wraps the artifact build into one self-contained page fragment:
 // markup + styles from index.html, the game code inline, three.js from a CDN.
 //   npm run build:artifact   ->  dist-artifact/shave-the-mammoth.html
-import { readFileSync, writeFileSync, existsSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -38,6 +38,3 @@ writeFileSync(join(root, 'dist-artifact', 'shave-the-mammoth.html'), out);
 writeFileSync(join(root, 'dist-artifact', 'preview.html'),
   `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"></head><body>\n${out}\n</body></html>`);
 console.log(`artifact page: ${(out.length / 1024).toFixed(0)} KB, three@${three} from jsDelivr`);
-// what the page fetches only when it is asked for (the cast of Gnorman): to be published beside it, at these paths
-const assets = join(root, 'dist-artifact', 'assets');
-if (existsSync(assets)) for (const f of readdirSync(assets)) console.log(`  beside it: assets/${f}  (${(statSync(join(assets, f)).size / 1024).toFixed(0)} KB)`);

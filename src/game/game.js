@@ -56,7 +56,7 @@ const SAYS = {
       'Do not mind the skull. He haggled.',
     ],
     empty: [
-      'Your sack is empty. Like the eyes of my last client.',
+      'Your pockets are empty. Like the eyes of my last client.',
       'Bring me hair. On the hoof, off the hoof, I am not particular.',
       'Nothing? I have waited at bedsides with better prospects.',
     ],
@@ -126,15 +126,8 @@ export class Game {
     // nobody walks through a stall
     rig.obstacles = [{ x: PITCH.gnome.x, z: PITCH.gnome.z, r: stall.radius }, { x: PITCH.vulture.x, z: PITCH.vulture.z, r: table.radius }];
 
-    // ---- the sack ----
-    shaving.room = () => this.state.room;
+    // ---- what he picks up ----
     shaving.onHair = (g) => this.state.pick(g);
-    let toldFull = 0;
-    shaving.onFull = () => {
-      if (this.time - toldFull < 6) return;
-      toldFull = this.time;
-      hint(`<strong>Your ${this.sackName()} ${this.state.level('sack') ? 'is' : 'are'} full.</strong> Mortimer the vulture buys hair, over by the wigs.`, 5);
-    };
 
     // ---- what is in hand ----
     if (!this.state.owns(shaving.tool.id)) shaving.setTool(this.state.tool);
@@ -179,8 +172,6 @@ export class Game {
     window.addEventListener('pagehide', () => this.save(true));
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') this.save(true); });
   }
-
-  sackName() { return ['pockets', 'sack', 'wheelbarrow', 'bottomless sack'][Math.min(3, this.state.level('sack'))]; }
 
   /** Things bought that change how other things work. */
   applyUpgrades() {
@@ -262,7 +253,7 @@ export class Game {
     if (r < 0.42) this.said = pick(['A sock. One. Left foot. Enjoy.', 'It is empty. No, wait. No, it is empty.', 'A drawing of what you could have won. I did it myself.']);
     else if (r < 0.57) this.said = 'A smaller mystery box! ...With nothing in it. That is the mystery.';
     else if (r < 0.82) { const g = 30 + Math.floor(Math.random() * 41); s.earn(g); this.said = `${g} gold! Somebody’s purse. Finders keepers. Do not look at the initials.`; }
-    else if (r < 0.94) { const got = s.pick(100); this.said = got > 1 ? `Hair! ${Math.round(got)} grams of it. Not his. Do not ask whose.` : 'Hair! ...Which you have no room for. I will keep it. Lovely doing business.'; }
+    else if (r < 0.94) { const got = s.pick(100); this.said = `Hair! ${Math.round(got)} grams of it. Not his. Do not ask whose.`; }
     else { s.earn(250); this.said = 'TWO HUNDRED AND FIFTY GOLD. I did not know that was in there. I want it noted that I did not know.'; }
     this.fillDialog();
   }
@@ -361,10 +352,7 @@ export class Game {
     const s = this.state;
     const gold = $('gold'), bag = $('bag');
     if (gold) gold.textContent = `${s.gold} gold`;
-    if (bag) {
-      bag.textContent = `${grams(s.hair)} of ${grams(s.capacity)}`;
-      bag.classList.toggle('full', s.room < 1);
-    }
+    if (bag) bag.textContent = `${grams(s.hair)} of hair`;
     const now = this.shaving.next || this.shaving.tool.id;
     for (const b of document.querySelectorAll('[data-tool]')) {
       const id = b.dataset.tool;
@@ -483,7 +471,7 @@ export class Game {
     if (who === 'vulture') {
       const offer = Math.floor(s.hair * this.price() + 1e-6);
       html += `<header><h2>Mortimer</h2><p class="trade">Fine toupees. Hair bought by the gram.</p><p class="says">“${esc(this.said)}”</p></header>`;
-      html += `<div class="weigh"><p class="big">${grams(s.hair)}</p><p>in your ${this.sackName()}, at ${(this.price() * 100).toFixed(0)} gold the hundred grams${s.flags.foot ? " (the rabbit's foot is working)" : ''}${s.flags.pink ? ' (pink is extra)' : ''}</p>`;
+      html += `<div class="weigh"><p class="big">${grams(s.hair)}</p><p>in your pockets, at ${(this.price() * 100).toFixed(0)} gold the hundred grams${s.flags.foot ? " (the rabbit's foot is working)" : ''}${s.flags.pink ? ' (pink is extra)' : ''}</p>`;
       html += `<button type="button" class="deal" data-act="sell" ${offer > 0 ? '' : 'disabled'}>${offer > 0 ? `Sell it all for ${offer} gold` : 'Nothing to sell'}</button>`;
       const lying = this.shaving.clippings.lying;
       if (lying >= 1) html += `<p class="aside">There is another ${grams(lying)} lying about on the snow. He can see it from here. He is counting.</p>`;
@@ -576,27 +564,6 @@ export class Game {
     this.fillDialog();
   }
 
-  /**
-   * Change Gnorman for another figure of him (the one the page sculpts, or the one from a cast: people/gnome.cast.js).
-   * It stands where he stood, and is what the rest of the game talks to from now on. Returns the one it replaced.
-   */
-  wearGnome(figure) {
-    const was = this.gnome;
-    if (figure === was) return was;
-    figure.group.position.copy(was.group.position);
-    figure.group.quaternion.copy(was.group.quaternion);
-    figure.group.updateMatrixWorld(true);
-    was.group.parent.add(figure.group);
-    was.group.parent.remove(was.group);
-    // (what throws shadows is one list, shared with others who add to it: his parts are changed in it where it is)
-    const old = new Set(was.meshes);
-    for (let i = this.casters.length - 1; i >= 0; i--) if (old.has(this.casters[i])) this.casters.splice(i, 1);
-    this.casters.push(...figure.meshes);
-    this.people.gnome.parts[1] = figure;
-    this.gnome = figure;
-    return was;
-  }
-
   // ---- every frame --------------------------------------------------------------------------
 
   update(dt) {
@@ -640,17 +607,19 @@ export class Game {
 
   /** A word of advice, once each, when it is first needed: how the hair turns into gold and the gold into tools. */
   guide(dt, elf) {
-    this.tipIn = (this.tipIn ?? 3) - dt;
-    if (!elf || this.dialog || this.tipIn > 0 || (this.hero && this.hero.playing)) return;
+    this.tipIn = (this.tipIn ?? 0.8) - dt;
+    if (!elf || this.dialog || this.tipIn > 0 || (this.hero && this.hero.playing) || !document.body.classList.contains('told')) return;
     this.tipIn = 1;
     const s = this.state, told = s.flags.tips || (s.flags.tips = {}), sweeping = !!this.shaving.tool.def.sweep;
     const tell = (id, html, seconds = 10) => { told[id] = true; s.dirty = true; this.tipIn = seconds + 4; this.hint(html, seconds); };
-    if (!told.pickup && !sweeping && s.stats.picked < 1 && this.shaving.clippings.lying > 2.5) {
-      tell('pickup', '<strong>That hair is worth gold.</strong> <span class="desk">Press <kbd>Q</kbd> to</span><span class="nomouse">Tap the hands button to</span> put the scissors away, look at the hair on the snow, and hold the cut button to gather it.');
-    } else if (!told.sell && s.stats.sold < 1 && s.hair >= Math.min(40, s.capacity * 0.6)) {
-      tell('sell', '<strong>Mortimer the vulture buys hair.</strong> He is under the sign with his name on it, a few paces from the mammoth. Walk up to him<span class="desk"> and press <kbd>E</kbd></span>.');
+    if (!told.start && !sweeping && s.stats.picked < 1 && s.gold < 1 && this.mammoth.shorn < 0.0002 && this.shaving.clippings.lying < 0.5) {
+      // (the one thing a new player is told: the rest waits until there is hair on the snow)
+      tell('start', '<strong>Please start cutting the hair.</strong>', 12);
+    } else if (!told.pickup && !sweeping && s.stats.picked < 1 && this.shaving.clippings.lying > 8) {
+      // (a few cuts in)
+      tell('pickup', '<strong><span class="desk">Press <kbd>Q</kbd></span><span class="nomouse">Tap the hands button</span> to switch to your hands.</strong> Gather the hair you have cut and sell it to Mortimer the vulture.', 12);
     } else if (!told.shop && s.stats.spent < 1 && s.gold >= 15) {
-      tell('shop', '<strong>Gnorman sells better tools</strong> at the striped stall, and something to carry more hair in. You can afford a thing or two.');
+      tell('shop', '<strong>Gnorman sells better tools</strong> at the striped stall. You can afford a thing or two.');
     } else if (!told.reach && !s.climber && !s.pack && s.stats.sold > 700) {
       tell('reach', '<strong>Running out of mammoth you can reach?</strong> Gnorman has ladders. And worse ideas.');
     } else if (!told.gag && s.stats.spent > 0 && s.gold >= 40 && !s.used.length && !this.novelties.length && s.stats.sold > 150) {

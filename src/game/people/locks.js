@@ -14,7 +14,6 @@ uniform float uWidth;
 uniform float uFlex;
 uniform float uDense;
 uniform float uPxScale;
-#include <skinning_pars_vertex>
 #ifdef LOCKS_TWIST
   uniform vec4 uTwist;       // an upright line through (x, z) to turn about; all the way above y = .z, least below y = .w
   uniform vec2 uTwistBy;     // the angle, and the share of it the low end gets
@@ -32,14 +31,6 @@ varying vec3 vSeed;          // strand, depth, how much of a pixel it covers
 void main() {
   float t = uv.y;
   vec3 p0 = position, t0 = aTan, n0 = aNrm;
-  #ifdef USE_SKINNING
-  {
-    // hair on a body that bends: every strand goes, whole, with the bones its root goes with
-    mat4 across = skinWeight.x * getBoneMatrix(skinIndex.x) + skinWeight.y * getBoneMatrix(skinIndex.y) + skinWeight.z * getBoneMatrix(skinIndex.z) + skinWeight.w * getBoneMatrix(skinIndex.w);
-    mat4 moved = bindMatrixInverse * across * bindMatrix;
-    p0 = (moved * vec4(p0, 1.0)).xyz; t0 = mat3(moved) * t0; n0 = mat3(moved) * n0;
-  }
-  #endif
   #ifdef LOCKS_TWIST
     // a beard goes with the chin it grows from, but what lies on the belly stays lying there
     float turn = uTwistBy.x * mix(uTwistBy.y, 1.0, smoothstep(uTwist.w, uTwist.z, p0.y));
@@ -146,10 +137,8 @@ void main() { if (vUV.y > 0.97) discard; gl_FragColor = vec4(gl_FragCoord.z, 0.0
  * @param opts.dense    about how many strands deep it lies (so that it does not thin to nothing with distance)
  * @param opts.twist    { about: [x, z], full: y, least: y, share }: the hair turns about an upright line by material.uniforms.uTwistBy.value.x,
  *                      wholly above `full` and only by `share` of it below `least`
- * @param opts.skin     { skeleton, index, weight }: the hair is on a body that bends, and goes with its bones. `index` and
- *                      `weight` are four numbers for each root, in the order the strands were grown (see rootSkin)
  */
-export function locksMesh(strands, { width = strands.width, colour = {}, flex = 0.02, sigma = 70, gloss = 1, dense = 3, twist = null, skin = null } = {}) {
+export function locksMesh(strands, { width = strands.width, colour = {}, flex = 0.02, sigma = 70, gloss = 1, dense = 3, twist = null } = {}) {
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(strands.position, 3));
   geo.setAttribute('aTan', new THREE.BufferAttribute(strands.aTan, 3));
@@ -170,19 +159,7 @@ export function locksMesh(strands, { width = strands.width, colour = {}, flex = 
   }
   const material = new THREE.ShaderMaterial({ vertexShader: VERT, fragmentShader: FRAG, uniforms: { ...U, ...own }, side: THREE.DoubleSide, alphaToCoverage: true, defines: { ...defines, SHADOW_TAPS: 4 } });
   const depth = new THREE.ShaderMaterial({ vertexShader: VERT, fragmentShader: FRAG_DEPTH, uniforms: { ...U, ...own }, side: THREE.DoubleSide, defines: { ...defines, LOCKS_DEPTH: 1 } });
-  let mesh;
-  if (skin) {
-    // (every point of a strand has what its root has)
-    const per = strands.position.length / 3 / strands.count, n = strands.count * per;
-    const index = new Uint16Array(n * 4), weight = new Float32Array(n * 4);
-    for (let i = 0; i < strands.count; i++) for (let k = 0; k < per; k++) for (let a = 0; a < 4; a++) { index[(i * per + k) * 4 + a] = skin.index[i * 4 + a]; weight[(i * per + k) * 4 + a] = skin.weight[i * 4 + a]; }
-    geo.setAttribute('skinIndex', new THREE.BufferAttribute(index, 4));
-    geo.setAttribute('skinWeight', new THREE.BufferAttribute(weight, 4));
-    mesh = new THREE.SkinnedMesh(geo, material);
-    mesh.bind(skin.skeleton, new THREE.Matrix4());
-  } else {
-    mesh = new THREE.Mesh(geo, material);
-  }
+  const mesh = new THREE.Mesh(geo, material);
   mesh.name = 'locks';
   mesh.frustumCulled = false;
   mesh.userData.shadowMaterial = depth;
@@ -215,13 +192,6 @@ export function locksMesh(strands, { width = strands.width, colour = {}, flex = 
     mesh.frustumCulled = true;
   };
   return { mesh, material, count: strands.count, detail, shade, bound };
-}
-
-/** What the bones do with each of some roots (from sculpt.scatter, on a mesh with bones): four bones and four shares apiece. */
-export function rootSkin(roots, data) {
-  const index = new Uint16Array(roots.length * 4), weight = new Float32Array(roots.length * 4);
-  roots.forEach((r, i) => { for (let a = 0; a < 4; a++) { index[i * 4 + a] = data.skinIndex[r.near * 4 + a]; weight[i * 4 + a] = data.skinWeight[r.near * 4 + a]; } });
-  return { index, weight };
 }
 
 /** Grow hair and make a mesh of it, in one go (see growStrands and locksMesh for what may be asked). */

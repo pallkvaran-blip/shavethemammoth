@@ -54,8 +54,6 @@ export function layerMesh(data, material, rig, name = '') {
   geo.setAttribute('uv', new THREE.BufferAttribute(data.uv, 2));
   geo.setAttribute('aShade', new THREE.BufferAttribute(data.shade, 2));
   geo.setAttribute('aTint', new THREE.BufferAttribute(data.tint, 4));
-  if (data.regb) geo.setAttribute('aRegB', new THREE.BufferAttribute(data.regb, 4));
-  if (data.limb) geo.setAttribute('aLimb', new THREE.BufferAttribute(data.limb, 1));
   geo.setIndex(new THREE.BufferAttribute(data.index, 1));
   let mesh;
   if (rig) {

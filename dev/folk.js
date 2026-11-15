@@ -1,7 +1,7 @@
 // A quiet place to look at the people: one figure (or all of them) on bare snow, under the game's own sky, sun and
 // shadows, without the mammoth. For working on them, and for stills.
 //   /dev/folk.html?who=elf&cam=0.35,0.16,0.5,0,0.12,0&fov=30
-// who = elf | gnome | gnome2 (Gnorman from a cast) | vulture | all;  el, az = the sun;  t = seconds to run before the still;  pose values for the
+// who = elf | gnome | vulture | all;  el, az = the sun;  t = seconds to run before the still;  pose values for the
 // elf: lift, two, strain, buzz, sad, proud, walk, carry;  bare = no hair or feathers;  turn = degrees to turn the figure
 import * as THREE from 'three';
 import { U, LAYER_SHADOW_NEAR } from '../src/gfx/globals.js';
@@ -71,12 +71,6 @@ if (who === 'gnome' || who === 'all') {
   const { buildGnome } = await import('../src/game/people/gnome.js');
   place(buildGnome({ bare: q.has('bare') }), 0);
 }
-if (who === 'gnome2') {
-  // (Gnorman from a cast: see src/game/people/cast.js)
-  const { loadCast } = await import('../src/game/people/cast.js');
-  const { buildGnomeCast } = await import('../src/game/people/gnome.cast.js');
-  place(buildGnomeCast(await loadCast('gnorman'), { bare: q.has('bare') }), 0);
-}
 if (who === 'vulture' || who === 'all') {
   const { buildVulture } = await import('../src/game/people/vulture.js');
   place(buildVulture({ bare: q.has('bare') }), who === 'all' ? 0.4 : 0);
@@ -122,8 +116,7 @@ const frame = () => {
   const dt = 1 / 30;
   time += dt;
   U.uTime.value = time;
-  // (?look=<radians>: which way the visitor is, for those who turn to look; ?pleased=0..1: how pleased with a sale)
-  for (const f of figures) f.update(dt, time, num('look', 0), 1, num('pleased', 0));
+  for (const f of figures) f.update(dt, time, 0, 1, 0);
   scene.updateMatrixWorld(true);
   shadow.fit(new THREE.Vector3(0, 0.25, 0), sky.sunDir, 1.1, 0.6, 60);
   shadow.bind(U.uShadowNear, U.uShadowNearMat, U.uShadowNearInfo);

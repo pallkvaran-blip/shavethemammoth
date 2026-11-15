@@ -80,10 +80,10 @@ await page.evaluate(() => {
       T.frame(6);
     }
   };
-  /** Pick up until there is nothing left to pick up, the sack is full, or patience runs out. Returns the grams gained. */
+  /** Pick up until there is nothing left to pick up, or patience runs out. Returns the grams gained. */
   T.collect = (tries = 60) => {
     const before = game.state.hair;
-    for (let n = 0; n < tries && game.state.room > 0.5; n++) {
+    for (let n = 0; n < tries; n++) {
       const k = T.nearest();
       if (k < 0) break;
       T.aimAt(k);
@@ -126,10 +126,14 @@ const round = (v) => Math.round(v * 10) / 10;
 let v = await T(`T.frame(60); return { playing: !!hero.playing, cine: document.body.classList.contains('cine'), cam: !!rig.cine, shown: document.getElementById('got').classList.contains('show'), banner: document.getElementById('got').hidden, showing: s.showing, hand: T.inHand(), visible: s.tool.group.visible, fov: camera.fov, busy: rig.busy, hint: document.getElementById('hint').textContent }`);
 check(!v.playing && !v.cine && !v.cam && v.showing === null && v.banner && !v.shown, 'climbing down for the first time plays no scene for the scissors he starts with');
 check(v.hand === 'scissors' && v.visible && v.fov === 62 && !v.busy, 'he is looking out of his own eyes, scissors in hand, free to walk');
-check(/Small bad scissors/.test(v.hint) && /cut/.test(v.hint), `and is told what they are for ("${v.hint.slice(0, 60)}...")`);
+check(/start cutting the hair/i.test(v.hint) && !/hands|Mortimer|Q/.test(v.hint), `and is told one thing: to start cutting ("${v.hint.trim().slice(0, 60)}")`);
+
+// ---- left alone for a moment, the mammoth places his order ----
+v = await T(`T.frame(220); return { said: game.says.history.slice() }`);
+check(v.said.length === 1 && /^Yes, hello, hi\. I.ll have a full trim please\.$/.test(v.said[0]), `before anything is cut he says one thing: "${v.said[0]}"`);
 
 // ---- a new game ----
-v = await T(`return { owned: [...st.owned].sort().join(','), gold: st.gold, hair: st.hair, cap: st.capacity, hand: T.inHand(), shown: T.shown(), two: game.chooseNumber(1), mode: rig.mode }`);
+v = await T(`return { owned: [...st.owned].sort().join(','), gold: st.gold, hair: st.hair, hand: T.inHand(), shown: T.shown(), two: game.chooseNumber(1), mode: rig.mode }`);
 console.log(`new game: owns ${v.owned}; ${v.gold} gold; in hand: ${v.hand}; buttons: ${v.shown}`);
 check(v.owned === 'hands,scissors' && v.gold === 0 && v.hand === 'scissors', 'a new game has the small bad scissors, bare hands and no gold');
 check(/^scissors:[^,]*, sweep:Bare hands$/.test(v.shown), 'only the scissors and the hands are offered');
@@ -142,19 +146,21 @@ check(v.g > 60 && v.g < 220, 'a minute with the bad scissors cuts most of a pock
 check(Math.abs(v.lying - v.g) < 0.02 * v.g + 0.05, 'every gram cut is lying about to be picked up');
 const cutFirst = v.g;
 // ...and the mammoth has something to say about being cut
-v = await T(`return { said: game.says.history.slice(), flag: !!(st.flags.said && st.flags.said.cut), who: game.says.name }`);
+v = await T(`return { said: game.says.history.slice(), flag: !!(st.flags.said && st.flags.said.cut), who: game.says.name, tips: Object.keys(st.flags.tips || {}).join(','), tip: (document.getElementById('hint')?.textContent || '').trim() }`);
+check(/start/.test(v.tips) && /pickup/.test(v.tips) && !/sell/.test(v.tips), `with hair on the snow he has had his second tip, about his hands and Mortimer, and no other (${v.tips})`);
 let embarrassed = v.said.includes('Gosh, this is embarrassing.');
-console.log(`  the mammoth, cut for the first time: "${v.said[0]}"${v.said.length > 1 ? `; and since: "${v.said.slice(1).join('" / "')}"` : ''}`);
-check(v.flag && v.said.length >= 1 && v.said[0].length > 8, 'the first cut gets a remark out of the mammoth');
+console.log(`  the mammoth, since he was first cut: "${v.said.slice(1).join('" / "')}"`);
+check(v.flag && v.said.length >= 2 && ['Excuse me. Did you just... you did.', 'Oh. We are really doing this, then.', 'Tihi - that tickles.'].includes(v.said[1]), 'the first cut gets a remark out of the mammoth');
+check(v.said.some((l) => /^Did I say full trim\?/.test(l)), 'and a few cuts later he thinks better of the full trim');
 check(v.who === 'The mammoth', 'who is, so far, only "the mammoth"');
 
 // ---- pick up, by hand (the Q key) ----
 await page.keyboard.press('KeyQ');
-v = await T(`T.frame(40); const hand = s.tool.id; const got = T.collect(80); return { hand, got, hair: st.hair, lying: C.lying, cap: st.capacity, picked: st.stats.picked }`);
-console.log(`bare hands: picked up ${round(v.got)} g; pockets ${round(v.hair)} of ${v.cap} g; ${round(v.lying)} g still lying`);
+v = await T(`T.frame(40); const hand = s.tool.id; const first = T.collect(10); const got = first + T.collect(500); return { hand, first, got, hair: st.hair, lying: C.lying, picked: st.stats.picked, pinch: s.tool.def.sweep.most }`);
+console.log(`bare hands: ${round(v.first)} g in the first ten goes, ${round(v.got)} g in all; carrying ${round(v.hair)} g; ${round(v.lying)} g still lying`);
 check(v.hand === 'hands', 'Q puts the scissors away and brings up the hands');
-check(v.got > 0.85 * Math.min(cutFirst, v.cap), 'looking at cut hair and holding the button picks it up');
-check(v.hair <= v.cap + 1e-6, 'the pockets do not hold more than they hold');
+check(v.first > 1 && v.first <= 10 * 2 * v.pinch + 0.01, `by hand it is a pinch at a time (no more than ${v.pinch} g a grab)`);
+check(v.got > 0.85 * cutFirst, 'looking at cut hair and holding the button picks it up, all of it in the end');
 
 // ---- sell it to Mortimer (E, then his button) ----
 v = await T(`T.goTo('vulture'); return { near: game.nearby(), prompt: document.getElementById('prompt').textContent.trim(), hidden: document.getElementById('prompt').hidden, hair: st.hair, gold: st.gold, found: st.found.length }`);
@@ -214,7 +220,7 @@ await page.keyboard.press('KeyE');
 v = await T(`let n = 0; while (!game.says.history.some((l) => /sheep/.test(l)) && n < 60 * 25) { T.frame(); n++; } return { said: game.says.history.slice(-2) }`);
 check(v.said.some((l) => /not a sheep/.test(l)), `and the mammoth has seen what was bought: "${v.said[v.said.length - 1]}"`);
 
-// ---- every broom and vacuum picks hair up; nothing holds more than it holds ----
+// ---- every broom and vacuum picks hair up ----
 // (the clippers are bought out on the snow: they have their scene all the same, and any key gets on with it)
 v = await T(`st.earn(4000); game.buy('garden'); T.frame(60); return { id: hero.playing && hero.playing.id, cine: document.body.classList.contains('cine'), what: document.querySelector('#got .what').textContent, quip: document.querySelector('#got .quip').textContent, shown: document.getElementById('got').classList.contains('show'), showing: s.showing && s.showing.id, cam: !!rig.cine, far: rig.cine ? Math.hypot(camera.position.x - rig.pos.x, camera.position.z - rig.pos.z) : 0 }`);
 console.log(`the clippers' scene: "You got the ${v.what}" / "${v.quip}"; a second in, the camera is ${round(v.far * 100)} cm from him`);
@@ -234,33 +240,30 @@ for (const [id, name] of [['twig', 'twig broom'], ['push', 'push broom'], ['hand
     game.buy('${id}');
     const sweeper = st.sweeper;
     game.toggleSweep(); T.frame(40);
-    const hand = s.tool.id, room = st.room, lying = C.lying;
+    const hand = s.tool.id, before = st.hair, lying = C.lying;
     const got = T.collect(25);
     T.frame(120);
-    return { cut, sweeper, hand, room, lying, got: st.hair - (st.capacity - room), hair: st.hair, cap: st.capacity, left: C.lying, inFlight: C.inFlight };
+    return { cut, sweeper, hand, lying, got: st.hair - before, hair: st.hair, left: C.lying, inFlight: C.inFlight };
   `);
-  console.log(`${name}: ${round(v.cut)} g cut with the clippers, ${round(v.lying)} g lying; picked up ${round(v.got)} g in at most 25 goes; carrying ${round(v.hair)} of ${v.cap} g; ${round(v.left)} g left lying`);
+  console.log(`${name}: ${round(v.cut)} g cut with the clippers, ${round(v.lying)} g lying; picked up ${round(v.got)} g in at most 25 goes; carrying ${round(v.hair)} g; ${round(v.left)} g left lying`);
   check(v.sweeper === id && v.hand === id, `buying the ${name} makes it the thing Q brings up`);
-  check(v.got > 0.5 * Math.min(v.lying, v.room) - 0.5, `the ${name} picks hair up`);
-  check(v.hair <= v.cap + 1e-6, 'and does not overfill');
-  // a bigger sack after the first, so the next has room
-  await T(`if (st.room < 200) { game.buy('sack'); } if (st.room < 200) { T.goTo('vulture'); game.interact(); game.sell(); game.close(); }`);
+  check(v.got > 0.5 * Math.min(v.lying, 150) - 0.5, `the ${name} picks hair up`);
 }
-v = await T(`return { level: st.level('sack'), cap: st.capacity, name: game.sackName(), bag: document.getElementById('bag').textContent }`);
-console.log(`carrying in: ${v.name} (${v.cap} g); the display says "${v.bag}"`);
 
-// ---- a full sack: the hair stays where it is, and the player is told ----
+// ---- there is no limit to what he can carry ----
 v = await T(`
   game.choose('garden'); T.frame(40);
   T.cutRound(3, 0.4, 1.2, 8);
-  st.hair = st.capacity - 2;
+  st.hair = 5000;
   game.toggleSweep(); T.frame(40);
   const lying = C.lying;
-  T.collect(4);
-  return { hair: st.hair, cap: st.capacity, lying, left: C.lying, hint: document.getElementById('hint')?.textContent || '' };
+  const got = T.collect(6);
+  T.frame(120);
+  return { hair: st.hair, got: st.hair - 5000, lying, left: C.lying, bag: document.getElementById('bag').textContent, sack: 'capacity' in st || 'room' in st };
 `);
-check(v.hair <= v.cap + 1e-6 && v.left > v.lying - 3, `with 2 g of room, ${round(v.lying - v.left)} g is taken and the rest left lying`);
-check(/full/i.test(v.hint), `and the player is told ("${v.hint.trim().slice(0, 60)}")`);
+console.log(`carrying 5 kg: ${round(v.got)} g more picked up; the display says "${v.bag}"`);
+check(v.got > 1 && v.hair > 5000, 'however much he is carrying, he can pick up more');
+check(/of hair$/.test(v.bag) && !/\d\s*(of|\/)\s*\d/.test(v.bag) && !v.sack, 'the display says how much he has, not out of how much; no sack is for sale');
 
 // ---- a ladder: R stands it up and climbs, the hair up there can be cut, F comes down and it is put away ----
 v = await T(`
@@ -558,19 +561,19 @@ const kept = await T(`
   T.frame(240);
   game.save(true);
   const raw = localStorage.getItem('mammoth-save-3');
-  return { gold: st.gold, hair: st.hair, owned: [...st.owned].sort().join(','), sack: st.level('sack'), sweeper: st.sweeper, tool: st.tool, shorn: mammoth.shorn, found: st.found.length, lift: st.lift, helpers: st.helpers, used: st.used.length, owed: st.owed, bytes: raw ? raw.length : 0 };
+  return { gold: st.gold, hair: st.hair, owned: [...st.owned].sort().join(','), sweeper: st.sweeper, tool: st.tool, shorn: mammoth.shorn, found: st.found.length, lift: st.lift, helpers: st.helpers, used: st.used.length, owed: st.owed, bytes: raw ? raw.length : 0 };
 `);
 console.log(`kept: ${kept.gold} gold, ${round(kept.hair)} g, [${kept.owned}], shorn ${(kept.shorn * 100).toFixed(3)}% (${kept.bytes} bytes in the browser's storage)`);
 check(kept.bytes > 100, 'the game is written to the browser\'s storage');
 await load('');
 v = await page.evaluate(() => {
   const { shaving: s, mammoth, game } = window.__game, st = game.state;
-  return { resumed: game.resumed, gold: st.gold, hair: st.hair, owned: [...st.owned].sort().join(','), sack: st.level('sack'), sweeper: st.sweeper, tool: st.tool, hand: s.tool.id, shorn: mammoth.shorn, found: st.found.length, lift: st.lift, rigLift: window.__game.rig.lift && window.__game.rig.lift.id, helpers: st.helpers, onHim: game.helpers.count, used: st.used.length, owed: st.owed, coins: game.coins.n, nails: mammoth.horn.roughness };
+  return { resumed: game.resumed, gold: st.gold, hair: st.hair, owned: [...st.owned].sort().join(','), sweeper: st.sweeper, tool: st.tool, hand: s.tool.id, shorn: mammoth.shorn, found: st.found.length, lift: st.lift, rigLift: window.__game.rig.lift && window.__game.rig.lift.id, helpers: st.helpers, onHim: game.helpers.count, used: st.used.length, owed: st.owed, coins: game.coins.n, nails: mammoth.horn.roughness };
 });
 check(await page.evaluate(() => !window.__game.hero.playing), 'no scene is played on coming back, either');
 console.log(`after loading the page again: ${v.gold} gold, ${round(v.hair)} g, [${v.owned}], shorn ${(v.shorn * 100).toFixed(3)}%, in hand: ${v.hand}`);
 check(v.resumed === true, 'the kept game is taken up again');
-check(v.gold === kept.gold && Math.abs(v.hair - kept.hair) < 1e-6 && v.owned === kept.owned && v.sack === kept.sack && v.sweeper === kept.sweeper, 'gold, hair and everything bought are as they were');
+check(v.gold === kept.gold && Math.abs(v.hair - kept.hair) < 1e-6 && v.owned === kept.owned  && v.sweeper === kept.sweeper, 'gold, hair and everything bought are as they were');
 check(v.hand === kept.tool, 'the tool last used is in hand');
 check(v.found === kept.found && v.lift === 'pack' && v.rigLift === 'jet', 'what was found stays found, and the jet pack is still on his back');
 check(v.helpers === kept.helpers && v.onHim === kept.helpers && kept.helpers === 7, `and the ${v.helpers} lemmings are still on the payroll, and on him`);
@@ -631,40 +634,6 @@ console.log(`dev: bought ${v.bought} things with it; ${v.gold} gold over`);
 check(v.refused.length === 0 && v.left.length === 0 && v.gold >= 0, `everything on the list could be bought with it${v.refused.length ? ' (refused: ' + v.refused.join(', ') + ')' : ''}`);
 check(v.helpers === 240 && v.tags === 'box,cavemen,tonic', `down to a full complement of lemmings; all that still has a price is what can be had again (${v.tags})`);
 await page.evaluate(() => window.__game.game.close());
-
-// ---- the other Gnorman (dev): the one made in Blender from a generated sculpt, fetched when asked for ----
-v = await page.evaluate(() => {
-  const { game, rig } = window.__game, b = document.getElementById('dev-gnorman');
-  window.__sculpted = game.gnome;
-  return { chip: !!b && !b.hidden && b.offsetWidth > 0, label: b ? b.textContent : '', mode: rig.mode, bones: game.gnome.rig.list.length };
-});
-check(v.chip && v.mode === 'elf', `a mark for the other Gnorman is beside the purse ("${v.label}")`);
-await page.keyboard.press('KeyN');
-await page.waitForFunction(() => window.__game.game.gnome !== window.__sculpted, null, { timeout: 300000 });
-v = await page.evaluate(() => {
-  const { game } = window.__game, f = game.gnome, was = window.__sculpted, dt = 1 / 60;
-  // (some of a second of him: he turns his head, waves, blinks; nothing may come out as not-a-number)
-  let bad = 0;
-  for (let k = 0; k < 90; k++) { f.update(dt, k * dt, 0.8, 1, k > 45 ? 1 : 0); }
-  f.group.updateMatrixWorld(true);
-  for (const b of f.rig.list) for (const e of b.matrixWorld.elements) if (!Number.isFinite(e)) bad++;
-  const hair = f.meshes.filter((m) => m.name === 'locks');
-  return {
-    hint: document.getElementById('hint').textContent, inScene: !!f.group.parent, oldOut: !was.group.parent, bones: f.rig.list.length, bad,
-    where: f.group.position.distanceTo(was.group.position), casting: game.casters.filter((m) => f.meshes.includes(m)).length, meshes: f.meshes.length,
-    stale: game.casters.filter((m) => was.meshes.includes(m)).length, hair: hair.length, skinned: hair.every((m) => m.isSkinnedMesh), turned: +f.rig.bones.head.rotation.y.toFixed(2),
-    points: f.meshes[0].geometry.attributes.position.count, his: game.people.gnome.parts[1] === f,
-  };
-});
-console.log(`gnorman: the cast has ${v.points} points on ${v.bones} bones, ${v.hair} pieces of hair; "${v.hint.slice(0, 60)}..."`);
-check(v.inScene && v.oldOut && v.where < 1e-6 && /Blender/.test(v.hint), 'N fetches him and stands him where Gnorman stood');
-check(v.casting === v.meshes && v.stale === 0, 'his parts throw the shadows, and the old one\u2019s no longer do');
-check(v.hair === 5 && v.skinned && v.bad === 0 && v.turned > 0.5, 'he turns to look, and his hair goes with his bones');
-check(v.his, 'and the stall is his');
-await page.keyboard.press('KeyN');
-await page.waitForFunction(() => window.__game.game.gnome === window.__sculpted, null, { timeout: 60000 });
-v = await page.evaluate(() => { const { game } = window.__game; return { back: !!window.__sculpted.group.parent, casting: game.casters.filter((m) => window.__sculpted.meshes.includes(m)).length, meshes: window.__sculpted.meshes.length }; });
-check(v.back && v.casting === v.meshes, 'N again brings back the one the page sculpts');
 
 console.log(errors.length ? 'ERRORS:\n' + errors.join('\n') : 'no script errors');
 await browser.close();

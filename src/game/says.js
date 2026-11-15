@@ -13,12 +13,15 @@ const between = (a, b) => a + Math.random() * (b - a);
 
 // ---- what he says -----------------------------------------------------------
 
-/** Before a hair of him has been touched. */
-const HELLO = [
-  'Lovely evening. I do hope nothing happens to it.',
-  'What a peaceful evening. Nothing small and sharp anywhere.',
-  'Ten thousand years, and not one bad hair day.',
-];
+/** The very first thing he says in a game, before a hair of him has been touched. */
+const HELLO = ['Yes, hello, hi. I’ll have a full trim please.'];
+/** The same moment on a later visit, if he has still not been touched. */
+const HELLO_AGAIN = ['Ten thousand years, and not one bad hair day.'];
+/** A few cuts later, to whoever heard him ask for the full trim. */
+const TRIM = ['Did I say full trim? I meant just a little off the sides. Too late for that I guess.'];
+/** How much of him has to be on the snow for that, in grams (twenty seconds of the small bad scissors). */
+const TRIM_AT = 25;
+
 /** To somebody who has been here before, and done things. */
 const AGAIN = [
   'Oh. It’s you. And the scissors.',
@@ -30,7 +33,7 @@ const AGAIN_BALD = ['Don’t look at me.', 'Yes, well. Here I am. All of me.'];
 const FIRST_CUT = [
   'Excuse me. Did you just... you did.',
   'Oh. We are really doing this, then.',
-  'I felt that. That one had a name.',
+  'Tihi - that tickles.',
 ];
 
 /** A tattoo has come to light: what he has to say for himself, one by one, and otherwise. */
@@ -93,7 +96,6 @@ const BOUGHT = {
   lemming: 'Something is climbing my leg. It has very cold feet.',
   lemmings: 'There are more of them. They appear to be organised.',
   plague: 'I am infested. With staff.',
-  sack: 'A bigger sack. Planning to take a lot of me, then.',
   suck: 'More suck. Wonderful.',
   tank: 'More fuel. More of you, up here, with me.',
   loyal: 'A loyalty card. For shaving me. I see.',
@@ -137,7 +139,7 @@ const WAITING = ['Take a good look. It is the last time I will look like this.',
 /** Left to himself, with an elf at work on him. Each of these comes round once before any comes again. */
 const IDLE = [
   'Is this going to take all day?',
-  'I wish I was an elephant. Nobody shaves an elephant.',
+  'I wish I was an elephant. I could save so much on haircuts.',
   'You missed a bit. I am not saying where.',
   'Could you at least warm the blades?',
   'I had plans today. Standing here, mostly. But still.',
@@ -156,7 +158,6 @@ const IDLE_WHEN = [
   [(c) => c.tool === 'scissors' && c.shorn < 0.3, 'Small scissors. Big mammoth. I admire the optimism.'],
   [(c) => c.motor, 'It buzzes in my tusks.'],
   [(c) => c.sweeping, 'That is me you are sweeping up, you know.'],
-  [(c) => c.full, 'Full already? There is so much more of me.'],
   [(c) => c.pink, 'Do I look pink to you? I feel pink.'],
   [(c) => c.hat, 'Is the hat still on? I can feel a hat.'],
   [(c) => c.shades, 'I look magnificent. Nobody tell me otherwise.'],
@@ -350,7 +351,7 @@ export class Says {
   _idle() {
     const s = this.state, tool = this.shaving ? this.shaving.tool : null;
     const c = {
-      tool: tool ? tool.id : '', motor: !!(tool && tool.def.motor), sweeping: !!(tool && tool.def.sweep), full: s.hair > 0 && s.room <= 0,
+      tool: tool ? tool.id : '', motor: !!(tool && tool.def.motor), sweeping: !!(tool && tool.def.sweep),
       pink: !!s.flags.pink, hat: s.worn.includes('partyhat'), shades: s.worn.includes('shades'),
       shorn: this.mammoth.shorn, minutes: this.minutes, named: s.found.includes('hello'), found: s.found.length, help: s.helpers || 0, raids: s.stats.raids || 0, used: (s.used || []).length,
     };
@@ -378,9 +379,13 @@ export class Says {
       if (this.helloIn <= 0) {
         this.greeted = true;
         const begun = this.mammoth.shorn > 0.004 || s.stats.picked > 0;
-        if (!elf) this.say(this.mammoth.shorn > 0.97 ? AGAIN_BALD : begun ? AGAIN : HELLO);
+        if (this.mammoth.shorn > 0.97) this.say(AGAIN_BALD);
+        else if (begun) this.say(AGAIN);
+        else if (this.mammoth.cutLength > 0) { /* (the scissors got in first: there is nothing left to order) */ }
+        else if (!this.say(HELLO, { key: 'hello' })) this.say(HELLO_AGAIN);
       }
     }
+    if (this.said.hello && !this.said.trim && this.shaving.grams(this.mammoth.cutLength) > TRIM_AT) this.say(TRIM, { key: 'trim', wait: 2.5 });
     const cut = this.mammoth.cutLength;
     if (cut > this.cutAt + 1e-6) {
       this.sinceCut = 0;

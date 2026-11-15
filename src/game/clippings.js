@@ -180,16 +180,15 @@ export class Clippings {
   }
 
   /**
-   * Pick up the hair within `radius` of a point, up to `room` grams. By hand
+   * Pick up the hair within `radius` of a point, up to `most` grams. By hand
    * or broom it is taken at once. With `pull` it is sucked up instead: each
    * piece flies to `this.sink` and counts (through onTake) when it arrives.
    * Returns the grams taken at once, and leaves in `this.missed` whether
-   * anything had to be left for want of room.
+   * anything had to be left because that was all it would take.
    */
-  gather(x, y, z, radius, { pull = 0, room = Infinity } = {}) {
+  gather(x, y, z, radius, { pull = 0, most: room = Infinity } = {}) {
     const Pos = this.data.cPos, r2 = radius * radius;
     let got = 0;
-    room -= this.inFlight;
     this.missed = false;
     for (let k = 0; k < this.count; k++) {
       const v = this.value[k];

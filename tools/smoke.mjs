@@ -22,12 +22,14 @@ const holdFor = async (key, n) => { await page.keyboard.down(key); await frames(
 const hold = async (key, ms, n = 2) => { await page.keyboard.down(key); await page.waitForTimeout(ms); await frames(n); await page.keyboard.up(key); await frames(1); };
 await page.goto(base + '?q=low&strands=20000&adapt=9&stats&sync&unlock&nosave&debug', { waitUntil: 'load' });
 await page.waitForFunction(() => document.body.classList.contains('ready'), null, { timeout: 240000 });
-// the legend is told over the opening shot; the controls come up when it ends
+// the legend is told on the loading screen; then the game opens in first person, and the controls come up
 const lines = await page.$$eval('#legend p', (ps) => ps.map((p) => p.textContent));
 console.log(`legend: ${lines.length} lines, ending "${lines[lines.length - 1]}"`);
 await page.waitForFunction(() => document.body.classList.contains('told'), null, { timeout: 60000 });
-console.log('ok: the legend was told and the controls came up');
+if (!(await page.evaluate(() => document.body.classList.contains('elf')))) errors.push('the game did not open in first person');
+console.log('ok: the legend was told and the game opened in first person');
 await page.waitForTimeout(2500);
+await step('Esc (stand back and look at him)', () => page.keyboard.press('Escape'), 3000);
 await step('view 2', () => page.click('#view-1'));
 await step('sun to 18 degrees', () => page.$eval('#sun', (el) => { el.value = '18'; el.dispatchEvent(new Event('input', { bubbles: true })); }), 4000);
 await page.screenshot({ path: 'shots/smoke_sun18.png', timeout: 300000 });

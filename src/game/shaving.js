@@ -35,9 +35,7 @@ export class Shaving {
       this.tools[t.id] = t;
       scene.add(t.group);
     }
-    this.onHair = () => 0;       // asked to put grams of hair in the sack; answers how many fitted
-    this.room = () => Infinity;  // how many grams the sack will still take
-    this.onFull = () => {};      // told when hair had to be left for want of room
+    this.onHair = () => 0;       // told how many grams of hair have been picked up
     this._end = new THREE.Vector3();
     this.reachMore = 1;          // how much further the vacuums reach than they were made to (an upgrade)
     this.tool = this.tools[tool] || this.tools.garden;
@@ -314,28 +312,24 @@ export class Shaving {
     return out.set(x, this.terrain.height(x, z) + 0.01, z);
   }
 
-  /** One stroke of a broom, or one grab: everything round where it is aimed goes in the sack. */
+  /** One stroke of a broom, or one grab: what is round where it is aimed is picked up (all of it, or as much as a hand holds). */
   _sweep(sh) {
     // (a broom takes what is under its head; hands take what the eyes are on)
     const p = sh.def.level ? sh.end(this._end) : this._aim(sh, this._end), s = sh.def.sweep;
-    const got = this.clippings.gather(p.x, p.y, p.z, s.radius, { room: this.room() });
+    const got = this.clippings.gather(p.x, p.y, p.z, s.radius, { most: s.most ?? Infinity });
     if (got > 0) this.onHair(got);
-    if (this.clippings.missed) this.onFull();
   }
 
   /** A vacuum, running: hair round where it is aimed, and round the nozzle itself, is drawn up it. */
   _suck(sh) {
     const s = sh.def.sweep, more = this.reachMore;
     if (sh.power > 0.5) {
-      let full = false;
       if (!sh.def.level) {
         const p = this._aim(sh, this._end);
-        this.clippings.gather(p.x, p.y, p.z, s.radius * more, { pull: s.pull * more, room: this.room() });
-        full = this.clippings.missed;
+        this.clippings.gather(p.x, p.y, p.z, s.radius * more, { pull: s.pull * more });
       }
       sh.end(this._end);
-      this.clippings.gather(this._end.x, this._end.y, this._end.z, s.radius * more * (sh.def.level ? 1 : 0.6), { pull: s.pull * more, room: this.room() });
-      if (full || this.clippings.missed) this.onFull();
+      this.clippings.gather(this._end.x, this._end.y, this._end.z, s.radius * more * (sh.def.level ? 1 : 0.6), { pull: s.pull * more });
     }
     this.clippings.sink.copy(sh.end(this._end));
     this.sound.motor(sh.def.voice, sh.power, Math.min(1, this.clippings.inFlight / 20), 0);
