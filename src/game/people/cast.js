@@ -12,10 +12,12 @@
 // eight), the description, then the lists of numbers it describes, each where
 // it says. The lists are kept in as few bits as they can stand (a place on him
 // to a sixteenth of a millimetre is plenty), and the whole file is squeezed
-// (gzip); the description says what each list's numbers stand for, and they
-// are turned back into the numbers the game draws with as they are read.
+// (gzip) and then spelt out as text (base64), because a page's host will
+// serve text where it may refuse bytes of a kind it does not know. The
+// description says what each list's numbers stand for, and they are turned
+// back into the numbers the game draws with as they are read.
 import * as THREE from 'three';
-import figUrl from './casts/gnorman/gnorman.figz?url';
+import figUrl from './casts/gnorman/gnorman.fig.txt?url';
 import baseUrl from './casts/gnorman/base.jpg?url';
 import normalUrl from './casts/gnorman/normal.jpg?url';
 import ormUrl from './casts/gnorman/orm.jpg?url';
@@ -45,11 +47,18 @@ export function readCast(buffer) {
   return { ...head, A };
 }
 
-/** A squeezed file's bytes, unsqueezed (or the bytes as they are, if whoever served the file has unsqueezed it already). */
-async function unsqueezed(buffer) {
-  const two = new Uint8Array(buffer, 0, 2);
-  if (two[0] !== 0x1f || two[1] !== 0x8b) return buffer;
-  return new Response(new Blob([buffer]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();
+/** A figure file as it was fetched, back to the bytes readCast wants: out of its letters if it is spelt out, and unsqueezed. */
+async function unpacked(buffer) {
+  let bytes = new Uint8Array(buffer);
+  const starts = (a, b) => bytes[0] === a && bytes[1] === b;
+  if (!starts(0x1f, 0x8b) && !starts(0x46, 0x49)) {
+    // (letters: four of them to every three bytes)
+    const text = atob(new TextDecoder().decode(bytes).trim());
+    bytes = new Uint8Array(text.length);
+    for (let i = 0; i < text.length; i++) bytes[i] = text.charCodeAt(i);
+  }
+  if (!starts(0x1f, 0x8b)) return bytes.buffer;
+  return new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();
 }
 
 /**
@@ -81,7 +90,7 @@ export async function loadCast(name) {
     return t;
   };
   const [buffer, base, normal, orm] = await Promise.all([
-    fetch(urls.fig).then((r) => { if (!r.ok) throw new Error(`${name}: ${r.status}`); return r.arrayBuffer(); }).then(unsqueezed),
+    fetch(urls.fig).then((r) => { if (!r.ok) throw new Error(`${name}: ${r.status}`); return r.arrayBuffer(); }).then(unpacked),
     picture(urls.base, true), picture(urls.normal, false), picture(urls.orm, false),
   ]);
   return { ...readCast(buffer), pictures: { base, normal, orm } };
