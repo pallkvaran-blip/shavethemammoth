@@ -59,7 +59,8 @@ export const ITEMS = {
   electric: { kind: 'cutter', name: 'Electric shears', price: 600, blurb: 'A strip as wide as your head with every pass. Batteries included; his consent is not.', got: 'The power of a small kitchen appliance is yours.' },
 
   // ---- picking it up ----
-  hands: { kind: 'sweeper', name: 'Bare hands', price: 0, blurb: 'You came with these.', sweep: { radius: 0.17, ahead: 0.22, every: 0.45 } },
+  // (hands take a pinch at a time, `most` grams, from a small patch: it is what makes a broom worth ten gold)
+  hands: { kind: 'sweeper', name: 'Bare hands', price: 0, blurb: 'You came with these. A pinch at a time.', sweep: { radius: 0.13, ahead: 0.22, every: 0.45, most: 1.5 } },
   twig: { kind: 'sweeper', name: 'Twig broom', price: 10, blurb: 'A stick with ambitions. Sweeps a patch the size of a dinner plate.', sweep: { radius: 0.26, ahead: 0.3, every: 0.5 } },
   push: { kind: 'sweeper', name: 'Push broom', price: 80, blurb: 'Half a metre of bristle. The widow who sold it to me said he died doing what he loved: sweeping.', sweep: { radius: 0.46, ahead: 0.42, every: 0.55 } },
   handvac: { kind: 'sweeper', name: "Lil' Sucker hand vacuum", price: 350, blurb: 'It sucks, and that is the nicest thing anyone has said about it. Hold it down and wave it about.', sweep: { radius: 0.55, ahead: 0.5, pull: 3.2 } },
@@ -97,14 +98,6 @@ export const ITEMS = {
   depil: { kind: 'gag', name: 'Coat-Off hair remover', price: 200, use: 'Spray it on his coat and keep it moving. What falls off is yours to pick up.', blurb: 'One can. Whatever it touches falls out in handfuls. Do not get it on your eyebrows. I did.' },
 
   // ---- improvements ----
-  sack: {
-    kind: 'upgrade', name: 'Somewhere to put it', blurb: 'Your pockets hold a hundred grams. That is a moustache.',
-    levels: [
-      { name: 'Sack', price: 30, blurb: 'Holds 350 g. Smells of the last thing that was in it.' },
-      { name: 'Wheelbarrow', price: 180, blurb: 'Holds 1.2 kg. Squeaks, but so do you.' },
-      { name: 'Bottomless sack', price: 600, blurb: 'Holds 5 kg. Do not look inside. It looks back.' },
-    ],
-  },
   suck: {
     kind: 'upgrade', name: 'More suck', needs: ['handvac'], blurb: 'For either vacuum. I bore the pipe out with a spoon.',
     levels: [

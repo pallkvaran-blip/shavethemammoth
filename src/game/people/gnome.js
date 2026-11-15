@@ -21,7 +21,7 @@ import { folkMaterial } from './materials.js';
 import { locksMesh } from './locks.js';
 import { gnomeRecipe, browAt, sub, unit, EYE, EYE_R, HAT, BELLY, BELLY_R, BELT_Y, F_UP, F_ACROSS, foamAt } from './gnome.recipe.js';
 
-export function jerseyLettering() {
+function jerseyLettering() {
   return canvasTexture(512, 192, (g, w, h) => {
     g.clearRect(0, 0, w, h);
     g.font = `700 172px ${HAND}`; g.textAlign = 'center'; g.textBaseline = 'middle';
@@ -37,32 +37,6 @@ function foamLettering() {
     g.fillStyle = '#f4f0e6'; g.font = `700 176px ${HAND}`; g.textAlign = 'center'; g.textBaseline = 'middle';
     g.fillText('#1', w / 2, h / 2 + 8);
   }, true);
-}
-
-/**
- * The fan on his hat: a brass stem and hub at `at`, standing along `up`, and three steel blades. Returns the part
- * that turns. `hang` is the figure's (figure.js).
- */
-export function hatFan(hang, at, up, brass, steel) {
-  const spin = new THREE.Group();
-  const fan = new THREE.Group();
-  const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.0024, 0.003, 0.02, 10), brass);
-  stem.position.y = 0.012;
-  const hub = new THREE.Mesh(new THREE.SphereGeometry(0.0072, 20, 14), brass);
-  hub.scale.y = 0.8; hub.position.y = 0.023;
-  spin.position.y = 0.023;
-  for (let i = 0; i < 3; i++) {
-    const arm = new THREE.Group();
-    arm.rotation.y = (i * Math.PI * 2) / 3;
-    const blade = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 12), steel);
-    blade.scale.set(0.027, 0.0011, 0.0098); blade.position.x = 0.031; blade.rotation.x = 0.42;
-    arm.add(blade);
-    spin.add(arm);
-  }
-  fan.add(stem, hub, spin);
-  hang('fan', fan, at);
-  fan.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(...up));
-  return spin;
 }
 
 export function buildGnome({ bare = false, baked = null } = {}) {
@@ -114,7 +88,26 @@ export function buildGnome({ bare = false, baked = null } = {}) {
     hang('torso', buckle, [0, BELT_Y, BELLY[2] + BELLY_R[2] * girth + 0.006]);
     buckle.rotation.x = 0.36;                      // (it lies on the under side of the belly)
   }
-  const spin = hatFan(hang, HAT[2], unit(sub(HAT[2], HAT[1])), brass, steel);
+  const spin = new THREE.Group();
+  {
+    const fan = new THREE.Group();
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.0024, 0.003, 0.02, 10), brass);
+    stem.position.y = 0.012;
+    const hub = new THREE.Mesh(new THREE.SphereGeometry(0.0072, 20, 14), brass);
+    hub.scale.y = 0.8; hub.position.y = 0.023;
+    spin.position.y = 0.023;
+    for (let i = 0; i < 3; i++) {
+      const arm = new THREE.Group();
+      arm.rotation.y = (i * Math.PI * 2) / 3;
+      const blade = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 12), steel);
+      blade.scale.set(0.027, 0.0011, 0.0098); blade.position.x = 0.031; blade.rotation.x = 0.42;
+      arm.add(blade);
+      spin.add(arm);
+    }
+    fan.add(stem, hub, spin);
+    hang('fan', fan, HAT[2]);
+    fan.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(...unit(sub(HAT[2], HAT[1]))));
+  }
 
   // ---- hair: the beard, the moustache, the eyebrows, and what is left round the back ----
   const brows = [];

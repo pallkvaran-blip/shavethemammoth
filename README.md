@@ -1,7 +1,7 @@
 # Shave the Mammoth
 
-> Legend has it, great woolly mammoths roamed the earth, but then a legend came and
-> shaved them all, and now they are elephants. That legend is you.
+> Legend has it, great woolly mammoths roamed the earth... but then a legend came and
+> shaved them, and now they are elephants... That legend is you.
 
 A first-person game: you are an elf twenty centimetres tall, and your job is to give
 one very large woolly mammoth a clean shave.
@@ -13,10 +13,15 @@ biggest fan and keeps a stall beside him. The more of the mammoth you can reach,
 more there is to cut, and the more of what is under the coat comes to light. He has
 tattoos. He is also wearing something.
 
-The game opens on its legend, told a line at a time over the first shot of the
-mammoth (any key or a click skips it). It keeps itself in the browser between visits.
+The game opens on its legend, told on the dark while the scene is being made, the way a
+film opens: three lines, one at a time, each coming up out of the dark, growing as it
+floats towards you and sweeping past, with a deep boom under it (where the browser lets a
+page make a sound before it has been touched; most do not). The last line is the largest,
+and red. Any key or a click skips it. Then the scene opens in first person: you are
+standing on the snow beside Gnorman's stall with the scissors in your hand and the whole
+mammoth in front of you. It keeps itself in the browser between visits.
 
-![The end of the opening: "That legend is you." over the mammoth at sunset](docs/legend.jpg)
+![The end of the legend: "That legend is you." in red blackletter on the dark](docs/legend.jpg)
 
 ## The elf
 
@@ -62,46 +67,6 @@ shaft, barbs and the odd split in its vane.
 All of that is some seconds of arithmetic for each of them. It is done on threads of
 its own while the land and the mammoth are being made, so the wait is hardly longer
 for it; where a page does not allow threads it is done between frames instead.
-
-### The other Gnorman (a trial)
-
-| ![The Gnorman the page sculpts beside the one cast from a generated sculpt, from in front](docs/gnorman-cast-front.jpg) | ![The same two, close to: a ball of a nose and a nose with nostrils](docs/gnorman-cast-face.jpg) |
-| --- | --- |
-| ![The two of them from behind, each with #1 FAN knitted across his back](docs/gnorman-cast-back.jpg) | ![Each of them behind his counter, as the elf sees him](docs/gnorman-cast-stall.jpg) |
-
-In each picture the Gnorman on the left is the one described above; the one on the right is a
-trial of making the people another way. Press `N` in the game (or the second **Dev** mark beside
-the purse) to change one for the other where he stands; `?gnorman=cast` starts with the second.
-
-He was made in three stages. A picture of the first Gnorman was given to an image generator to be
-drawn again as a far more finished character, front and back
-(`tools/cast/gnorman/reference/`). Those two pictures were given to a generator of 3D models
-(Rodin, through Replicate), which returned a sculpt of a million faces with pictures of its colour.
-And that was finished in Blender, by script (`tools/cast/`): stood at the game's size, thinned to
-60,000 faces with a texture layout of its own, the sculpt's colour, roughness, creases and shading
-baked across, every point sorted by what it is made of and given its bones, and room made for eyes.
-
-What he keeps of the generator's is his shape and, on his hat, face, belt, boots and foam hand,
-his colour. The rest is the game's own, because it is better: his jumper is knitted here stitch by
-stitch with the same words across the back (the generator's lettering was a smear, and its
-knitting a blur close to); his trousers are corduroy; his eyes are balls with lids that shut; his
-skin is one clean colour with the blood showing in the right places and only the sculpt's fine
-lines kept; and his beard, moustache, eyebrows and hair are strands, grown on the lumps the sculpt
-has for them and going with his bones as they do. Each part has the grain of its kind worked out
-as the other people's have (pores, felt, leather, foam), so he is sharp from a hand's breadth.
-
-What it costs: he is four files, 2.3 MB together, fetched only when he is asked for (the other
-Gnorman is nothing to fetch and four seconds of arithmetic; this one is ready in under half a
-second). What is not as good: he is one skin over everything, so a sleeve cannot slide over a
-wrist; the stripes of his sleeves do not meet those of his body at the shoulder; and the model's
-makers were asked for one pose, so he could not walk. Made for this trial with two generated
-pictures and one generated sculpt.
-
-To make him again from what is kept here (the thinned mesh and its baked pictures; the
-million-face sculpt itself is too big to keep): `pip install bpy scipy opencv-python-headless`,
-then `python tools/cast/step3_figure.py tools/cast/gnorman/low src/game/people/casts/gnorman`.
-From a new sculpt: `step1_stand.py` and `step2_low.py` first; `picture.py` and `make3d.py` ask the
-generators (they want `REPLICATE_API_TOKEN` in the environment).
 
 ## Under the coat
 
@@ -196,7 +161,7 @@ Then open the address Vite prints (http://localhost:5173 by default).
 | Input | What it does |
 | --- | --- |
 | Any key, a click or a tap during the opening or a scene | Skip it (the scene for a new tool, the look at where gold is coming out of him, the cave men) |
-| **Start shaving** button, or `E` | Climb down to the snow with the tool last used (`Esc` stops) |
+| `Esc`; then the **Start shaving** button, or `E` | Stop shaving and stand back to look at him from outside; go back to the snow with the tool last used. (The game starts on the snow) |
 | Left mouse, or `Space` | Cut. Hold to keep cutting (an electric tool runs for as long as it is held). With a broom or a vacuum in hand, gather |
 | `W A S D`, `Shift`, mouse | Walk, run, look |
 | `1` to `5`, the mouse wheel, or the tool buttons | The cutting tools you own |
@@ -208,8 +173,7 @@ Then open the address Vite prints (http://localhost:5173 by default).
 | `A` `D` on a ladder | Walk the ladder sideways |
 | `T` | With a ladder and a pack both, change which of them `R` works |
 | `M` | Sound on or off |
-| `B`, or the **Dev** button beside the purse and at the foot of either trader's list | For trying things out, and no part of the game: tops the purse up to enough gold for everything Gnorman sells (about 25,000 to begin with). It is not counted as earned |
-| `N`, or the second **Dev** mark beside the purse | For trying things out: changes Gnorman for the one cast from a generated sculpt (see The other Gnorman), and back. He is fetched the first time |
+| `B`, or the **Dev** button beside the purse and at the foot of either trader's list | For trying things out, and no part of the game: tops the purse up to enough gold for everything Gnorman sells (about 24,000 to begin with). It is not counted as earned |
 | Drag / scroll | Orbit and zoom (when not shaving) |
 | `1` `2` `3` `4` (when not shaving) | The mammoth, in profile, into the sun, the coat |
 | `H` | Hide or show the controls |
@@ -223,8 +187,9 @@ look, and tap the prompt that appears at a stall to talk.
 ## The game
 
 **Hair into gold.** Every lock you cut falls as itself and lies on the snow until it
-is picked up (`Q`, look at it, hold the cut button). Your pockets hold 100 g. Mortimer
-pays 25 gold the hundred grams. The whole coat is about 70 kg.
+is picked up (`Q`, look at it, hold the cut button). Bare hands take a pinch at a time
+(a gram and a half), which is what the brooms are for. There is no limit to what you can
+carry. Mortimer pays 25 gold the hundred grams. The whole coat is about 70 kg.
 
 **Gnorman's stall.**
 
@@ -233,7 +198,6 @@ pays 25 gold the hundred grams. The whole coat is about 70 kg.
 | Shears, garden clippers, beard shaver, electric shears | 15, 120, 300, 600 | Each cuts more, or closer, than the last. A minute of steady work round a leg: about 125 g with the bad scissors, 200 g with the shears, 240 g with the clippers (all of them more where the hair is longer), and as much as you can sweep with the electric ones |
 | Twig broom, push broom | 10, 80 | Gather what is under the head of the broom at each stroke |
 | Hand vacuum, shop vacuum; more suck | 350, 1000; 250, 600 | Hair flies up the nozzle from a distance |
-| Sack, wheelbarrow, bottomless sack | 30, 180, 600 | Carry 350 g, 1.2 kg, 5 kg |
 | Milk crate, step ladder, painter's ladder, fire brigade ladder | 20, 90, 300, 800 | Reach 0.45, 1.05, 2.05 and 3.75 m off the snow. He is 3.2 m at the top of his head |
 | Fizzy-pop rocket belt, leaf-blower pack, jet pack; bigger tanks | 500, 1200, 2600; 350, 800 | One short violent hop; six seconds of steady lift; a pack that holds you where you are. All fill up again on the ground. You can land on his back and work there |
 | A lemming, half a dozen, a plague of thirty | 60, 320, 1400 | Hired help. They run from the stall to the nearest foot, climb, and gnaw off whatever hair is left, wherever it is, down to stubble; what they cut falls on the snow for you to pick up. One gnaws under a gram a second. Hire as many as you like, as often as you like: he has room for 240 |
@@ -245,7 +209,8 @@ pays 25 gold the hundred grams. The whole coat is about 70 kg.
 | Mystery box, party hat, sunglasses, a bucket of pink | 40, 80, 140, 400 | Nobody needs these |
 
 **Under the coat** there are twenty-two tattoos and a pink thong, drawn on the hide and
-visible only where the hair is off. Each is announced when enough of it is uncovered,
+visible only where the hair is off. Each is announced when all of it is uncovered (97%
+of the hair over it gone; the thong, which is a good deal larger, at 30%),
 and Gnorman pays for the gossip. The beard shaver is the tool that makes them easy to
 read.
 
@@ -355,7 +320,7 @@ Settings > System > Display > Graphics.
 | Hair and steel | `src/mammoth/furMaterial.js`, `src/game/tool.js` | The fur's vertex shader is told where the blades are and how they are shaped, and moves hair off them. As a last guarantee a tool is drawn as if a few centimetres nearer the eye than it is (5.5 cm for the clippers, 3 cm for the scissors), so any hair lying that close in front of it is hidden behind it and no strand can be seen passing through steel |
 | Cut hair | `src/game/clippings.js`, `furMaterial.js` | A cut copies the strand (and the pose of the skin and the wind at that moment) into a pool drawn by a variant of the fur shader, which grows the same hairs and keeps only the part beyond the cut. That part is then moved as one rigid piece: it falls, turns, flutters, slides off the mammoth and is laid flat on the snow |
 | Sound | `src/game/audio.js` | Synthesised with the Web Audio API: blades sliding and meeting, hair parting, boots in snow, wind that follows the gusts on screen, coins, a fanfare for a new tool, the packs, and the mammoth's own noises. Each tool has its own voice: the clippers' wooden handles knock, the shears ring and twang as the bow opens them, the scissors tick, rattle and squeak. The electric tools hum for as long as they run, with the clatter of the cutter in step, and their note sags under load |
-| The game | `src/game/game.js`, `state.js`, `catalog.js` | What is owned, the gold, the sack, the two shops, the advice given once each when it is first needed, and what is kept in the browser between visits. The haircut is kept twice: lock by lock, which is exact but only fits a coat of the same detail, and point by point of the hide, which fits any. `catalog.js` is everything Gnorman sells, with a note on how the prices were set from measured cutting rates |
+| The game | `src/game/game.js`, `state.js`, `catalog.js` | What is owned, the gold, the hair carried, the two shops, the advice given once each when it is first needed, and what is kept in the browser between visits. The haircut is kept twice: lock by lock, which is exact but only fits a coat of the same detail, and point by point of the hide, which fits any. `catalog.js` is everything Gnorman sells, with a note on how the prices were set from measured cutting rates |
 | Picking up | `src/game/tools/sweepers.js`, `clippings.js` | Hands, two brooms and two vacuums are tools like the others, held the same way; the brooms keep to the ground whichever way the eyes are turned. Each fallen piece carries the grams it stands for. A vacuum pulls pieces up its nozzle one by one |
 | The elf | `src/game/people/elf.recipe.js`, `elf.js`, `src/game/hero.js` | The player's character: sculpted, skinned and dressed (see the next row but one). He can hold a thing up in one hand or two, strain under it, be shaken by it and be let down by it. Looked out of, only his shadow is drawn. `hero.js` plays the scene for a new tool: where he stands (clear of the stall or the mammoth), what he does with each tool, the light behind it, and the camera's path once round him and back into his head |
 | The traders | `src/game/people/gnome.recipe.js`, `gnome.js`, `vulture.recipe.js`, `vulture.js`, `model.js` | Gnorman and his stall, Mortimer and his table (whose wigs are hair, like his toupee); they turn to watch whoever comes by. A beard goes with the chin it grows from, but what lies on the belly stays lying there when the head turns |
@@ -368,7 +333,7 @@ Settings > System > Display > Graphics.
 | Hired help | `src/game/helpers.js`, `src/game/people/lemming.recipe.js` | The hide is covered with places to stand a hand's width apart, each knowing its neighbours along the surface and the locks rooted on its bit of hide. A few of these are counted again every frame (whoever did the cutting), and every half second each is told how many steps it is from the nearest with hair left; a lemming with nothing to gnaw where it stands steps to a neighbour that is nearer, preferring the less crowded, so they spread out over a full coat and converge on what is left of a thin one. Gnawing is the same cut the tools make, a lock at a time, the longer the slower, and the hair falls as theirs does (a dozen pieces a second between all of them, each standing for whatever else came off). A lemming is sculpted and baked like the people, but has no bones: a body and a head that nods on it, drawn many at once, with all its faces only near the eye; one more drawing of all of them casts their shadows. They ride on him as his skin does, breathing and all |
 | What he says | `src/game/says.js` | His lines, and when he says them: the rest of the game tells him what has happened, and he answers when there is a moment, never twice in a few seconds and never over a shop or a scene. The bubble is a label in the page, put each frame where his mouth is on the screen; when that is out of the picture it keeps to the middle of the nearest edge and points. His voice is a few low syllables from `audio.js` |
 | Picture | `src/gfx/post.js` | HDR rendering, bloom, light shafts, a film-style tone curve that keeps colour in the highlights, vignette and grain |
-| Opening | `index.html`, `src/main.js` | The legend: its first line shows on the dark while the scene is being made, the others over the opening camera move, high in the sky where they can be read. The controls come up when it ends |
+| Opening | `index.html`, `src/main.js` | The legend is told on the loading screen while the scene is being made: each line is one CSS animation (up out of the dark, growing, then past), started together with delays, so that it goes on moving while the page is busy making a mammoth; the booms are put down on the sound's own clock for the same reason. The scene opens when the telling and the making are both done, in first person at a fixed lookout beside the stall (`?orbit` opens on the old view from outside and its camera move instead). The first tip waits for it |
 | What is laid over the scene | `index.html` | The game is about wool, so its furniture is haberdashery: patches of dark felt sewn on with cream thread, the chosen item on a woven label, prices on paper swing tags, gold as brass, keys to press as brass buttons, and a loading bar that is two rows of knitting worked a stitch at a time with the needle still in. Each trader's list hangs under his own valance (Gnorman's striped awning, something blacker for Mortimer). Three hands of lettering, all from the same family tree: Jacquard 24, a blackletter drawn for the loom, for the words worked in cross-stitch (the name of the game, the name over a shop, what he just got); Grenze Gotisch for the legend and anything said with a straight face; Grenze for everything else. The signs in the scene are painted in the same hands, so `main.js` waits for the lettering before anything is drawn with it. The tab's icon, drawn in the page itself, is his head with one strip of it shorn |
 
 ## Developer notes
@@ -391,15 +356,15 @@ Settings > System > Display > Graphics.
   it, because without a graphics card frames are queued faster than they are drawn), `bare`
   (leave the land undrawn: most of what makes a frame slow without a graphics card),
   `debug` (exposes the game as `window.__game`), `unlock` (own everything, and no scenes; stills
-  always do), `gold=n`, `fresh` (ignore a kept game), `nosave` (keep nothing), `noscene`, `nodev` (no Dev button; stills never have it), `gnorman=cast` (the other Gnorman from the start; `gnorman=sculpted` for the first whatever was kept),
+  always do), `gold=n`, `fresh` (ignore a kept game), `nosave` (keep nothing), `noscene`, `nodev` (no Dev button; stills never have it),
   `scene=<tool>` with `st=<seconds>` (the scene for getting that tool, stopped at that moment),
   `lift=<ladder or pack>` with `up=<metres>` (start that far off the snow on it), `bald` (the
   whole coat off at once), `shave=x,y,z,r` (the coat off within r of a point; several separated
   by semicolons), `wear=partyhat,shades`, `pink`, `helpers=n` (so many lemmings already on him), `tool=<novelty>` with `use=<seconds>` (it is in hand, and the cut button is held for so long before the still; `tap=<frames>` presses and lets go instead), `gag=<novelty>,<seconds>` (it has worked, so many seconds ago), `raid=<seconds>` (the cave men's scene, so far in), and `says=<words>` (he is saying that, and
   goes on saying it; with `hud` on a still, which otherwise leaves out everything laid over the scene).
 - `tools/loop-test.mjs` plays the whole game through on the live page: the start (no scene for the scissors he comes down with), cutting,
-  picking up by hand, selling, buying, the scene for a new tool, every broom and vacuum, a full
-  sack, a ladder, the packs, landing on his back, hiring lemmings (which must reach him, gnaw,
+  picking up by hand (a pinch at a time), selling, buying, the scene for a new tool, every broom and vacuum, that
+  there is no limit to what is carried, a ladder, the packs, landing on his back, hiring lemmings (which must reach him, gnaw,
   drop what they gnaw, and later find three patches left somewhere on him), every novelty (the
   belly scratcher, the needles and the spray by using them; the rest made to work, and their gold
   walked over and counted), the cave men's whole scene, everything under the coat, the ending,
@@ -407,7 +372,7 @@ Settings > System > Display > Graphics.
   really does buy everything on the list). It steps the game itself rather than waiting for
   frames, so it is quick.
 - `tools/smoke.mjs` drives the live page through every control and reports script errors;
-  `tools/intro-test.mjs` checks the opening legend and the ways of skipping it;
+  `tools/intro-test.mjs` checks the opening: the legend's lines one at a time on the loading screen, each growing as it comes, the booms, the start in first person with its one tip, and the ways of skipping;
   `tools/snip-test.mjs` picks up each tool in turn and cuts with real key presses;
   `tools/collide-test.mjs` puts the elf in 3,000 places with each tool and measures whether
   any part of it ends up inside the mammoth or the snow, and whether a tool being put away
@@ -437,19 +402,12 @@ Settings > System > Display > Graphics.
   time for a frame. It draws nothing, so it says nothing of how long a graphics card would take.
 - `dev/body.html` shows the bare body from four sides, for working on the anatomy.
 - `dev/folk.html` shows one of the people (or all three) on bare snow under the game's own sky,
-  for working on them: `who=elf|gnome|gnome2|vulture|all` (`gnome2` is the cast Gnorman), `cam`, `fov`, `el`, `az`, `turn` (degrees),
-  `look` (radians: which way a visitor is, for the traders to turn to) and `pleased` (0 to 1),
+  for working on them: `who=elf|gnome|vulture|all`, `cam`, `fov`, `el`, `az`, `turn` (degrees),
   `bare` (no hair or feathers), and for the elf his poses (`lift`, `two`, `strain`, `buzz`, `sad`,
   `proud`, `walk`, `carry`, each 0 to 1). On the game itself, `nothreads` has the people made on
   the page instead of on workers.
 - `npm run build:artifact` writes a single page (`dist-artifact/shave-the-mammoth.html`)
-  that loads three.js from a CDN, and beside it `dist-artifact/assets/`: the cast Gnorman's four
-  files, which the page fetches only when he is asked for and which are published beside it.
-- `tools/cast/` is how a figure made elsewhere is got ready for the game (see The other Gnorman):
-  three steps in Blender's Python, a small client for the generators, and `view/`, two plain
-  viewers for judging a model file (`viewer.html`: from any side, lit, as bare clay or as wire;
-  `measure.html`: square-on with no perspective under a grid in metres, for reading off where his
-  eyes and shoulders are). `src/game/people/cast.js` reads the result; `gnome.cast.js` dresses it.
+  that loads three.js from a CDN.
 
 ## What comes next
 
@@ -459,7 +417,5 @@ Settings > System > Display > Graphics.
 4. The people: they are sculpted and dressed in code, which makes them sharp at any distance and costs nothing to
    download, but nobody has drawn them. Faces that change shape (theirs move by their bones, lids and brows only),
    fingers, cloth and hair that swing, and the stall and table brought up to the standard of who stands at them
-   would each be worth having. Sculpts made elsewhere can now stand in for them (see The other Gnorman, who is one):
-   what the game asks of a figure is small (a group, its meshes, and a function to call each frame). The next step
-   that way is a figure that has to move a great deal, the elf, which wants a sculpt made in a neutral pose and
-   weights that hold up at a shoulder and a knee.
+   would each be worth having. Models made by an artist could be loaded in their place: what the game asks of a
+   figure is small (a group, its meshes, and a function to call each frame).

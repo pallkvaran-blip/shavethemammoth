@@ -87,6 +87,12 @@ export class CameraRig {
     // where the pointer cannot be captured (phones, some app views), drag to look instead
     let drag = null;
     canvas.addEventListener('pointerdown', (e) => { if (this.mode === 'elf' && !this.locked) drag = { x: e.clientX, y: e.clientY }; });
+    // (and a click with a mouse takes hold of the pointer, where that is allowed: the game opens down on the snow, before
+    // anything has been clicked, and a page may not take the pointer until something has)
+    canvas.addEventListener('pointerdown', (e) => {
+      if (this.mode !== 'elf' || this.locked || this.busy || this.cine || e.pointerType !== 'mouse' || e.button !== 0) return;
+      try { const req = canvas.requestPointerLock?.(); if (req && req.catch) req.catch(() => {}); } catch { /* drag-to-look still works */ }
+    });
     window.addEventListener('pointermove', (e) => {
       if (!drag || this.mode !== 'elf') return;
       look(e.clientX - drag.x, e.clientY - drag.y, 0.004);
@@ -150,7 +156,11 @@ export class CameraRig {
     }
   }
 
-  enterElf() {
+  /**
+   * Down on the snow, looking out of his own eyes. `at` = { x, z, yaw, pitch } says where and which way (when the game
+   * opens); without it he stands a couple of paces from a foreleg, looking at it.
+   */
+  enterElf(at = null) {
     if (this.mode === 'elf') return;
     this.mode = 'elf';
     this.tween = null;
@@ -165,6 +175,7 @@ export class CameraRig {
     this.camera.fov = 62;
     this.camera.near = 0.015;
     this.camera.updateProjectionMatrix();
+    if (at) { this.pos.set(at.x, 0, at.z); this.yaw = at.yaw; this.pitch = at.pitch; this._lastYaw = this.yaw; this._lastPitch = this.pitch; }
     this.locked = false;
     try {
       const req = this.canvas.requestPointerLock?.();

@@ -440,6 +440,49 @@ export class Sound {
     this._noise({ type: 'lowpass', freq: 420, q: 0.7, gain: 0.06 * how, attack: 0.002, hold: 0.012, decay: 0.07 });
   }
 
+  // ---- the legend ----
+
+  /**
+   * The drum under a line of the legend: something very large, a long way down. `how` 0..1; `when` seconds from now.
+   * Answers whether it could be put down at all (no sound may be made until somebody has touched the page).
+   */
+  boom(how = 1, when = 0) {
+    if (!this.ctx || this.ctx.state !== 'running') return false;
+    const ctx = this.ctx, t = ctx.currentTime + when;
+    this.booms = (this.booms || 0) + 1;
+    if (!this.drum) { this.drum = ctx.createGain(); this.drum.connect(this.master); }
+    // the body of it: a low note that drops from a thud to a rumble, bent a little so that small speakers hear it too
+    const o = ctx.createOscillator(), bend = ctx.createWaveShaper(), g = ctx.createGain();
+    const curve = new Float32Array(257);
+    for (let i = 0; i < 257; i++) curve[i] = Math.tanh(2.6 * (i / 128 - 1));
+    bend.curve = curve;
+    o.type = 'sine';
+    o.frequency.setValueAtTime(96, t); o.frequency.exponentialRampToValueAtTime(40, t + 0.45); o.frequency.exponentialRampToValueAtTime(30, t + 2.6);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.5 * how, t + 0.015);
+    g.gain.exponentialRampToValueAtTime(0.2 * how, t + 0.5); g.gain.exponentialRampToValueAtTime(0.0001, t + 2.8);
+    o.connect(bend); bend.connect(g); g.connect(this.drum);
+    o.start(t); o.stop(t + 2.9);
+    // the skin of it, and the air it moves
+    const hit = ctx.createOscillator(), hg = ctx.createGain();
+    hit.type = 'triangle'; hit.frequency.setValueAtTime(190, t); hit.frequency.exponentialRampToValueAtTime(58, t + 0.2);
+    hg.gain.setValueAtTime(0.22 * how, t); hg.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
+    hit.connect(hg); hg.connect(this.drum); hit.start(t); hit.stop(t + 0.32);
+    const air = ctx.createBufferSource(), low = ctx.createBiquadFilter(), ag = ctx.createGain();
+    air.buffer = this.noise; air.loop = true; low.type = 'lowpass'; low.frequency.setValueAtTime(320, t); low.frequency.exponentialRampToValueAtTime(70, t + 1.4);
+    ag.gain.setValueAtTime(0.0001, t); ag.gain.exponentialRampToValueAtTime(0.3 * how, t + 0.02); ag.gain.exponentialRampToValueAtTime(0.0001, t + 1.6);
+    air.connect(low); low.connect(ag); ag.connect(this.drum); air.start(t); air.stop(t + 1.7);
+    return true;
+  }
+
+  /** The legend was skipped: its drums stop, the ones still to come as well. */
+  hush() {
+    if (!this.ctx || !this.drum) return;
+    const d = this.drum, t = this.ctx.currentTime;
+    this.drum = null;
+    d.gain.setValueAtTime(d.gain.value, t); d.gain.linearRampToValueAtTime(0, t + 0.12);
+    setTimeout(() => { try { d.disconnect(); } catch { /* gone already */ } }, 400);
+  }
+
   // ---- the hired help ----
 
   /** One of them has an opinion: very small, very high, and soon over. */

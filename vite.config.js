@@ -14,8 +14,7 @@ export default defineConfig(({ mode }) => {
       chunkSizeWarningLimit: 1500,
       modulePreload: artifact ? false : undefined,
       rollupOptions: artifact
-        // (what the page fetches when asked, a cast of one of the people, keeps its own name: those files are published beside the page)
-        ? { external: [/^three($|\/)/], output: { entryFileNames: 'game.js', inlineDynamicImports: true, assetFileNames: 'assets/[name][extname]' } }
+        ? { external: [/^three($|\/)/], output: { entryFileNames: 'game.js', inlineDynamicImports: true } }
         : {},
     },
   };

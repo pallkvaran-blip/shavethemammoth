@@ -1,5 +1,6 @@
-// What turns up under the hair. Each tattoo (and the thong) counts as found
-// once enough of the hide it is on has been cut short enough to see it. A
+// What turns up under the hair. A tattoo counts as found once all of it can be
+// seen (the hide it is on cut short enough from edge to edge); the thong, which
+// goes most of the way round him, once a good part of it can. A
 // find is announced once, pays a little, and is kept with the saved game.
 import { TATTOOS, THONG } from '../mammoth/tattoos.js';
 
@@ -54,7 +55,8 @@ export class Finds {
         if (Nrm[v * 3] * t.n.x + Nrm[v * 3 + 1] * t.n.y + Nrm[v * 3 + 2] * t.n.z < 0.25) continue;
         at.push(v);
       }
-      return { id: t.id, name: TATTOOS[i].name, at, need: 0.6, pays: TATTOO_PAYS };
+      // (all of it: 97 points in a hundred, since one point at an edge may sit under a lock that will not come off)
+      return { id: t.id, name: TATTOOS[i].name, at, need: 0.97, pays: TATTOO_PAYS };
     });
     const worn = [];
     for (let v = 0; v < n; v++) if (underThong(P[v * 3], P[v * 3 + 1], P[v * 3 + 2])) worn.push(v);

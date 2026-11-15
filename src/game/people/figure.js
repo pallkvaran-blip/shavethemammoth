@@ -95,13 +95,6 @@ export function buildFigure(name, bones, data, materials, far = null) {
     if (locks.detail) hairs.push(locks);
     return locks;
   };
-  /** Hair that goes with the bones itself, strand by strand (see locksMesh's `skin`): it is not hung on any one of them. */
-  const wear = (locks) => {
-    group.add(locks.mesh);
-    meshes.push(locks.mesh);
-    if (locks.detail) hairs.push(locks);
-    return locks;
-  };
   /** Draw this share of every strand of its hair (1 = all of it). */
   const detail = (f) => { for (const h of hairs) h.detail(f); };
   /** Hair that has to turn about a point of its own (an eyebrow): returns the pivot, a group on the bone. */
@@ -167,5 +160,5 @@ export function buildFigure(name, bones, data, materials, far = null) {
     shading = on;
     for (const h of hairs) if (h.shade) h.shade(on);
   };
-  return { group, rig, B, meshes, data, materials, hang, grow, wear, pivot, eye, bound, detail, see, shade, cast };
+  return { group, rig, B, meshes, data, materials, hang, grow, pivot, eye, bound, detail, see, shade, cast };
 }

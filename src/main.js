@@ -17,8 +17,6 @@ import { Hero } from './game/hero.js';
 import { Lift } from './game/lift.js';
 import { Antics } from './game/antics.js';
 import { startBaking } from './game/people/bakery.js';
-import { loadCast } from './game/people/cast.js';
-import { buildGnomeCast } from './game/people/gnome.cast.js';
 
 const q = new URLSearchParams(location.search);
 const num = (k, d) => (q.has(k) ? parseFloat(q.get(k)) : d);
@@ -26,16 +24,23 @@ const shot = q.has('shot');   // dev: render a still and stop (see tools/shot.mj
 const $ = (id) => document.getElementById(id);
 const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
-// The game opens on its legend, one line at a time: the first on the dark while
-// the scene is being made, the others over the opening shot. Any key or click
-// skips it. (Dev stills and dev starts go without; ?legend=n holds line n.)
+// The game opens on its legend, told on the dark while the scene is being made: three lines, one at a time, each
+// coming up out of the dark towards whoever is watching, with a boom under it (where the browser will let a page
+// make a sound before anybody has touched it: most will not). The scene opens when the telling and the making are
+// both done. Any key or click skips the telling. (Dev stills and dev starts go without; ?legend=n holds line n.)
 const legendLines = [...document.querySelectorAll('#legend p')];
 const tellLegend = legendLines.length > 0 && (shot ? q.has('legend') : !q.has('cam') && !q.has('elf') && !q.has('nolegend'));
-const began = performance.now();
-/** Show line i of the legend (-1: none). Lines already told leave upwards. */
-const say = (i) => legendLines.forEach((p, k) => { p.classList.toggle('on', k === i); p.classList.toggle('off', i < 0 || k < i); });
+const LEGEND = { first: 0.5, line: 3.4, last: 4.4 };      // seconds: before the first line; each line's turn; the last one's
+/** dev stills: hold line i of the legend (-1: none). */
+const say = (i) => legendLines.forEach((p, k) => p.classList.toggle('on', k === i));
 // (the listeners go on now, not when the scene is ready: the legend can be skipped while the scene is still being made)
-const legend = { skipped: false, over: !tellLegend || shot, onSkip: null };
+const legend = { skipped: false, over: !tellLegend || shot, told: !tellLegend || shot, onEnd: null, hush: null, timers: [] };
+function endTelling() {
+  legend.timers.forEach(clearTimeout);
+  document.body.classList.remove('telling');
+  $('legend')?.classList.remove('telling');
+  if (legend.onEnd) legend.onEnd();
+}
 function skipLegend(e) {
   if (legend.over) return;
   if (e.type === 'keydown') {
@@ -43,13 +48,34 @@ function skipLegend(e) {
     e.stopImmediatePropagation();   // this press only skips: it is not also a command
     e.preventDefault();
   }
-  if (legend.skipped) return;
+  if (legend.skipped || legend.told) return;
   legend.skipped = true;
-  say(-1);
-  if (legend.onSkip) legend.onSkip();
+  if (legend.hush) legend.hush();
+  endTelling();
+}
+/** Tell it (once the lettering has arrived). `sound` booms under each line if it is allowed to. */
+function tell(sound) {
+  if (legend.over || legend.skipped || legend.at) return;
+  legend.at = performance.now();
+  const at = (k) => LEGEND.first + k * LEGEND.line, n = legendLines.length;
+  legendLines.forEach((p, k) => { p.style.animationDelay = `${at(k).toFixed(2)}s`; p.style.animationDuration = `${(k === n - 1 ? LEGEND.last : LEGEND.line).toFixed(2)}s`; });
+  $('legend').classList.add('telling');
+  document.body.classList.add('telling');
+  // the booms: put down on the sound's own clock (a page busy making a mammoth keeps poor time), counted from the
+  // frame the lines set off on; if the sound is not running yet, they are put down when it is, in case it is let
+  sound.start();
+  legend.hush = () => sound.hush();
+  const drum = () => {
+    if (legend.drummed || legend.skipped || legend.told || !legend.began || sound.ctx?.state !== 'running') return;
+    legend.drummed = true;
+    const gone = (performance.now() - legend.began) / 1000;
+    legendLines.forEach((p, k) => { const w = at(k) - gone; if (w > -0.3) sound.boom(k === n - 1 ? 1 : 0.8, Math.max(0, w)); });
+  };
+  requestAnimationFrame((t) => { legend.began = t; drum(); });
+  sound.ctx?.addEventListener('statechange', drum);
+  legend.timers.push(setTimeout(() => { legend.told = true; endTelling(); }, (at(n - 1) + LEGEND.last) * 1000));
 }
 if (!legend.over) {
-  say(0);
   window.addEventListener('keydown', skipLegend, true);
   $('loading').addEventListener('pointerdown', skipLegend);
 }
@@ -214,6 +240,7 @@ async function start() {
   if (q.has('allhairs')) mammoth.allHairs = true;   // dev: see Mammoth.updateCoat
   // the tools, and the hair they cut
   const sound = new Sound();
+  lettering.then(() => tell(sound));
   const shaving = new Shaving({ scene, mammoth, terrain, sound, a2c: Q.samples > 0, tool: q.get('tool') || 'scissors' });
   if (q.has('cutdisc')) {
     // dev: ?cutdisc=x,y,z,nx,ny,nz,radius[;...] shears everything crossing a disc
@@ -295,13 +322,16 @@ async function start() {
     if (shot) rig.orbit.minDistance = 0.02;   // dev stills may go as close as they like
     const c = q.get('cam').split(',').map(Number);
     rig.snap({ pos: c.slice(0, 3), target: c.slice(3, 6), fov: num('fov', 32) });
-  } else if (shot || reducedMotion) {
+  } else if (shot || reducedMotion || !q.has('orbit')) {
     rig.snap(startView);
   } else {
-    // open low and wide; once the scene is on screen, rise to meet the mammoth
+    // (dev: ?orbit opens looking on, low and wide; once the scene is on screen, the camera rises to meet the mammoth)
     rig.snap({ pos: [17.5, 0.55, 8.2], target: [0.9, 2.3, 0], fov: 40 });
   }
-  const intro = !q.has('cam') && !shot && !reducedMotion && !q.has('elf');
+  const intro = q.has('orbit') && !q.has('cam') && !shot && !reducedMotion && !q.has('elf');
+  // The game opens out of the elf's own eyes, standing off by Gnorman's stall with the whole of the mammoth in front
+  // of him. (Not dev stills, nor dev starts that say where the camera or the elf is to be; ?orbit opens looking on.)
+  const firstPerson = !shot && !q.has('cam') && !q.has('elf') && !q.has('orbit');
   resize();
   window.addEventListener('resize', resize);
   // ---- keeping the frames coming ---------------------------------------------------
@@ -512,35 +542,6 @@ async function start() {
   // the elf himself: seen from outside before the shaving starts, and whenever he has something new to show off
   hero = new Hero({ scene, camera, rig, shaving, terrain, mammoth, sound, baked: baked.elf });
   folkTimes.dressed = Math.round(performance.now() - dressFrom);
-
-  // ---- which Gnorman (dev) ----
-  // There are two of him: the one the page sculpts as it loads, and one cast from a sculpt made elsewhere and finished in
-  // Blender (people/cast.js), which is fetched the first time it is asked for. N, or the mark beside the purse, changes
-  // one for the other where he stands; ?gnorman=cast starts with the second. Which it was is remembered.
-  const folk = [hero.elf, game.gnome, game.vulture, game.table];
-  const gnormans = { sculpted: game.gnome, cast: null };
-  let changing = false;
-  const changeGnorman = async (to = game.gnome === gnormans.sculpted ? 'cast' : 'sculpted', quiet = false) => {
-    if (changing || !gnormans[to] && to !== 'cast') return;
-    changing = true;
-    try {
-      if (to === 'cast' && !gnormans.cast) {
-        if (!quiet) showHint('<strong>Dev.</strong> Fetching the other Gnorman…', 60);
-        gnormans.cast = buildGnomeCast(await loadCast('gnorman'));
-      }
-      const now = gnormans[to], was = game.wearGnome(now);
-      if (was !== now) { folk[folk.indexOf(was)] = now; nearStale = true; }
-      if (!shot && !q.has('nosave')) { try { localStorage.setItem('mammoth-gnorman', to); } catch { /* simply not kept */ } }
-      if (!quiet) showHint(to === 'cast' ? '<strong>Dev.</strong> This is the Gnorman made in Blender from a generated sculpt. <kbd>N</kbd> brings back the one the page sculpts.' : '<strong>Dev.</strong> This is Gnorman as the page sculpts him. <kbd>N</kbd> for the one made in Blender.', 7);
-    } catch (err) {
-      console.warn('the other Gnorman:', err);
-      if (!quiet) showHint('<strong>Dev.</strong> The other Gnorman could not be fetched.', 6);
-    } finally { changing = false; }
-  };
-  {
-    const kept = (() => { try { return localStorage.getItem('mammoth-gnorman'); } catch { return null; } })();
-    if (q.has('gnorman') ? q.get('gnorman') === 'cast' : (!shot && !q.has('nosave') && kept === 'cast')) await changeGnorman('cast', true);
-  }
   game.hero = hero;
   // Everything the people are made of is got ready behind the loading card. They are left out of the picture when they
   // are not in it; one first drawn later would hold everything up while its materials were made.
@@ -587,6 +588,14 @@ async function start() {
   toolButtons.forEach((b) => b.addEventListener('click', () => chooseTool(b.dataset.tool)));
   rig.onWheel = (dir) => game.step(dir);
   $('prompt')?.addEventListener('click', () => game.interact());
+  let told = false, touched = false;
+  // where he stands when the game opens: off by Gnorman's stall, the whole of the mammoth in front of him
+  const LOOKOUT = { x: 6.0, z: 2.6, yaw: 1.143, pitch: 0.27 };
+  /** A novelty in hand: what Gnorman said of it, and that it wants holding where it works. (Other tools explain themselves.) */
+  const toolHint = () => {
+    const d = shaving.tool.def;
+    if (d.gag) showHint(`<strong>${shaving.tool.name}.</strong> ${d.blurb} Hold the cut button where it works.`, 12);
+  };
   rig.onChange = (mode) => {
     const elf = mode === 'elf';
     // (each way of looking keeps the detail it last settled at)
@@ -598,17 +607,21 @@ async function start() {
     if (progressEl) progressEl.hidden = !elf;
     if ($('purse')) $('purse').hidden = !elf;
     if ($('dev-gold')) $('dev-gold').hidden = !elf || !game.devTools;
-    if ($('dev-gnorman')) $('dev-gnorman').hidden = !elf || !game.devTools;
     if (elfButton) elfButton.textContent = elf ? 'Stop shaving' : 'Start shaving';
     if (elf) {
-      if (!shot) sound.start();   // allowed now: this follows a click or a key press
+      if (!shot && touched) sound.start();   // (allowed once the page has been clicked or a key pressed, and not before)
       markView('elf');
-      showHint(`<strong>${shaving.tool.name}.</strong> ${shaving.tool.def.gag ? `${shaving.tool.def.blurb} Hold the cut button where it works.` : shaving.tool.def.sweep ? 'Look at the hair on the snow and hold the cut button to gather it.' : shaving.tool.def.motor ? 'Walk up to the mammoth, lay it flat against the hide, hold it on and push.' : 'Walk up to the mammoth and cut; lay the blades flat against the hide for a close shave.'} <span class="desk"><kbd>Left mouse</kbd> or <kbd>Space</kbd> cuts (hold to keep cutting), <kbd>Q</kbd> swaps to picking the hair up, <kbd>E</kbd> talks, <kbd>W A S D</kbd> walks, <kbd>Esc</kbd> stops.</span>`, 12);
+      if (told || shot) toolHint();
     } else {
       markView(-1);
     }
   };
   rig.orbit.addEventListener('start', () => markView(-1));
+  // (he opens the game already down on the snow: sound has to wait for the first click or key, as browsers insist)
+  const firstTouch = () => { touched = true; if (rig.mode === 'elf' && !shot) sound.start(); window.removeEventListener('keydown', firstTouch, true); window.removeEventListener('pointerdown', firstTouch, true); };
+  window.addEventListener('keydown', firstTouch, true);
+  window.addEventListener('pointerdown', firstTouch, true);
+  if (firstPerson) rig.enterElf(LOOKOUT);
   if (q.has('elf')) {
     // dev: start at snow level with a tool in hand, e.g. ?elf=x,z,yaw,pitch (and ?tool=scissors|sheep|garden|electric|shaver)
     rig.enterElf();
@@ -660,7 +673,7 @@ async function start() {
     if (game.gags.shot && e.code !== 'Escape') { e.preventDefault(); if (!e.repeat) game.gags.skip(); return; }
     if (game.raid.playing && game.raid.play.cine && e.code !== 'Escape') { e.preventDefault(); if (!e.repeat) game.raid.skip(); return; }
     // talking to someone: E or Esc ends it, and nothing else is a command
-    if (game.dialog) { if (e.code === 'KeyE' || e.code === 'Escape') { e.preventDefault(); game.close(); } else if (e.code === 'KeyB' && !e.repeat) game.devGold(); else if (e.code === 'KeyN' && !e.repeat) changeGnorman(); return; }
+    if (game.dialog) { if (e.code === 'KeyE' || e.code === 'Escape') { e.preventDefault(); game.close(); } else if (e.code === 'KeyB' && !e.repeat) game.devGold(); return; }
     if (e.code.startsWith('Digit')) {
       const i = +e.code.slice(5) - 1;
       // with a tool in hand the number keys change it; otherwise they change the view
@@ -677,8 +690,6 @@ async function start() {
       game.swapLift();
     } else if (e.code === 'KeyB' && rig.mode === 'elf' && !e.repeat) {
       game.devGold();                    // (dev: gold enough for everything)
-    } else if (e.code === 'KeyN' && rig.mode === 'elf' && !e.repeat) {
-      changeGnorman();                   // (dev: the other Gnorman)
     } else if (e.code === 'Escape' && rig.mode === 'elf') {
       rig.leaveElf();
     } else if (e.code === 'KeyH') {
@@ -693,7 +704,6 @@ async function start() {
   });
   statsEl.hidden = !showStats;
   if ($('dev-gold')) $('dev-gold').addEventListener('click', () => game.devGold());
-  if ($('dev-gnorman')) $('dev-gnorman').addEventListener('click', () => changeGnorman());
   // (a click gets on with a scene that is playing, as any key does)
   window.addEventListener('pointerdown', () => { if (hero.playing) hero.skip(); else if (game.gags.shot) game.gags.skip(); else if (game.raid.playing) game.raid.skip(); });
 
@@ -710,55 +720,36 @@ async function start() {
   if (shot) { document.body.classList.add('instant'); $('loading').hidden = !tellLegend; $('hud').hidden = !q.has('hud'); }
 
   // ---- the opening --------------------------------------------------------------------
-  let told = false, waiting = null;
-  const timers = [];
-  const later = (fn, ms) => timers.push(setTimeout(fn, ms));
-  /** The legend is over (or was never told): the controls come up. */
+  /** The legend is over (or was never told) and the scene is showing: the controls come up. */
   const endLegend = () => {
     if (told) return;
     told = true;
     legend.over = true;
-    timers.forEach(clearTimeout);
     say(-1);
     document.body.classList.add('told');
     window.removeEventListener('keydown', skipLegend, true);
-    if (!shot) {
-      const s = game.state, back = game.resumed && (s.stats.picked > 0 || s.gold > 0);
-      const first = back
-        ? `<strong>Welcome back.</strong> ${s.gold} gold, and he is ${(mammoth.shorn * 100).toFixed(mammoth.shorn < 0.1 ? 1 : 0)}% shorn. Press <strong>Start shaving</strong> to carry on.`
-        : 'All you have is a pair of <strong>small bad scissors</strong>. Press <strong>Start shaving</strong> to climb down and use them.';
-      // (said a moment after the controls come up; not to somebody who has already climbed down and been told what to do there)
-      setTimeout(() => { if (rig.mode !== 'elf') showHint(`${first} <span class="desk">Or drag to look around; <kbd>H</kbd> hides these controls, <kbd>M</kbd> mutes the sound.</span>`, 9); }, tellLegend ? 1500 : 5200);
-    }
-  };
-  legend.onSkip = () => {
-    if (waiting) { const open = waiting; waiting = null; open(); }                  // the scene was ready and only waiting for the first line
-    else if (document.body.classList.contains('ready')) { endLegend(); if (intro) rig.setView(startView, 2.6); }
-    // (otherwise the scene is still being made: it opens without the legend when it is ready)
+    if (!shot && rig.mode === 'elf') toolHint();
   };
   const reveal = () => {
     setProgress(1, 'Ready');
     if (shot) {
-      // dev stills: ?legend=1 is the first line on the dark, 2 and 3 the later lines over the scene, 4 the first line just after the scene appears
+      // dev stills: ?legend=n is line n of the legend, held, on the dark
       const n = tellLegend ? num('legend', 1) : 0;
-      if (n !== 1) document.body.classList.add('ready');
-      if (n) say(n === 4 ? 0 : n - 1); else document.body.classList.add('told');
+      if (n) say(n - 1); else { document.body.classList.add('ready'); document.body.classList.add('told'); }
       return;
     }
+    let opened = false;
     const open = () => {
+      if (opened) return;
+      opened = true;
       document.body.classList.add('ready');
       setTimeout(() => game.raid.prepare().catch(() => {}), 4000);     // (the cave men are baked now, behind everything else, so that they come when called)
       pace.settle = 1.5; pace.acc = 0; pace.n = 0; pace.lost = pace.stumbles = 0;
-      const tell = tellLegend && !legend.skipped;
-      if (intro) rig.setView(startView, tell ? 11 : 6.5);
-      if (!tell) { endLegend(); return; }
-      later(() => say(1), 1900);
-      later(() => say(2), 6400);
-      later(endLegend, 10400);
+      if (intro) rig.setView(startView, 6.5);
+      endLegend();
     };
-    // however quickly the scene was made, the first line has the dark to itself for a moment
-    const wait = tellLegend && !legend.skipped ? 2800 - (performance.now() - began) : 0;
-    if (wait > 0) { waiting = open; later(() => { if (waiting) { waiting = null; open(); } }, wait); } else open();
+    // (the scene is ready: it waits for the end of the legend, if that is still being told)
+    if (legend.told || legend.skipped) open(); else legend.onEnd = open;
   };
 
   if (q.has('debug')) window.__game = { shaving, mammoth, rig, sound, camera, renderer, PUT_AWAY, game, hero, lifter, antics, U, state: game.state, folkTimes, scene, sky, terrain, grass, rocks, post, shadowNear, shadowElf, shadowFar, nearCasters, pace, levels, get level() { return adaptLevel; }, dev: {} };   // dev: poke at the game from the console
@@ -875,6 +866,7 @@ async function start() {
 
   let shadowTris = 0;
   const count = renderer.info.render;
+  const folk = [hero.elf, game.gnome, game.vulture, game.table];
   game.raid.onMade = (men) => folk.push(...men);
   const frame = (stamp) => {
     // The time is the one the browser gives the frame, which keeps step with the screen: taken off the clock instead,

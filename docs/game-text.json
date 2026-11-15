@@ -1,5 +1,5 @@
 {
- "about": "Every line of text in the game, by the key it has in the doc \"Shave the Mammoth: Game Text\" (https://claude.ai/artifact/UDhJP6iHabzjtx9QFA8vop), as it stood when the doc was filled. shown: the line as written in the doc ({braces} are filled in by the game, [E] is a key cap, **bold** is bold, (keyboard: ... / touch: ...) differs by device). file, line, raw: where it is in the source and exactly how it is written there, where it is one string. A line changed in the doc is put back by finding its key here.",
+ "about": "Every line of text in the game, by the key it has in the doc \"Shave the Mammoth: Game Text\" (https://claude.ai/artifact/UDhJP6iHabzjtx9QFA8vop), as it stood when the doc was filled. shown: the line as written in the doc ({braces} are filled in by the game, [E] is a key cap, **bold** is bold, (keyboard: ... / touch: ...) differs by device). file, line, raw: where it is in the source and exactly how it is written there, where it is one string. A line changed in the doc is put back by finding its key here. A key is a name, not a position: when a line is deleted, the keys after it stay as they are.",
  "version": 17,
  "lines": {
   "page.title": {
@@ -7,11 +7,11 @@
    "file": "index.html"
   },
   "page.legend.1": {
-   "shown": "Legend has it, great woolly mammoths roamed the earth,",
+   "shown": "Legend has it, great woolly mammoths roamed the earth...",
    "file": "index.html"
   },
   "page.legend.2": {
-   "shown": "but then a legend came and shaved them all, and now they are elephants.",
+   "shown": "...but then a legend came and shaved them, and now they are elephants...",
    "file": "index.html"
   },
   "page.legend.3": {
@@ -62,303 +62,289 @@
    "shown": "Ready",
    "file": "src/main.js"
   },
-  "main.first.new": {
-   "shown": "All you have is a pair of **small bad scissors**. Press **Start shaving** to climb down and use them. (keyboard: Or drag to look around; [H] hides these controls, [M] mutes the sound.)",
-   "file": "src/main.js"
-  },
-  "main.first.back": {
-   "shown": "**Welcome back.** {gold} gold, and he is {percent}% shorn. Press **Start shaving** to carry on. (keyboard: Or drag to look around; [H] hides these controls, [M] mutes the sound.)",
-   "file": "src/main.js"
-  },
-  "main.down.cutter": {
-   "shown": "**{tool}.** Walk up to the mammoth and cut; lay the blades flat against the hide for a close shave. (keyboard: [Left mouse] or [Space] cuts (hold to keep cutting), [Q] swaps to picking the hair up, [E] talks, [W A S D] walks, [Esc] stops.)",
-   "file": "src/main.js"
-  },
-  "main.down.motor": {
-   "shown": "**{tool}.** Walk up to the mammoth, lay it flat against the hide, hold it on and push. (keyboard: the same list of keys)",
-   "file": "src/main.js"
-  },
-  "main.down.sweeper": {
-   "shown": "**{tool}.** Look at the hair on the snow and hold the cut button to gather it. (keyboard: the same list of keys)",
-   "file": "src/main.js"
+  "game.guide.start": {
+   "file": "src/game/game.js",
+   "raw": "<strong>Please start cutting the hair.</strong>",
+   "shown": "**Please start cutting the hair.**",
+   "line": 617
   },
   "main.down.novelty": {
-   "shown": "**{novelty}.** {Gnorman's patter for it} Hold the cut button where it works. (keyboard: the same list of keys)",
+   "shown": "**{novelty}.** {Gnorman's patter for it} Hold the cut button where it works.",
    "file": "src/main.js"
   },
   "says.HELLO.0": {
    "file": "src/game/says.js",
-   "line": 18,
-   "raw": "Lovely evening. I do hope nothing happens to it.",
-   "shown": "Lovely evening. I do hope nothing happens to it."
+   "raw": "Yes, hello, hi. I’ll have a full trim please.",
+   "shown": "Yes, hello, hi. I’ll have a full trim please.",
+   "line": 17
   },
-  "says.HELLO.1": {
+  "says.TRIM.0": {
+   "file": "src/game/says.js",
+   "raw": "Did I say full trim? I meant just a little off the sides. Too late for that I guess.",
+   "shown": "Did I say full trim? I meant just a little off the sides. Too late for that I guess.",
+   "line": 21
+  },
+  "says.HELLO_AGAIN.0": {
    "file": "src/game/says.js",
    "line": 19,
-   "raw": "What a peaceful evening. Nothing small and sharp anywhere.",
-   "shown": "What a peaceful evening. Nothing small and sharp anywhere."
-  },
-  "says.HELLO.2": {
-   "file": "src/game/says.js",
-   "line": 20,
    "raw": "Ten thousand years, and not one bad hair day.",
    "shown": "Ten thousand years, and not one bad hair day."
   },
   "says.AGAIN.0": {
    "file": "src/game/says.js",
-   "line": 24,
+   "line": 27,
    "raw": "Oh. It’s you. And the scissors.",
    "shown": "Oh. It’s you. And the scissors."
   },
   "says.AGAIN.1": {
    "file": "src/game/says.js",
-   "line": 25,
+   "line": 28,
    "raw": "You came back. I had hoped you were a dream.",
    "shown": "You came back. I had hoped you were a dream."
   },
   "says.AGAIN.2": {
    "file": "src/game/says.js",
-   "line": 26,
+   "line": 29,
    "raw": "Still here. Still cold. Thank you for asking.",
    "shown": "Still here. Still cold. Thank you for asking."
   },
   "says.AGAIN_BALD.0": {
    "file": "src/game/says.js",
-   "line": 28,
+   "line": 31,
    "raw": "Don’t look at me.",
    "shown": "Don’t look at me."
   },
   "says.AGAIN_BALD.1": {
    "file": "src/game/says.js",
-   "line": 28,
+   "line": 31,
    "raw": "Yes, well. Here I am. All of me.",
    "shown": "Yes, well. Here I am. All of me."
   },
   "says.WAITING.0": {
    "file": "src/game/says.js",
-   "line": 135,
+   "line": 137,
    "raw": "Take a good look. It is the last time I will look like this.",
    "shown": "Take a good look. It is the last time I will look like this."
   },
   "says.WAITING.1": {
    "file": "src/game/says.js",
-   "line": 135,
+   "line": 137,
    "raw": "Still here. Still woolly. For now.",
    "shown": "Still here. Still woolly. For now."
   },
   "says.FIRST_CUT.0": {
    "file": "src/game/says.js",
-   "line": 31,
+   "line": 34,
    "raw": "Excuse me. Did you just... you did.",
    "shown": "Excuse me. Did you just... you did."
   },
   "says.FIRST_CUT.1": {
    "file": "src/game/says.js",
-   "line": 32,
+   "line": 35,
    "raw": "Oh. We are really doing this, then.",
    "shown": "Oh. We are really doing this, then."
   },
   "says.FIRST_CUT.2": {
    "file": "src/game/says.js",
-   "line": 33,
-   "raw": "I felt that. That one had a name.",
-   "shown": "I felt that. That one had a name."
+   "line": 36,
+   "raw": "Tihi - that tickles.",
+   "shown": "Tihi - that tickles."
   },
   "says.STOPPED.0": {
    "file": "src/game/says.js",
-   "line": 134,
+   "line": 136,
    "raw": "Is that it? Are we done? ...No. Of course not.",
    "shown": "Is that it? Are we done? ...No. Of course not."
   },
   "says.DAWDLING.0": {
    "file": "src/game/says.js",
-   "line": 133,
+   "line": 135,
    "raw": "Take your time. I have only got the one interglacial.",
    "shown": "Take your time. I have only got the one interglacial."
   },
   "says.DAWDLING.1": {
    "file": "src/game/says.js",
-   "line": 133,
+   "line": 135,
    "raw": "Are we resting? I was not told we were resting.",
    "shown": "Are we resting? I was not told we were resting."
   },
   "says.SO_FAR.0.1": {
    "file": "src/game/says.js",
-   "line": 110,
+   "line": 112,
    "raw": "Is this going to take all day?",
    "shown": "Is this going to take all day?"
   },
   "says.SO_FAR.0.25": {
    "file": "src/game/says.js",
-   "line": 111,
+   "line": 113,
    "raw": "It is getting draughty in here.",
    "shown": "It is getting draughty in here."
   },
   "says.SO_FAR.0.5": {
    "file": "src/game/says.js",
-   "line": 112,
+   "line": 114,
    "raw": "Half an elephant. The wrong half.",
    "shown": "Half an elephant. The wrong half."
   },
   "says.SO_FAR.0.75": {
    "file": "src/game/says.js",
-   "line": 113,
+   "line": 115,
    "raw": "I can see my own knees. I have knees!",
    "shown": "I can see my own knees. I have knees!"
   },
   "says.SO_FAR.0.9": {
    "file": "src/game/says.js",
-   "line": 114,
+   "line": 116,
    "raw": "Leave me something. One tuft. A dignity tuft.",
    "shown": "Leave me something. One tuft. A dignity tuft."
   },
   "says.BALD.0": {
    "file": "src/game/says.js",
-   "line": 124,
+   "line": 126,
    "raw": "I got my wish. I am an elephant. I hate it.",
    "shown": "I got my wish. I am an elephant. I hate it."
   },
   "says.SOLD.0": {
    "file": "src/game/says.js",
-   "line": 118,
+   "line": 120,
    "raw": "That was my hair he just bought. Just so we are clear.",
    "shown": "That was my hair he just bought. Just so we are clear."
   },
   "says.SOLD.1": {
    "file": "src/game/says.js",
-   "line": 119,
+   "line": 121,
    "raw": "Do I get a cut? Of the money. I have had the other kind.",
    "shown": "Do I get a cut? Of the money. I have had the other kind."
   },
   "says.SOLD.2": {
    "file": "src/game/says.js",
-   "line": 120,
+   "line": 122,
    "raw": "A toupee. I am going to be somebody’s toupee.",
    "shown": "A toupee. I am going to be somebody’s toupee."
   },
   "says.REGROWN.0": {
    "file": "src/game/says.js",
-   "line": 122,
+   "line": 124,
    "raw": "Oh, that is better. ...Why are you still holding those?",
    "shown": "Oh, that is better. ...Why are you still holding those?"
   },
   "says.REGROWN.1": {
    "file": "src/game/says.js",
-   "line": 122,
+   "line": 124,
    "raw": "I’m back. Put the scissors down.",
    "shown": "I’m back. Put the scissors down."
   },
   "says.NEW_GAME.0": {
    "file": "src/game/says.js",
-   "line": 123,
+   "line": 125,
    "raw": "I had the strangest dream.",
    "shown": "I had the strangest dream."
   },
   "says.FOUND_FIRST": {
    "file": "src/game/says.js",
-   "line": 63,
+   "line": 66,
    "raw": "Gosh, this is embarrassing.",
    "shown": "Gosh, this is embarrassing."
   },
   "says.FOUND_ANY.0": {
    "file": "src/game/says.js",
-   "line": 64,
+   "line": 67,
    "raw": "Nobody was ever supposed to see that.",
    "shown": "Nobody was ever supposed to see that."
   },
   "says.FOUND_ANY.1": {
    "file": "src/game/says.js",
-   "line": 64,
+   "line": 67,
    "raw": "It seemed like a good idea ten thousand years ago.",
    "shown": "It seemed like a good idea ten thousand years ago."
   },
   "says.UNDER.0": {
    "file": "src/game/says.js",
-   "line": 129,
+   "line": 131,
    "raw": "Don’t look up.",
    "shown": "Don’t look up."
   },
   "says.UNDER.1": {
    "file": "src/game/says.js",
-   "line": 129,
+   "line": 131,
    "raw": "Mind your head. And mine. And everything.",
    "shown": "Mind your head. And mine. And everything."
   },
   "says.UNDER.2": {
    "file": "src/game/says.js",
-   "line": 129,
+   "line": 131,
    "raw": "It is private under there.",
    "shown": "It is private under there."
   },
   "says.BEHIND.0": {
    "file": "src/game/says.js",
-   "line": 130,
+   "line": 132,
    "raw": "I wouldn’t stand there.",
    "shown": "I wouldn’t stand there."
   },
   "says.BEHIND.1": {
    "file": "src/game/says.js",
-   "line": 130,
+   "line": 132,
    "raw": "Nobody good ever stands back there.",
    "shown": "Nobody good ever stands back there."
   },
   "says.PARDON.0": {
    "file": "src/game/says.js",
-   "line": 131,
+   "line": 133,
    "raw": "Pardon.",
    "shown": "Pardon."
   },
   "says.PARDON.1": {
    "file": "src/game/says.js",
-   "line": 131,
+   "line": 133,
    "raw": "That was the wind.",
    "shown": "That was the wind."
   },
   "says.PARDON.2": {
    "file": "src/game/says.js",
-   "line": 131,
+   "line": 133,
    "raw": "Pardon me. No, pardon you.",
    "shown": "Pardon me. No, pardon you."
   },
   "says.SNEEZED.0": {
    "file": "src/game/says.js",
-   "line": 132,
+   "line": 134,
    "raw": "Bless me.",
    "shown": "Bless me."
   },
   "says.SNEEZED.1": {
    "file": "src/game/says.js",
-   "line": 132,
+   "line": 134,
    "raw": "Sorry about your... everything.",
    "shown": "Sorry about your... everything."
   },
   "says.THUD.0": {
    "file": "src/game/says.js",
-   "line": 125,
+   "line": 127,
    "raw": "Are you all right? Don’t tell me. I don’t mind either way.",
    "shown": "Are you all right? Don’t tell me. I don’t mind either way."
   },
   "says.THUD.1": {
    "file": "src/game/says.js",
-   "line": 125,
+   "line": 127,
    "raw": "That sounded expensive.",
    "shown": "That sounded expensive."
   },
   "says.PERCHED.0": {
    "file": "src/game/says.js",
-   "line": 126,
+   "line": 128,
    "raw": "You are standing on me. We both know you are standing on me.",
    "shown": "You are standing on me. We both know you are standing on me."
   },
   "says.EYE_LEVEL.0": {
    "file": "src/game/says.js",
-   "line": 127,
+   "line": 129,
    "raw": "Oh. Hello. Eye level. I preferred you as a rumour.",
    "shown": "Oh. Hello. Eye level. I preferred you as a rumour."
   },
   "says.FLYING.0": {
    "file": "src/game/says.js",
-   "line": 128,
+   "line": 130,
    "raw": "It flies now. Wonderful. It flies.",
    "shown": "It flies now. Wonderful. It flies."
   },
@@ -372,427 +358,415 @@
   },
   "says.BOUGHT.sheep": {
    "file": "src/game/says.js",
-   "line": 68,
+   "line": 71,
    "raw": "Shears. I am not a sheep. I want that on record.",
    "shown": "Shears. I am not a sheep. I want that on record."
   },
   "says.BOUGHT.garden": {
    "file": "src/game/says.js",
-   "line": 69,
+   "line": 72,
    "raw": "Garden clippers. I am not a hedge.",
    "shown": "Garden clippers. I am not a hedge."
   },
   "says.BOUGHT.shaver": {
    "file": "src/game/says.js",
-   "line": 70,
+   "line": 73,
    "raw": "It hums. I don’t like that it hums.",
    "shown": "It hums. I don’t like that it hums."
   },
   "says.BOUGHT.electric": {
    "file": "src/game/says.js",
-   "line": 71,
+   "line": 74,
    "raw": "Electric? Nobody said anything about electric.",
    "shown": "Electric? Nobody said anything about electric."
   },
   "says.BOUGHT.twig": {
    "file": "src/game/says.js",
-   "line": 72,
+   "line": 75,
    "raw": "You are sweeping me up. While I watch.",
    "shown": "You are sweeping me up. While I watch."
   },
   "says.BOUGHT.push": {
    "file": "src/game/says.js",
-   "line": 73,
+   "line": 76,
    "raw": "A bigger broom. For more of me.",
    "shown": "A bigger broom. For more of me."
   },
   "says.BOUGHT.handvac": {
    "file": "src/game/says.js",
-   "line": 74,
+   "line": 77,
    "raw": "Must you hoover while I am standing here?",
    "shown": "Must you hoover while I am standing here?"
   },
   "says.BOUGHT.shopvac": {
    "file": "src/game/says.js",
-   "line": 75,
+   "line": 78,
    "raw": "Point that somewhere else. Anywhere else.",
    "shown": "Point that somewhere else. Anywhere else."
   },
   "says.BOUGHT.crate": {
    "file": "src/game/says.js",
-   "line": 76,
+   "line": 79,
    "raw": "A milk crate. I am being shaved from a milk crate.",
    "shown": "A milk crate. I am being shaved from a milk crate."
   },
   "says.BOUGHT.step": {
    "file": "src/game/says.js",
-   "line": 77,
+   "line": 80,
    "raw": "Oh, good. Now you can reach my knees.",
    "shown": "Oh, good. Now you can reach my knees."
   },
   "says.BOUGHT.painter": {
    "file": "src/game/says.js",
-   "line": 78,
+   "line": 81,
    "raw": "That ladder has paint on it. I hope it is paint.",
    "shown": "That ladder has paint on it. I hope it is paint."
   },
   "says.BOUGHT.fire": {
    "file": "src/game/says.js",
-   "line": 79,
+   "line": 82,
    "raw": "Is something on fire? Is it me?",
    "shown": "Is something on fire? Is it me?"
   },
   "says.BOUGHT.soda": {
    "file": "src/game/says.js",
-   "line": 80,
+   "line": 83,
    "raw": "Is that fizzy pop? Strapped to an elf?",
    "shown": "Is that fizzy pop? Strapped to an elf?"
   },
   "says.BOUGHT.blower": {
    "file": "src/game/says.js",
-   "line": 81,
+   "line": 84,
    "raw": "It is very loud. I have enormous ears, you know.",
    "shown": "It is very loud. I have enormous ears, you know."
   },
   "says.BOUGHT.jet": {
    "file": "src/game/says.js",
-   "line": 82,
+   "line": 85,
    "raw": "Elves were never meant to fly. Nor mammoths, but nobody tried.",
    "shown": "Elves were never meant to fly. Nor mammoths, but nobody tried."
   },
   "says.BOUGHT.feather": {
    "file": "src/game/says.js",
-   "line": 83,
+   "line": 86,
    "raw": "Is that a feather? Keep it away from my legs.",
    "shown": "Is that a feather? Keep it away from my legs."
   },
   "says.BOUGHT.nosespray": {
    "file": "src/game/says.js",
-   "line": 84,
+   "line": 87,
    "raw": "I can smell menthol. I do not like where this is going.",
    "shown": "I can smell menthol. I do not like where this is going."
   },
   "says.BOUGHT.scratcher": {
    "file": "src/game/says.js",
-   "line": 85,
+   "line": 88,
    "raw": "What is the little hand for?",
    "shown": "What is the little hand for?"
   },
   "says.BOUGHT.varnish": {
    "file": "src/game/says.js",
-   "line": 86,
+   "line": 89,
    "raw": "Red? For me? I could not possibly. What kind of red?",
    "shown": "Red? For me? I could not possibly. What kind of red?"
   },
   "says.BOUGHT.tarot": {
    "file": "src/game/says.js",
-   "line": 87,
+   "line": 90,
    "raw": "Cards. I do not hold with cards.",
    "shown": "Cards. I do not hold with cards."
   },
   "says.BOUGHT.plunger": {
    "file": "src/game/says.js",
-   "line": 88,
+   "line": 91,
    "raw": "That had better be for the snow.",
    "shown": "That had better be for the snow."
   },
   "says.BOUGHT.needles": {
    "file": "src/game/says.js",
-   "line": 89,
+   "line": 92,
    "raw": "Those are very small spears.",
    "shown": "Those are very small spears."
   },
   "says.BOUGHT.polish": {
    "file": "src/game/says.js",
-   "line": 90,
+   "line": 93,
    "raw": "Lambswool. Nobody ever asks the lamb.",
    "shown": "Lambswool. Nobody ever asks the lamb."
   },
   "says.BOUGHT.watch": {
    "file": "src/game/says.js",
-   "line": 91,
+   "line": 94,
    "raw": "A watch. You will find that I am not suggestible.",
    "shown": "A watch. You will find that I am not suggestible."
   },
   "says.BOUGHT.depil": {
    "file": "src/game/says.js",
-   "line": 92,
+   "line": 95,
    "raw": "Mammoth strength? Who tried it? On WHOM?",
    "shown": "Mammoth strength? Who tried it? On WHOM?"
   },
   "says.BOUGHT.lemming": {
    "file": "src/game/says.js",
-   "line": 93,
+   "line": 96,
    "raw": "Something is climbing my leg. It has very cold feet.",
    "shown": "Something is climbing my leg. It has very cold feet."
   },
   "says.BOUGHT.lemmings": {
    "file": "src/game/says.js",
-   "line": 94,
+   "line": 97,
    "raw": "There are more of them. They appear to be organised.",
    "shown": "There are more of them. They appear to be organised."
   },
   "says.BOUGHT.plague": {
    "file": "src/game/says.js",
-   "line": 95,
+   "line": 98,
    "raw": "I am infested. With staff.",
    "shown": "I am infested. With staff."
   },
-  "says.BOUGHT.sack": {
-   "file": "src/game/says.js",
-   "line": 96,
-   "raw": "A bigger sack. Planning to take a lot of me, then.",
-   "shown": "A bigger sack. Planning to take a lot of me, then."
-  },
   "says.BOUGHT.suck": {
    "file": "src/game/says.js",
-   "line": 97,
+   "line": 99,
    "raw": "More suck. Wonderful.",
    "shown": "More suck. Wonderful."
   },
   "says.BOUGHT.tank": {
    "file": "src/game/says.js",
-   "line": 98,
+   "line": 100,
    "raw": "More fuel. More of you, up here, with me.",
    "shown": "More fuel. More of you, up here, with me."
   },
   "says.BOUGHT.loyal": {
    "file": "src/game/says.js",
-   "line": 99,
+   "line": 101,
    "raw": "A loyalty card. For shaving me. I see.",
    "shown": "A loyalty card. For shaving me. I see."
   },
   "says.BOUGHT.foot": {
    "file": "src/game/says.js",
-   "line": 100,
+   "line": 102,
    "raw": "That poor rabbit.",
    "shown": "That poor rabbit."
   },
   "says.BOUGHT.cocoa": {
    "file": "src/game/says.js",
-   "line": 101,
+   "line": 103,
    "raw": "Is that cocoa? None for me. No. Fine.",
    "shown": "Is that cocoa? None for me. No. Fine."
   },
   "says.BOUGHT.box.0": {
    "file": "src/game/says.js",
-   "line": 102,
+   "line": 104,
    "raw": "Was I in it? Then I don’t care.",
    "shown": "Was I in it? Then I don’t care."
   },
   "says.BOUGHT.box.1": {
    "file": "src/game/says.js",
-   "line": 102,
+   "line": 104,
    "raw": "Was it a hat? I would have liked a hat.",
    "shown": "Was it a hat? I would have liked a hat."
   },
   "says.BOUGHT.partyhat": {
    "file": "src/game/says.js",
-   "line": 103,
+   "line": 105,
    "raw": "Is it my birthday? Nobody came to the last four thousand.",
    "shown": "Is it my birthday? Nobody came to the last four thousand."
   },
   "says.BOUGHT.shades": {
    "file": "src/game/says.js",
-   "line": 104,
+   "line": 106,
    "raw": "I can’t see what you are doing now. Perfect.",
    "shown": "I can’t see what you are doing now. Perfect."
   },
   "says.BOUGHT.pinkdye": {
    "file": "src/game/says.js",
-   "line": 105,
+   "line": 107,
    "raw": "Why is the vulture laughing? ...Am I pink?",
    "shown": "Why is the vulture laughing? ...Am I pink?"
   },
   "says.IDLE.0": {
    "file": "src/game/says.js",
-   "line": 139,
+   "line": 141,
    "raw": "Is this going to take all day?",
    "shown": "Is this going to take all day?"
   },
   "says.IDLE.1": {
    "file": "src/game/says.js",
-   "line": 140,
-   "raw": "I wish I was an elephant. Nobody shaves an elephant.",
-   "shown": "I wish I was an elephant. Nobody shaves an elephant."
+   "line": 142,
+   "raw": "I wish I was an elephant. I could save so much on haircuts.",
+   "shown": "I wish I was an elephant. I could save so much on haircuts."
   },
   "says.IDLE.2": {
    "file": "src/game/says.js",
-   "line": 141,
+   "line": 143,
    "raw": "You missed a bit. I am not saying where.",
    "shown": "You missed a bit. I am not saying where."
   },
   "says.IDLE.3": {
    "file": "src/game/says.js",
-   "line": 142,
+   "line": 144,
    "raw": "Could you at least warm the blades?",
    "shown": "Could you at least warm the blades?"
   },
   "says.IDLE.4": {
    "file": "src/game/says.js",
-   "line": 143,
+   "line": 145,
    "raw": "I had plans today. Standing here, mostly. But still.",
    "shown": "I had plans today. Standing here, mostly. But still."
   },
   "says.IDLE.5": {
    "file": "src/game/says.js",
-   "line": 144,
+   "line": 146,
    "raw": "Do you do this to everyone, or am I special?",
    "shown": "Do you do this to everyone, or am I special?"
   },
   "says.IDLE.6": {
    "file": "src/game/says.js",
-   "line": 145,
+   "line": 147,
    "raw": "My mother warned me about elves.",
    "shown": "My mother warned me about elves."
   },
   "says.IDLE.7": {
    "file": "src/game/says.js",
-   "line": 146,
+   "line": 148,
    "raw": "A little off the top, I said. A LITTLE.",
    "shown": "A little off the top, I said. A LITTLE."
   },
   "says.IDLE.8": {
    "file": "src/game/says.js",
-   "line": 147,
+   "line": 149,
    "raw": "That tickles. Stop it. No, carry on. No, stop.",
    "shown": "That tickles. Stop it. No, carry on. No, stop."
   },
   "says.IDLE.9": {
    "file": "src/game/says.js",
-   "line": 148,
+   "line": 150,
    "raw": "Ten thousand years I spent growing that.",
    "shown": "Ten thousand years I spent growing that."
   },
   "says.IDLE.10": {
    "file": "src/game/says.js",
-   "line": 149,
+   "line": 151,
    "raw": "There is a draught where there has never been a draught.",
    "shown": "There is a draught where there has never been a draught."
   },
   "says.IDLE.11": {
    "file": "src/game/says.js",
-   "line": 150,
+   "line": 152,
    "raw": "Is it cold, or is it you?",
    "shown": "Is it cold, or is it you?"
   },
   "says.IDLE.12": {
    "file": "src/game/says.js",
-   "line": 151,
+   "line": 153,
    "raw": "Tell me when it is over. Or don’t.",
    "shown": "Tell me when it is over. Or don’t."
   },
   "says.IDLE.13": {
    "file": "src/game/says.js",
-   "line": 152,
+   "line": 154,
    "raw": "Somewhere, an elephant is laughing.",
    "shown": "Somewhere, an elephant is laughing."
   },
   "says.IDLE_WHEN.0": {
    "file": "src/game/says.js",
-   "line": 156,
+   "line": 158,
    "raw": "Small scissors. Big mammoth. I admire the optimism.",
    "shown": "Small scissors. Big mammoth. I admire the optimism."
   },
   "says.IDLE_WHEN.1": {
    "file": "src/game/says.js",
-   "line": 157,
+   "line": 159,
    "raw": "It buzzes in my tusks.",
    "shown": "It buzzes in my tusks."
   },
   "says.IDLE_WHEN.2": {
    "file": "src/game/says.js",
-   "line": 158,
+   "line": 160,
    "raw": "That is me you are sweeping up, you know.",
    "shown": "That is me you are sweeping up, you know."
   },
-  "says.IDLE_WHEN.3": {
-   "file": "src/game/says.js",
-   "line": 159,
-   "raw": "Full already? There is so much more of me.",
-   "shown": "Full already? There is so much more of me."
-  },
   "says.IDLE_WHEN.4": {
    "file": "src/game/says.js",
-   "line": 160,
+   "line": 161,
    "raw": "Do I look pink to you? I feel pink.",
    "shown": "Do I look pink to you? I feel pink."
   },
   "says.IDLE_WHEN.5": {
    "file": "src/game/says.js",
-   "line": 161,
+   "line": 162,
    "raw": "Is the hat still on? I can feel a hat.",
    "shown": "Is the hat still on? I can feel a hat."
   },
   "says.IDLE_WHEN.6": {
    "file": "src/game/says.js",
-   "line": 162,
+   "line": 163,
    "raw": "I look magnificent. Nobody tell me otherwise.",
    "shown": "I look magnificent. Nobody tell me otherwise."
   },
   "says.IDLE_WHEN.7": {
    "file": "src/game/says.js",
-   "line": 163,
+   "line": 164,
    "raw": "I used to be somebody.",
    "shown": "I used to be somebody."
   },
   "says.IDLE_WHEN.8": {
    "file": "src/game/says.js",
-   "line": 164,
+   "line": 165,
    "raw": "At this rate I shall be extinct first.",
    "shown": "At this rate I shall be extinct first."
   },
   "says.IDLE_WHEN.9": {
    "file": "src/game/says.js",
-   "line": 165,
+   "line": 166,
    "raw": "Nobody has called me Kevin in nine thousand years.",
    "shown": "Nobody has called me Kevin in nine thousand years."
   },
   "says.IDLE_WHEN.10": {
    "file": "src/game/says.js",
-   "line": 166,
+   "line": 167,
    "raw": "I was young. It was the Pleistocene.",
    "shown": "I was young. It was the Pleistocene."
   },
   "says.IDLE_WHEN.11": {
    "file": "src/game/says.js",
-   "line": 167,
+   "line": 168,
    "raw": "Stop reading me.",
    "shown": "Stop reading me."
   },
   "says.IDLE_WHEN.12": {
    "file": "src/game/says.js",
-   "line": 168,
+   "line": 169,
    "raw": "In my day a mammoth kept his hide to himself.",
    "shown": "In my day a mammoth kept his hide to himself."
   },
   "says.IDLE_WHEN.13": {
    "file": "src/game/says.js",
-   "line": 169,
+   "line": 170,
    "raw": "Nice boys, the cave men. Dreadful manners. Lovely apologies.",
    "shown": "Nice boys, the cave men. Dreadful manners. Lovely apologies."
   },
   "says.IDLE_WHEN.14": {
    "file": "src/game/says.js",
-   "line": 170,
+   "line": 171,
    "raw": "I have paid out more this week than in the last ten thousand years.",
    "shown": "I have paid out more this week than in the last ten thousand years."
   },
   "says.IDLE_WHEN.15": {
    "file": "src/game/says.js",
-   "line": 171,
+   "line": 172,
    "raw": "They tickle. All of them. All the time.",
    "shown": "They tickle. All of them. All the time."
   },
   "says.IDLE_WHEN.16": {
    "file": "src/game/says.js",
-   "line": 172,
+   "line": 173,
    "raw": "One of them is in my ear. Hello? Yes. Out.",
    "shown": "One of them is in my ear. Hello? Yes. Out."
   },
   "says.IDLE_WHEN.17": {
    "file": "src/game/says.js",
-   "line": 173,
+   "line": 174,
    "raw": "I have more lemmings than hair. This was not the plan.",
    "shown": "I have more lemmings than hair. This was not the plan."
   },
@@ -822,49 +796,49 @@
   },
   "game.gnome.note.0": {
    "file": "src/game/game.js",
-   "line": 434,
+   "line": 422,
    "raw": "PINK! You made him PINK. I have never loved him more.",
    "shown": "PINK! You made him PINK. I have never loved him more."
   },
   "game.gnome.note.1": {
    "file": "src/game/game.js",
-   "line": 435,
+   "line": 423,
    "raw": "You have seen the thong, then. We do not speak of the thong.",
    "shown": "You have seen the thong, then. We do not speak of the thong."
   },
   "game.gnome.note.2": {
    "file": "src/game/game.js",
-   "line": 436,
+   "line": 424,
    "raw": "He looks so happy in the hat. You cannot tell, but I can. Nine years.",
    "shown": "He looks so happy in the hat. You cannot tell, but I can. Nine years."
   },
   "game.gnome.note.3": {
    "file": "src/game/game.js",
-   "line": 437,
+   "line": 425,
    "raw": "There is hardly any of him left to be a fan of. I shall be a fan of what there is.",
    "shown": "There is hardly any of him left to be a fan of. I shall be a fan of what there is."
   },
   "game.gnome.note.4": {
    "file": "src/game/game.js",
-   "line": 438,
+   "line": 426,
    "raw": "He is half the mammoth he was. I have had to let out my scrapbook.",
    "shown": "He is half the mammoth he was. I have had to let out my scrapbook."
   },
   "game.gnome.note.5": {
    "file": "src/game/game.js",
-   "line": 439,
+   "line": 427,
    "raw": "The tattoos! I knew about four. I was present for one.",
    "shown": "The tattoos! I knew about four. I was present for one."
   },
   "game.gnome.note.6": {
    "file": "src/game/game.js",
-   "line": 440,
+   "line": 428,
    "raw": "They said sorry to him? I brought those boys up myself. No refunds.",
    "shown": "They said sorry to him? I brought those boys up myself. No refunds."
   },
   "game.gnome.note.7": {
    "file": "src/game/game.js",
-   "line": 441,
+   "line": 429,
    "raw": "Gold out of his ears. Nine years I have followed him, and it never once occurred to me to ask.",
    "shown": "Gold out of his ears. Nine years I have followed him, and it never once occurred to me to ask."
   },
@@ -906,55 +880,49 @@
   },
   "game.gnome.best": {
    "file": "src/game/game.js",
-   "line": 504,
+   "line": 492,
    "raw": "You have the best there is. I checked. I looked everywhere.",
    "shown": "You have the best there is. I checked. I looked everywhere."
   },
   "game.box.0": {
    "file": "src/game/game.js",
-   "line": 262,
+   "line": 253,
    "raw": "A sock. One. Left foot. Enjoy.",
    "shown": "A sock. One. Left foot. Enjoy."
   },
   "game.box.1": {
    "file": "src/game/game.js",
-   "line": 262,
+   "line": 253,
    "raw": "It is empty. No, wait. No, it is empty.",
    "shown": "It is empty. No, wait. No, it is empty."
   },
   "game.box.2": {
    "file": "src/game/game.js",
-   "line": 262,
+   "line": 253,
    "raw": "A drawing of what you could have won. I did it myself.",
    "shown": "A drawing of what you could have won. I did it myself."
   },
   "game.box.3": {
    "file": "src/game/game.js",
-   "line": 263,
+   "line": 254,
    "raw": "A smaller mystery box! ...With nothing in it. That is the mystery.",
    "shown": "A smaller mystery box! ...With nothing in it. That is the mystery."
   },
   "game.box.4": {
    "file": "src/game/game.js",
-   "line": 264,
+   "line": 255,
    "raw": "${g} gold! Somebody’s purse. Finders keepers. Do not look at the initials.",
    "shown": "{gold} gold! Somebody’s purse. Finders keepers. Do not look at the initials."
   },
   "game.box.5": {
    "file": "src/game/game.js",
-   "line": 265,
+   "line": 256,
    "raw": "Hair! ${Math.round(got)} grams of it. Not his. Do not ask whose.",
    "shown": "Hair! {grams} grams of it. Not his. Do not ask whose."
   },
-  "game.box.6": {
-   "file": "src/game/game.js",
-   "line": 265,
-   "raw": "Hair! ...Which you have no room for. I will keep it. Lovely doing business.",
-   "shown": "Hair! ...Which you have no room for. I will keep it. Lovely doing business."
-  },
   "game.box.7": {
    "file": "src/game/game.js",
-   "line": 266,
+   "line": 257,
    "raw": "TWO HUNDRED AND FIFTY GOLD. I did not know that was in there. I want it noted that I did not know.",
    "shown": "TWO HUNDRED AND FIFTY GOLD. I did not know that was in there. I want it noted that I did not know."
   },
@@ -1139,7 +1107,7 @@
    "file": "src/game/catalog.js"
   },
   "catalog.hands.blurb": {
-   "shown": "You came with these.",
+   "shown": "You came with these. A pinch at a time.",
    "file": "src/game/catalog.js"
   },
   "catalog.twig.name": {
@@ -1382,38 +1350,6 @@
    "shown": "Spray it on his coat and keep it moving. What falls off is yours to pick up.",
    "file": "src/game/catalog.js"
   },
-  "catalog.sack.name": {
-   "shown": "Somewhere to put it",
-   "file": "src/game/catalog.js"
-  },
-  "catalog.sack.blurb": {
-   "shown": "Your pockets hold a hundred grams. That is a moustache.",
-   "file": "src/game/catalog.js"
-  },
-  "catalog.sack.level1.name": {
-   "shown": "Sack",
-   "file": "src/game/catalog.js"
-  },
-  "catalog.sack.level1.blurb": {
-   "shown": "Holds 350 g. Smells of the last thing that was in it.",
-   "file": "src/game/catalog.js"
-  },
-  "catalog.sack.level2.name": {
-   "shown": "Wheelbarrow",
-   "file": "src/game/catalog.js"
-  },
-  "catalog.sack.level2.blurb": {
-   "shown": "Holds 1.2 kg. Squeaks, but so do you.",
-   "file": "src/game/catalog.js"
-  },
-  "catalog.sack.level3.name": {
-   "shown": "Bottomless sack",
-   "file": "src/game/catalog.js"
-  },
-  "catalog.sack.level3.blurb": {
-   "shown": "Holds 5 kg. Do not look inside. It looks back.",
-   "file": "src/game/catalog.js"
-  },
   "catalog.suck.name": {
    "shown": "More suck",
    "file": "src/game/catalog.js"
@@ -1589,8 +1525,8 @@
   "game.SAYS.vulture.empty.0": {
    "file": "src/game/game.js",
    "line": 59,
-   "raw": "Your sack is empty. Like the eyes of my last client.",
-   "shown": "Your sack is empty. Like the eyes of my last client."
+   "raw": "Your pockets are empty. Like the eyes of my last client.",
+   "shown": "Your pockets are empty. Like the eyes of my last client."
   },
   "game.SAYS.vulture.empty.1": {
    "file": "src/game/game.js",
@@ -1606,19 +1542,19 @@
   },
   "game.vulture.note.0": {
    "file": "src/game/game.js",
-   "line": 443,
+   "line": 431,
    "raw": "Pink. How... commercial. I will take all of it.",
    "shown": "Pink. How... commercial. I will take all of it."
   },
   "game.vulture.note.1": {
    "file": "src/game/game.js",
-   "line": 444,
+   "line": 432,
    "raw": "He is looking thin on top. And on the sides. I could do something for him. At a price.",
    "shown": "He is looking thin on top. And on the sides. I could do something for him. At a price."
   },
   "game.vulture.note.2": {
    "file": "src/game/game.js",
-   "line": 445,
+   "line": 433,
    "raw": "Sunglasses. On a mammoth. I have buried men for less.",
    "shown": "Sunglasses. On a mammoth. I have buried men for less."
   },
@@ -1649,7 +1585,7 @@
    "file": "src/game/game.js"
   },
   "game.vulture.weigh": {
-   "shown": "in your {pockets / sack / wheelbarrow / bottomless sack}, at {price} gold the hundred grams",
+   "shown": "in your pockets, at {price} gold the hundred grams",
    "file": "src/game/game.js"
   },
   "game.vulture.foot": {
@@ -1670,14 +1606,6 @@
   },
   "game.vulture.lying": {
    "shown": "There is another {weight} lying about on the snow. He can see it from here. He is counting.",
-   "file": "src/game/game.js"
-  },
-  "game.sack.names": {
-   "shown": "pockets / sack / wheelbarrow / bottomless sack",
-   "file": "src/game/game.js"
-  },
-  "game.full": {
-   "shown": "**Your {pockets} are full.** Mortimer the vulture buys hair, over by the wigs.",
    "file": "src/game/game.js"
   },
   "game.prompt": {
@@ -2590,7 +2518,7 @@
   },
   "says.FOUND.thong": {
    "file": "src/game/says.js",
-   "line": 60,
+   "line": 63,
    "raw": "It was a gift. From me. To me.",
    "shown": "It was a gift. From me. To me."
   },
@@ -2604,37 +2532,31 @@
   },
   "game.guide.pickup": {
    "file": "src/game/game.js",
-   "line": 628,
-   "raw": "<strong>That hair is worth gold.</strong> <span class=\"desk\">Press <kbd>Q</kbd> to</span><span class=\"nomouse\">Tap the hands button to</span> put the scissors away, look at the hair on the snow, and hold the cut button to gather it.",
-   "shown": "**That hair is worth gold.** (keyboard: Press [Q] to / touch: Tap the hands button to) put the scissors away, look at the hair on the snow, and hold the cut button to gather it."
-  },
-  "game.guide.sell": {
-   "file": "src/game/game.js",
-   "line": 630,
-   "raw": "<strong>Mortimer the vulture buys hair.</strong> He is under the sign with his name on it, a few paces from the mammoth. Walk up to him<span class=\"desk\"> and press <kbd>E</kbd></span>.",
-   "shown": "**Mortimer the vulture buys hair.** He is under the sign with his name on it, a few paces from the mammoth. Walk up to him (keyboard: and press [E])."
+   "line": 620,
+   "raw": "<strong><span class=\"desk\">Press <kbd>Q</kbd></span><span class=\"nomouse\">Tap the hands button</span> to switch to your hands.</strong> Gather the hair you have cut and sell it to Mortimer the vulture.",
+   "shown": "**(keyboard: Press [Q] / touch: Tap the hands button) to switch to your hands.** Gather the hair you have cut and sell it to Mortimer the vulture."
   },
   "game.guide.shop": {
    "file": "src/game/game.js",
-   "line": 632,
-   "raw": "<strong>Gnorman sells better tools</strong> at the striped stall, and something to carry more hair in. You can afford a thing or two.",
-   "shown": "**Gnorman sells better tools** at the striped stall, and something to carry more hair in. You can afford a thing or two."
+   "line": 622,
+   "raw": "<strong>Gnorman sells better tools</strong> at the striped stall. You can afford a thing or two.",
+   "shown": "**Gnorman sells better tools** at the striped stall. You can afford a thing or two."
   },
   "game.guide.reach": {
    "file": "src/game/game.js",
-   "line": 634,
+   "line": 624,
    "raw": "<strong>Running out of mammoth you can reach?</strong> Gnorman has ladders. And worse ideas.",
    "shown": "**Running out of mammoth you can reach?** Gnorman has ladders. And worse ideas."
   },
   "game.guide.gag": {
    "file": "src/game/game.js",
-   "line": 636,
+   "line": 626,
    "raw": "<strong>There is more than one way to get gold out of a mammoth.</strong> Gnorman keeps remedies and novelties at the bottom of his list. Each works once.",
    "shown": "**There is more than one way to get gold out of a mammoth.** Gnorman keeps remedies and novelties at the bottom of his list. Each works once."
   },
   "game.guide.help": {
    "file": "src/game/game.js",
-   "line": 638,
+   "line": 628,
    "raw": "<strong>Hard to find what is left of it?</strong> Gnorman hires out lemmings. They climb, they gnaw, and they find the bits you missed.",
    "shown": "**Hard to find what is left of it?** Gnorman hires out lemmings. They climb, they gnaw, and they find the bits you missed."
   },
@@ -2927,7 +2849,7 @@
    "file": "src/game/game.js"
   },
   "game.bag": {
-   "shown": "{weight} of {capacity}",
+   "shown": "{weight} of hair",
    "file": "src/game/game.js"
   },
   "page.touch": {
@@ -3040,55 +2962,31 @@
   },
   "dev.gnome.given": {
    "file": "src/game/game.js",
-   "line": 548,
+   "line": 536,
    "raw": "Where did you get... no. I do not ask. I never ask. What will it be?",
    "shown": "Where did you get... no. I do not ask. I never ask. What will it be?"
   },
   "dev.gnome.none": {
    "file": "src/game/game.js",
-   "line": 548,
+   "line": 536,
    "raw": "You could buy all I have already. I counted it from here.",
    "shown": "You could buy all I have already. I counted it from here."
   },
   "dev.vulture.given": {
    "file": "src/game/game.js",
-   "line": 549,
+   "line": 537,
    "raw": "New money. I can smell it from here. It is not for me, is it. It never is.",
    "shown": "New money. I can smell it from here. It is not for me, is it. It never is."
   },
   "dev.vulture.none": {
    "file": "src/game/game.js",
-   "line": 549,
+   "line": 537,
    "raw": "More gold than I have seen in one place. Do not mind me. I am only looking.",
    "shown": "More gold than I have seen in one place. Do not mind me. I am only looking."
   },
   "page.groups": {
    "shown": "Views / Tool / Shop",
    "file": "index.html"
-  },
-  "dev.gnorman.chip": {
-   "shown": "[N] Dev: new Gnorman",
-   "file": "index.html"
-  },
-  "dev.gnorman.tip": {
-   "shown": "Dev: changes Gnorman for the one made in Blender from a generated sculpt, and back again",
-   "file": "index.html"
-  },
-  "dev.gnorman.fetching": {
-   "shown": "**Dev.** Fetching the other Gnorman…",
-   "file": "src/main.js"
-  },
-  "dev.gnorman.cast": {
-   "shown": "**Dev.** This is the Gnorman made in Blender from a generated sculpt. [N] brings back the one the page sculpts.",
-   "file": "src/main.js"
-  },
-  "dev.gnorman.sculpted": {
-   "shown": "**Dev.** This is Gnorman as the page sculpts him. [N] for the one made in Blender.",
-   "file": "src/main.js"
-  },
-  "dev.gnorman.failed": {
-   "shown": "**Dev.** The other Gnorman could not be fetched.",
-   "file": "src/main.js"
   }
  }
 }
