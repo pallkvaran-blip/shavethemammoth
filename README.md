@@ -328,7 +328,7 @@ Settings > System > Display > Graphics.
 | What he says | `src/game/says.js` | His lines, and when he says them: the rest of the game tells him what has happened, and he answers when there is a moment, never twice in a few seconds and never over a shop or a scene. The bubble is a label in the page, put each frame where his mouth is on the screen; when that is out of the picture it keeps to the middle of the nearest edge and points. His voice is a few low syllables from `audio.js` |
 | Picture | `src/gfx/post.js` | HDR rendering, bloom, light shafts, a film-style tone curve that keeps colour in the highlights, vignette and grain |
 | Opening | `index.html`, `src/main.js` | The legend: its first line shows on the dark while the scene is being made, the others over the opening camera move, high in the sky where they can be read. The controls come up when it ends |
-| What is laid over the scene | `index.html` | The game is about wool, so its furniture is haberdashery: patches of dark felt sewn on with cream thread, the chosen item on a woven label, prices on paper swing tags, gold as brass, keys to press as brass buttons, and a loading bar that is two rows of knitting worked a stitch at a time with the needle still in. Each trader's list hangs under his own valance (Gnorman's striped awning, something blacker for Mortimer). Three hands of lettering, all from the same family tree: Jacquard 24, a blackletter drawn for the loom, for the words worked in cross-stitch (the name of the game, the name over a shop, what he just got); Grenze Gotisch for the legend and anything said with a straight face; Grenze for everything else. The signs in the scene are painted in the same hands, so `main.js` waits for the lettering before anything is drawn with it |
+| What is laid over the scene | `index.html` | The game is about wool, so its furniture is haberdashery: patches of dark felt sewn on with cream thread, the chosen item on a woven label, prices on paper swing tags, gold as brass, keys to press as brass buttons, and a loading bar that is two rows of knitting worked a stitch at a time with the needle still in. Each trader's list hangs under his own valance (Gnorman's striped awning, something blacker for Mortimer). Three hands of lettering, all from the same family tree: Jacquard 24, a blackletter drawn for the loom, for the words worked in cross-stitch (the name of the game, the name over a shop, what he just got); Grenze Gotisch for the legend and anything said with a straight face; Grenze for everything else. The signs in the scene are painted in the same hands, so `main.js` waits for the lettering before anything is drawn with it. The tab's icon, drawn in the page itself, is his head with one strip of it shorn |
 
 ## Developer notes
 
@@ -375,6 +375,15 @@ Settings > System > Display > Graphics.
   a quick one, a slow one, one whose browser shows thirty frames a second, one that cannot keep
   up at all, one whose view gets heavier and lighter, and one that stumbles now and then. Nothing
   is drawn; each frame is told a time as if the machine had taken so long over it.
+- These tests start their browser through `tools/browser.mjs`, and it is the full browser run without a
+  window, not the cut-down "headless shell" that Playwright uses unless told otherwise. In the shell a page
+  that holds the pointer, as this one does while the elf walks, is sent pointer events without pause
+  (thousands a second, though nothing moves). Where there is no graphics card a frame beside the mammoth
+  takes a second or more, and what those events leave in the browser's own heap then piles up faster than
+  it is cleared: 7 to 16 MB a frame, until the browser is killed and the test says "Target crashed". The
+  full browser leaves nothing, measured both headless and with a window, and the game's own memory is level
+  in all of them (about 25 MB of script and 220 MB of arrays), so the cure is in the tests and not in the
+  game. `HEADLESS_SHELL=1` goes back to the shell. Each test exits with a failure if anything in it failed.
 - The words. Every line a player reads (what the mammoth, Gnorman, Mortimer and the cave men
   say, the list of goods, hints, labels, signs, tattoos) is kept for editing in a doc, "Shave
   the Mammoth: Game Text", grouped by where it appears, each line under a key. `docs/game-text.json`

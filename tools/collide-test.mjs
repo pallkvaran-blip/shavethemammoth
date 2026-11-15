@@ -6,15 +6,11 @@
 // does when changing tools, and checks that none of it is still in view at the
 // moment it is swapped for the next.
 //   node tools/collide-test.mjs            (needs `npm run dev` running)
-import { createRequire } from 'node:module';
-const require = createRequire(import.meta.url);
-let chromium;
-try { ({ chromium } = require('playwright')); }
-catch { ({ chromium } = require('/opt/node-tools/node_modules/playwright')); }
+import { launch } from './browser.mjs';
 
 const base = process.env.BASE || 'http://localhost:5173/';
 const POSES = +(process.env.POSES || 3000);   // per tool
-const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+const browser = await launch();
 const page = await browser.newPage({ viewport: { width: 320, height: 180 } });
 page.on('pageerror', (e) => console.log('pageerror:', e.message));
 await page.goto(base + '?q=low&strands=20000&adapt=9&debug&sync&bare&unlock&nosave&elf', { waitUntil: 'load' });
@@ -135,3 +131,4 @@ for (const r of results) {
 }
 console.log(bad ? `\nFAILED: ${bad} frames with a tool inside something` : '\nno tool was ever inside the mammoth or the snow');
 await browser.close();
+process.exitCode = bad ? 1 : 0;

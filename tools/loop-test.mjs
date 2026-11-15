@@ -7,14 +7,10 @@
 // stepping the game itself (a sixtieth of a second at a time, nothing drawn)
 // and only the keys and buttons are worked through the page.
 //   node tools/loop-test.mjs            (needs `npm run dev` running)
-import { createRequire } from 'node:module';
-const require = createRequire(import.meta.url);
-let chromium;
-try { ({ chromium } = require('playwright')); }
-catch { ({ chromium } = require('/opt/node-tools/node_modules/playwright')); }
+import { launch } from './browser.mjs';
 
 const base = process.env.BASE || 'http://localhost:5173/';
-const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+const browser = await launch();
 const page = await browser.newPage({ viewport: { width: 640, height: 360 } });
 page.setDefaultTimeout(600000);
 const errors = [];

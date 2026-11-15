@@ -2,11 +2,7 @@
 // pretended machines. Nothing is really drawn; each frame is given a time stamp as if the machine had taken so
 // long over it, and the test watches what the governor does with the detail.
 //   node tools/pace-test.mjs        (needs the dev server on port 5173, or BASE=http://host:port/)
-import { createRequire } from 'node:module';
-const require = createRequire(import.meta.url);
-let chromium;
-try { ({ chromium } = require('playwright')); }
-catch { ({ chromium } = require('/opt/node-tools/node_modules/playwright')); }
+import { launch } from './browser.mjs';
 
 const base = process.env.BASE || 'http://localhost:5173/';
 let failed = 0;
@@ -18,7 +14,7 @@ const check = (name, ok, detail = '') => { console.log(`${ok ? 'ok  ' : 'FAIL'} 
  * `script` is run in the page: an array of [seconds, what to do then].
  */
 async function machine(name, { screen = 1000 / 60, cost, seconds = 40, query = '', acts = [] }) {
-  const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+  const browser = await launch();
   const page = await browser.newPage({ viewport: { width: 640, height: 360 }, deviceScaleFactor: 1 });
   page.setDefaultTimeout(600000);
   const errors = [];

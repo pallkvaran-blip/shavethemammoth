@@ -1,15 +1,11 @@
 // Checks the opening: the legend is told one line at a time, the controls
 // come up when it ends, and a key press or a click skips it.
 //   node tools/intro-test.mjs            (needs `npm run dev` running)
-import { createRequire } from 'node:module';
-const require = createRequire(import.meta.url);
-let chromium;
-try { ({ chromium } = require('playwright')); }
-catch { ({ chromium } = require('/opt/node-tools/node_modules/playwright')); }
+import { launch } from './browser.mjs';
 
 const base = process.env.BASE || 'http://localhost:5173/';
 const url = base + '?q=low&strands=20000&adapt=9&debug&sync';
-const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+const browser = await launch();
 const failures = [];
 const check = (ok, what) => { if (!ok) failures.push(what); console.log(`  ${ok ? 'ok' : 'FAILED'}: ${what}`); };
 const open = async () => {
@@ -102,3 +98,4 @@ await page.close();
 
 console.log(failures.length ? 'FAILED:\n' + failures.join('\n') : 'the opening behaves');
 await browser.close();
+process.exitCode = failures.length ? 1 : 0;
