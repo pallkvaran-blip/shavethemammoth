@@ -1,6 +1,6 @@
 {
  "about": "Every line of text in the game, by the key it has in the doc \"Shave the Mammoth: Game Text\" (https://claude.ai/artifact/UDhJP6iHabzjtx9QFA8vop), as it stood when the doc was filled. shown: the line as written in the doc ({braces} are filled in by the game, [E] is a key cap, **bold** is bold, (keyboard: ... / touch: ...) differs by device). file, line, raw: where it is in the source and exactly how it is written there, where it is one string. A line changed in the doc is put back by finding its key here.",
- "version": 16,
+ "version": 17,
  "lines": {
   "page.title": {
    "shown": "Shave the Mammoth",
@@ -3065,6 +3065,30 @@
   "page.groups": {
    "shown": "Views / Tool / Shop",
    "file": "index.html"
+  },
+  "dev.gnorman.chip": {
+   "shown": "[N] Dev: new Gnorman",
+   "file": "index.html"
+  },
+  "dev.gnorman.tip": {
+   "shown": "Dev: changes Gnorman for the one made in Blender from a generated sculpt, and back again",
+   "file": "index.html"
+  },
+  "dev.gnorman.fetching": {
+   "shown": "**Dev.** Fetching the other Gnorman…",
+   "file": "src/main.js"
+  },
+  "dev.gnorman.cast": {
+   "shown": "**Dev.** This is the Gnorman made in Blender from a generated sculpt. [N] brings back the one the page sculpts.",
+   "file": "src/main.js"
+  },
+  "dev.gnorman.sculpted": {
+   "shown": "**Dev.** This is Gnorman as the page sculpts him. [N] for the one made in Blender.",
+   "file": "src/main.js"
+  },
+  "dev.gnorman.failed": {
+   "shown": "**Dev.** The other Gnorman could not be fetched.",
+   "file": "src/main.js"
   }
  }
 }
