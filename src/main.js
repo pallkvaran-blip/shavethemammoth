@@ -914,6 +914,7 @@ async function start() {
     mammoth.update(dt);
     // the tool in hand follows the eyes; cut hair falls
     camera.updateMatrixWorld(true);
+    mammoth.look(camera.position, shot ? 0 : dt);        // (he watches whoever is watching him)
     mammoth.sampler.begin(mammoth.furMats.uniforms.uBreath.value);
     shaving.update(dt, camera, rig.feel);
     game.update(dt);
